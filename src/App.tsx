@@ -6,6 +6,7 @@ import { Hud, type HudActivity } from "./components/Hud";
 import { NetworkCore } from "./components/NetworkCore";
 import type { ObservabilityEvent } from "./components/ObservabilityPanel";
 import { JarvisRealtimeClient, newEntry, type JarvisConnectionState, type JarvisMood, type MouthShape, type TranscriptEntry } from "./lib/realtime";
+import { buildMentionPrefix } from "./lib/squadMentions";
 import type { JarvisArtifact } from "./vite-env";
 
 function pushObservabilityEvent(events: ObservabilityEvent[], event: Omit<ObservabilityEvent, "id" | "at">): ObservabilityEvent[] {
@@ -150,6 +151,8 @@ export default function App() {
     const trimmed = message.trim();
     if (!trimmed || chatBusy) return;
 
+    const mentionPrefix = buildMentionPrefix(trimmed);
+
     setTranscript((items) => [newEntry("user", trimmed), ...items].slice(0, 80));
     setObservabilityEvents((items) =>
       pushObservabilityEvent(items, {
@@ -162,9 +165,9 @@ export default function App() {
     setPanelTab("team");
 
     if (connectionState === "connected" && clientRef.current?.isActive()) {
-      let payload = trimmed;
+      let payload = `${mentionPrefix}${trimmed}`;
       if (target.id !== "jarvis") {
-        payload = `[Squad text chat — engineer is messaging ${target.name} (${target.id} team). Respond in that specialist scope; use delegate_task or tools as you would for voice.] ${trimmed}`;
+        payload = `[Squad text chat — engineer is messaging ${target.name} (${target.id} team). Respond in that specialist scope; use delegate_task or tools as you would for voice.] ${payload}`;
       }
       clientRef.current.sendText(payload);
       setLastHeard(trimmed);
@@ -174,7 +177,7 @@ export default function App() {
     setChatBusy(true);
     setMood("thinking");
     try {
-      const result = await window.jarvis.sendChatMessage({ target: target.id, message: trimmed });
+      const result = await window.jarvis.sendChatMessage({ target: target.id, message: `${mentionPrefix}${trimmed}` });
       if (result.ok === false) {
         const err = result.error || "Text chat failed";
         setTranscript((items) => [newEntry("system", err), ...items].slice(0, 80));

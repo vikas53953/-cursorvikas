@@ -1248,7 +1248,7 @@ function createTools({ readDb, updateDb }) {
         content: `${JARVIS_INSTRUCTIONS}
 
 # Squad text chat mode
-The engineer is using the Agent Squad text channel (not voice). Reply in clear markdown-friendly prose. Use tools when needed; every tool call appears on the Team Board. Be concise but complete.`,
+The engineer is using the Agent Squad #network-ops channel (not voice). @mentions like @data, @security, @firewall, @incident route work to those specialists via delegate_task. When you see [Squad channel mentions: ...] honor those tags and delegate immediately. Reply in clear markdown-friendly prose. Use tools when needed; every tool call appears on the Team Board. Be concise but complete.`,
       },
       { role: "user", content: payload },
     ];
