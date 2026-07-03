@@ -19,6 +19,7 @@ const { createScheduler } = require("./scheduler.cjs");
 const { createAlertWatcher } = require("./alert-watcher.cjs");
 const { createAgents, chatCompletion, compactToolResult } = require("./agents.cjs");
 const { sanitizeSquadChatReply } = require("./chat-reply.cjs");
+const { parseDeviceFactQuery, matchSnapshotDevices, formatDeviceFactReply } = require("./device-facts.cjs");
 const logger = require("./logger.cjs");
 
 const sim = source.sim;
@@ -38,6 +39,7 @@ Talk like a sharp NOC colleague, not a chatbot. Confident, concise, calm. Lead w
 
 # Core behavior
 - Shift start, "how is my network doing", "give me the rundown": call network_overview immediately and speak the headlines in a few sentences. The dashboard on the right side of the app always shows the live picture; reference it ("you can see it on the dashboard").
+- Direct device facts (CRITICAL — do NOT call network_overview for these): "what is the IP of sw3", "uptime on switch 3 and 4", "hostname of sw2". Use network_inventory or device_health scoped to those devices only. Answer in one or two sentences with the exact fact requested. Uptime means how long the box has been running — not hostname. No preamble like "let me pull up the network headlines".
 - "What devices do we have": network_inventory.
 - Device health, CPU, memory, reachability: device_health.
 - Interfaces, ports, links up/down, VLAN assignment: interface_report (problemsOnly true when they ask about errors or issues).
@@ -1416,6 +1418,34 @@ function createTools({ readDb, updateDb }) {
     const trimmed = String(message || "").trim();
     if (!trimmed) return { ok: false, error: "Message is empty" };
 
+    const factQuery = parseDeviceFactQuery(trimmed);
+    if (factQuery) {
+      const started = Date.now();
+      logger.log("chat.factpath", { kind: factQuery.kind, devices: factQuery.devices });
+      const snapshot = await source.getSnapshot();
+      const { matched, missing } = matchSnapshotDevices(factQuery.devices, snapshot.devices || []);
+      if (matched.length === 0) {
+        return {
+          ok: true,
+          text: `I couldn't find ${factQuery.devices.join(", ")} in inventory.`,
+          artifacts: [],
+          activity: [],
+        };
+      }
+      const text = formatDeviceFactReply(factQuery.kind, matched, missing);
+      const activity = [
+        buildChatActivity(
+          "device_health",
+          `Device fact: ${factQuery.kind} for ${matched.map((d) => d.name).join(", ")}`,
+          matched
+            .map((d) => `${d.name}: ip=${d.ip || "n/a"}, uptime=${d.uptime || "n/a"}, status=${d.status || "n/a"}`)
+            .join("\n"),
+        ),
+      ];
+      logger.log("chat.done", { target: "jarvis", ms: Date.now() - started, factPath: true });
+      return { ok: true, text, artifacts: [], activity };
+    }
+
     const fastPath = parsePrecheckFastPath(trimmed, agents);
     if (fastPath) {
       const started = Date.now();
@@ -1526,6 +1556,12 @@ You already ran the read-only CLI pre-check on ${fastPath.device}. Summarize the
 
 # Squad text chat mode
 The engineer is using the Agent Squad #network-ops channel (not voice). @mentions like @data, @security, @firewall, @incident route work to those specialists via delegate_task. When you see [Squad channel mentions: ...] honor those tags and delegate to the named agent(s) immediately.${customRosterNote}
+
+# Direct answers (CRITICAL)
+- Specific device fact (IP, uptime, hostname): answer ONLY that fact in 1–2 sentences. Use network_inventory or device_health — NEVER network_overview.
+- Do NOT narrate ("let me pull up", "let me check") — call the tool and answer.
+- Uptime = how long the device has been running. Hostname = device name. Do not confuse them.
+- If the engineer corrects you, acknowledge briefly and answer the corrected question only.
 
 # Reply format (chatops) — STRICT
 - Present results the way a senior network engineer would in Slack: professional, clean, scannable.

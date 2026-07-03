@@ -352,19 +352,21 @@ export class JarvisRealtimeClient {
 
     if (event.type === "response.done") {
       const output = event.response?.output || [];
+      const functionCalls = output.filter((item) => item.type === "function_call" && item.name && item.call_id);
       const spoken = this.currentAssistantText || output.map(collectOutputText).filter(Boolean).join("\n");
-      if (spoken) {
+      // Only commit to chat history on the final spoken answer — skip interim "let me check…" lines before tools run.
+      if (spoken && functionCalls.length === 0) {
         logEvent("rt.jarvis.speech", { text: spoken });
         this.callbacks.onTranscript(newEntry("jarvis", spoken));
       }
       this.currentAssistantText = "";
 
-      const functionCalls = output.filter((item) => item.type === "function_call" && item.name && item.call_id);
       if (functionCalls.length > 0) {
         await this.executeFunctionCalls(functionCalls);
       } else if (!this.toolRunning) {
         this.callbacks.onMood("idle");
       }
+      return;
     }
   }
 

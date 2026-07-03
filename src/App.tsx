@@ -22,6 +22,18 @@ function pushObservabilityEvent(events: ObservabilityEvent[], event: Omit<Observ
   ].slice(0, 80);
 }
 
+function appendTranscript(items: TranscriptEntry[], entry: TranscriptEntry): TranscriptEntry[] {
+  const prev = items[0];
+  if (
+    entry.role === "jarvis" &&
+    prev?.role === "jarvis" &&
+    prev.text.trim() === entry.text.trim()
+  ) {
+    return items;
+  }
+  return [entry, ...items].slice(0, 80);
+}
+
 export default function App() {
   const [connectionState, setConnectionState] = useState<JarvisConnectionState>("idle");
   const [mood, setMood] = useState<JarvisMood>("idle");
@@ -60,7 +72,7 @@ export default function App() {
       onMood: setMood,
       onMouthShape: setMouthShape,
       onTranscript: (entry) => {
-        setTranscript((items) => [entry, ...items].slice(0, 80));
+        setTranscript((items) => appendTranscript(items, entry));
         if (entry.role === "user" || entry.role === "jarvis") {
           if (entry.role === "jarvis") {
             setSpeakingText(entry.text);
@@ -231,7 +243,7 @@ export default function App() {
           }),
         );
       }
-      setTranscript((items) => [jarvisEntry, ...items].slice(0, 80));
+      setTranscript((items) => appendTranscript(items, jarvisEntry));
       setObservabilityEvents((items) =>
         pushObservabilityEvent(items, {
           role: "jarvis",
