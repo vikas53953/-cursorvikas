@@ -1,17 +1,21 @@
-import { useState } from "react";
-import { LayoutGrid, Mic, MicOff } from "lucide-react";
+import { useState, type CSSProperties } from "react";
+import { LayoutGrid } from "lucide-react";
 import { NetworkCore } from "./NetworkCore";
 import type { HudActivity } from "./Hud";
 import type { JarvisConnectionState, JarvisMood, MouthShape } from "../lib/realtime";
 
-export type HudLayout = "mini-core" | "command-bar";
+export type HudLayout = "command-bar" | "mini-core" | "waveform" | "edge";
 
 const LAYOUT_STORAGE_KEY = "netjarvis-hud-layout";
-const LAYOUT_CYCLE: HudLayout[] = ["mini-core", "command-bar"];
+const LAYOUT_CYCLE: HudLayout[] = ["command-bar", "mini-core", "waveform", "edge"];
 const LAYOUT_LABEL: Record<HudLayout, string> = {
-  "mini-core": "Mini NetworkCore",
   "command-bar": "Command bar",
+  "mini-core": "Mini NetworkCore",
+  waveform: "Waveform ribbon",
+  edge: "Edge HUD",
 };
+
+const WAVE_FACTORS = [0.2, 0.35, 0.5, 0.7, 0.9, 1, 0.85, 0.65, 0.85, 1, 0.9, 0.7, 0.5, 0.35, 0.2];
 
 type FloatingConsoleProps = {
   connectionState: JarvisConnectionState;
@@ -35,13 +39,15 @@ const STATE_LABEL: Record<string, string> = {
 
 function readLayout(): HudLayout {
   try {
-    return localStorage.getItem(LAYOUT_STORAGE_KEY) === "command-bar" ? "command-bar" : "mini-core";
+    const saved = localStorage.getItem(LAYOUT_STORAGE_KEY);
+    if (saved && LAYOUT_CYCLE.includes(saved as HudLayout)) return saved as HudLayout;
   } catch {
-    return "mini-core";
+    // Preference storage is best-effort.
   }
+  return "command-bar";
 }
 
-// Fullscreen HUD — switchable Mini NetworkCore (corner) or bottom-center command bar.
+// Fullscreen HUD — four switchable layouts (default: center command bar + mini avatar).
 export function FloatingConsole({
   connectionState,
   mood,
@@ -58,6 +64,7 @@ export function FloatingConsole({
   const stateLabel =
     connectionState === "connecting" ? "Connecting" : offline ? "Voice ready" : STATE_LABEL[mood] || mood;
   const stateClass = connectionState === "connecting" ? "connecting" : offline ? "offline" : mood;
+  const voiceEnergy = Math.min(1, mouthShape.open * 1.25 + mouthShape.teeth * 0.3 + mouthShape.width * 0.15);
 
   function cycleLayout() {
     setLayout((current) => {
@@ -81,27 +88,7 @@ export function FloatingConsole({
     .filter(Boolean)
     .join(" ");
 
-  const voiceControl = (
-    <button
-      type="button"
-      className={`voice-dock-voice ${isConnected ? "voice-dock-voice-live" : ""}`}
-      onClick={isConnected ? onDisconnect : onConnect}
-      disabled={connectionState === "connecting"}
-      title={isConnected ? "Stop voice" : "Start voice"}
-      aria-label={isConnected ? "Stop voice" : "Start voice"}
-    >
-      {layout === "mini-core" ? (
-        <NetworkCore mood={mood} mouthShape={mouthShape} compact />
-      ) : (
-        <>
-          <span className="voice-dock-orb-ring" aria-hidden="true" />
-          <span className="voice-dock-orb-ring voice-dock-orb-ring-2" aria-hidden="true" />
-          <span className="voice-dock-orb-core" aria-hidden="true" />
-          {isConnected ? <MicOff size={18} strokeWidth={2.2} /> : <Mic size={18} strokeWidth={2.2} />}
-        </>
-      )}
-    </button>
-  );
+  const statusProps = { stateLabel, isConnected, lastHeard, activity };
 
   return (
     <div className={rootClass} role="toolbar" aria-label="NetJarvis voice dock">
@@ -110,36 +97,146 @@ export function FloatingConsole({
         type="button"
         className="voice-dock-layout-toggle"
         onClick={cycleLayout}
-        title={`HUD style: ${LAYOUT_LABEL[layout]}. Click to switch.`}
+        title={`HUD style: ${LAYOUT_LABEL[layout]}. Click to cycle (${LAYOUT_CYCLE.indexOf(layout) + 1}/${LAYOUT_CYCLE.length}).`}
         aria-label={`Switch HUD style. Current: ${LAYOUT_LABEL[layout]}`}
       >
         <LayoutGrid size={13} />
-        <span>{LAYOUT_LABEL[layout]}</span>
+        <span>
+          {LAYOUT_LABEL[layout]} {LAYOUT_CYCLE.indexOf(layout) + 1}/{LAYOUT_CYCLE.length}
+        </span>
       </button>
 
       {layout === "command-bar" ? (
-        <div className="voice-dock-command-bar">
-          <div className="voice-dock-command-left">{voiceControl}</div>
-          <div className="voice-dock-command-center">
-            <DockStatus
-              stateLabel={stateLabel}
-              isConnected={isConnected}
-              lastHeard={lastHeard}
-              activity={activity}
-              inline
-            />
-          </div>
-          <div className="voice-dock-command-right">
-            <span className="voice-dock-pulse" aria-hidden="true" />
-            {isConnected ? <em className="voice-dock-live-tag">ON AIR</em> : <span className="voice-dock-ready-tag">READY</span>}
-          </div>
-        </div>
+        <CommandBarLayout {...statusProps} mood={mood} mouthShape={mouthShape} isConnected={isConnected} connectionState={connectionState} onConnect={onConnect} onDisconnect={onDisconnect} />
+      ) : layout === "waveform" ? (
+        <WaveformLayout
+          {...statusProps}
+          mood={mood}
+          mouthShape={mouthShape}
+          voiceEnergy={voiceEnergy}
+          isConnected={isConnected}
+          connectionState={connectionState}
+          onConnect={onConnect}
+          onDisconnect={onDisconnect}
+        />
+      ) : layout === "edge" ? (
+        <EdgeLayout {...statusProps} mood={mood} mouthShape={mouthShape} isConnected={isConnected} connectionState={connectionState} onConnect={onConnect} onDisconnect={onDisconnect} />
       ) : (
-        <div className="voice-dock-row">
-          <div className="voice-dock-orb-wrap">{voiceControl}</div>
-          <DockStatus stateLabel={stateLabel} isConnected={isConnected} lastHeard={lastHeard} activity={activity} />
-        </div>
+        <MiniCoreLayout {...statusProps} mood={mood} mouthShape={mouthShape} isConnected={isConnected} connectionState={connectionState} onConnect={onConnect} onDisconnect={onDisconnect} />
       )}
+    </div>
+  );
+}
+
+type LayoutBodyProps = {
+  stateLabel: string;
+  isConnected: boolean;
+  lastHeard: string;
+  activity: HudActivity;
+  mood: JarvisMood;
+  mouthShape: MouthShape;
+  connectionState: JarvisConnectionState;
+  onConnect: () => void;
+  onDisconnect: () => void;
+};
+
+function VoiceAvatarButton({
+  mood,
+  mouthShape,
+  isConnected,
+  connectionState,
+  onConnect,
+  onDisconnect,
+  compactSize = "md",
+}: LayoutBodyProps & { compactSize?: "md" | "sm" }) {
+  return (
+    <button
+      type="button"
+      className={`voice-dock-voice ${isConnected ? "voice-dock-voice-live" : ""}`}
+      onClick={isConnected ? onDisconnect : onConnect}
+      disabled={connectionState === "connecting"}
+      title={isConnected ? "Stop voice" : "Start voice"}
+      aria-label={isConnected ? "Stop voice" : "Start voice"}
+    >
+      <NetworkCore mood={mood} mouthShape={mouthShape} compact compactSize={compactSize} />
+    </button>
+  );
+}
+
+function CommandBarLayout(props: LayoutBodyProps) {
+  return (
+    <div className="voice-dock-command-bar">
+      <div className="voice-dock-command-left">
+        <VoiceAvatarButton {...props} compactSize="sm" />
+      </div>
+      <div className="voice-dock-command-center">
+        <DockStatus {...props} inline />
+      </div>
+      <div className="voice-dock-command-right">
+        <span className="voice-dock-pulse" aria-hidden="true" />
+        {props.isConnected ? <em className="voice-dock-live-tag">ON AIR</em> : <span className="voice-dock-ready-tag">READY</span>}
+      </div>
+    </div>
+  );
+}
+
+function MiniCoreLayout(props: LayoutBodyProps) {
+  return (
+    <div className="voice-dock-row">
+      <div className="voice-dock-orb-wrap">
+        <VoiceAvatarButton {...props} compactSize="md" />
+      </div>
+      <DockStatus {...props} />
+    </div>
+  );
+}
+
+function WaveformLayout({
+  mood,
+  voiceEnergy,
+  ...props
+}: LayoutBodyProps & { voiceEnergy: number }) {
+  const active = mood === "listening" || mood === "speaking" || mood === "working";
+
+  return (
+    <div className="voice-dock-waveform">
+      <div className="voice-dock-waveform-top">
+        <div className="voice-dock-waveform-core">
+          <VoiceAvatarButton {...props} mood={mood} compactSize="sm" />
+        </div>
+        <DockStatus {...props} inline />
+        <div className="voice-dock-command-right">
+          <span className="voice-dock-pulse" aria-hidden="true" />
+          {props.isConnected ? <em className="voice-dock-live-tag">ON AIR</em> : <span className="voice-dock-ready-tag">READY</span>}
+        </div>
+      </div>
+      <div className={`voice-dock-wave-bars ${active ? "voice-dock-wave-bars-active" : ""}`} aria-hidden="true">
+        {WAVE_FACTORS.map((factor, index) => (
+          <span
+            key={index}
+            style={
+              {
+                "--f": factor,
+                "--voice-energy": mood === "speaking" ? voiceEnergy.toFixed(3) : active ? "0.55" : "0.12",
+              } as CSSProperties
+            }
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function EdgeLayout(props: LayoutBodyProps) {
+  return (
+    <div className="voice-dock-edge">
+      <div className="voice-dock-edge-rail" aria-hidden="true" />
+      <div className="voice-dock-edge-body">
+        <div className="voice-dock-edge-avatar">
+          <VoiceAvatarButton {...props} compactSize="sm" />
+        </div>
+        <DockStatus {...props} />
+      </div>
     </div>
   );
 }
@@ -171,7 +268,7 @@ function DockStatus({
           <span>Heard</span> &ldquo;{lastHeard}&rdquo;
         </p>
       ) : (
-        <p className="voice-dock-idle-copy">{inline ? "Tap the core to talk with NetJarvis" : "Tap the core to talk with NetJarvis"}</p>
+        <p className="voice-dock-idle-copy">Tap the core to talk with NetJarvis</p>
       )}
       {activity.kind !== "idle" ? (
         <p className={`voice-dock-activity voice-dock-activity-${activity.kind}`} title={activity.text}>

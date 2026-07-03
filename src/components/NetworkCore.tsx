@@ -5,6 +5,7 @@ type NetworkCoreProps = {
   mood: JarvisMood;
   mouthShape: MouthShape;
   compact?: boolean;
+  compactSize?: "md" | "sm";
 };
 
 // Satellite node positions around the core (a small topology, like a NOC map).
@@ -31,12 +32,13 @@ const WAVE_FACTORS = [0.25, 0.45, 0.65, 0.85, 1, 0.9, 0.7, 0.9, 1, 0.85, 0.65, 0
 // (color + animation per mood), the inner graph is a live-looking topology
 // with packets in flight while tools run, and the bars are a voice waveform
 // driven by the realtime audio meter.
-export function NetworkCore({ mood, mouthShape, compact = false }: NetworkCoreProps) {
+export function NetworkCore({ mood, mouthShape, compact = false, compactSize = "md" }: NetworkCoreProps) {
   const energy = Math.min(1, mouthShape.open * 1.25 + mouthShape.teeth * 0.3 + mouthShape.width * 0.15);
+  const sizeClass = compact ? (compactSize === "sm" ? "netcore-compact-sm" : "netcore-compact") : "";
 
   return (
     <div
-      className={`netcore netcore-${mood} ${compact ? "netcore-compact" : ""}`}
+      className={`netcore netcore-${mood} ${sizeClass}`}
       style={{ "--voice-energy": (mood === "speaking" ? energy : 0).toFixed(3) } as CSSProperties}
       aria-label={`NetJarvis state: ${mood}`}
     >
