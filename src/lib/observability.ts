@@ -22,6 +22,10 @@ export function artifactTechnicalText(artifact: JarvisArtifact): string {
 }
 
 export function artifactNarrativeText(artifact: JarvisArtifact): string {
+  if (artifact.kind === "code" && artifact.content.includes("## Behind the scenes")) {
+    const scene = artifact.content.split("## CLI output")[0]?.replace("## Behind the scenes", "").trim();
+    return scene ? `${artifact.title}. ${scene.replace(/\n- /g, " · ").replace(/\n/g, " ")}` : artifact.title;
+  }
   if (artifact.kind === "markdown") {
     const headline = artifact.content.split("\n").find((line) => line.startsWith("# "));
     const summary = artifact.content
@@ -43,6 +47,13 @@ export function artifactPreviewText(artifact: JarvisArtifact, maxLines = 5): str
 
 export function splitArtifactOutput(artifact: JarvisArtifact): { narrative: string; technical: string } {
   if (artifact.kind === "code") {
+    if (artifact.content.includes("## Behind the scenes")) {
+      const [scenePart, cliPart] = artifact.content.split("## CLI output");
+      return {
+        narrative: scenePart.replace("## Behind the scenes", "").trim(),
+        technical: cliPart?.trim() || artifact.content,
+      };
+    }
     return { narrative: "", technical: artifact.content };
   }
 

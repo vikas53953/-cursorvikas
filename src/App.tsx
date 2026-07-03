@@ -178,8 +178,33 @@ export default function App() {
       if (result.ok === false) {
         const err = result.error || "Text chat failed";
         setTranscript((items) => [newEntry("system", err), ...items].slice(0, 80));
+        setObservabilityEvents((items) =>
+          pushObservabilityEvent(items, {
+            role: "system",
+            narrative: err,
+            status: "error",
+          }),
+        );
         setMood("error");
         return;
+      }
+
+      if (result.activity?.length) {
+        setObservabilityEvents((items) => {
+          let next = items;
+          for (const step of result.activity || []) {
+            next = pushObservabilityEvent(next, {
+              role: "tool",
+              narrative: step.narrative,
+              technical: step.technical,
+              tool: step.tool,
+              status: step.status || "done",
+            });
+          }
+          return next;
+        });
+        setPanelVisible(true);
+        setPanelTab("observability");
       }
 
       const reply = sanitizeSquadChatReply(result.text?.trim() || "Done.");
@@ -191,6 +216,8 @@ export default function App() {
         jarvisEntry.artifact = primary;
         jarvisEntry.technical = artifactTechnicalText(primary);
         setArtifact(primary);
+        setPanelVisible(true);
+        setPanelTab("observability");
         setObservabilityEvents((items) =>
           pushObservabilityEvent(items, {
             role: "artifact",

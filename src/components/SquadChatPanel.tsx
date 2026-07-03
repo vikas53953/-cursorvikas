@@ -775,25 +775,27 @@ function ChatOutputAttachment({ artifact, technical }: { artifact: JarvisArtifac
   const [showTechnical, setShowTechnical] = useState(false);
   const [copied, setCopied] = useState(false);
   const techText = technical || splitArtifactOutput(artifact).technical;
+  const fullText = technical || artifact.content;
+  const hasSession = fullText.includes("## Behind the scenes");
 
   async function copyOutput(event: MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
-    await navigator.clipboard.writeText(techText);
+    await navigator.clipboard.writeText(fullText);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1500);
   }
 
   // The human summary already lives in the reply bubble above; this card carries
-  // only the raw technical output, collapsed by default.
-  if (!techText) return null;
-  const lineCount = techText.split("\n").length;
+  // behind-the-scenes steps plus CLI output, collapsed by default.
+  if (!techText && !hasSession) return null;
+  const lineCount = (hasSession ? fullText : techText).split("\n").length;
 
   return (
     <div className="squad-chat-attachment">
       <header className="squad-chat-attachment-head">
         <div>
           <strong>{artifact.title}</strong>
-          <span>{artifact.kind === "code" ? "CLI output" : `${artifact.kind} · ${lineCount} lines`}</span>
+          <span>{hasSession ? "Technical session" : artifact.kind === "code" ? "CLI output" : `${artifact.kind} · ${lineCount} lines`}</span>
         </div>
         <button type="button" className="squad-chat-attachment-copy" onClick={(event) => void copyOutput(event)} title="Copy technical output">
           <Copy size={12} />
@@ -808,6 +810,13 @@ function ChatOutputAttachment({ artifact, technical }: { artifact: JarvisArtifac
           </button>
         ) : (
           <>
+            {hasSession ? (
+              <div className="squad-chat-attachment-scene">
+                <strong>Behind the scenes</strong>
+                <pre>{splitArtifactOutput(artifact).narrative}</pre>
+              </div>
+            ) : null}
+            <strong>{hasSession ? "CLI output" : "Technical output"}</strong>
             <pre className="squad-chat-attachment-body">{techText}</pre>
             <button type="button" className="squad-chat-attachment-toggle" onClick={() => setShowTechnical(false)}>
               Hide technical output

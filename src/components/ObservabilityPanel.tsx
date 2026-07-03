@@ -28,6 +28,10 @@ export function ObservabilityPanel({ events, artifact, sessionLog }: Observabili
   const recentTools = (events.length > 0 ? events : fallbackFromTranscript(sessionLog))
     .filter((event) => event.role === "tool")
     .slice(0, 8);
+  const fullTechnical = artifact ? artifactTechnicalText(artifact) : "";
+  const hasSession = fullTechnical.includes("## Behind the scenes");
+  const sceneText = hasSession ? fullTechnical.split("## CLI output")[0]?.replace("## Behind the scenes", "").trim() : "";
+  const cliText = hasSession ? fullTechnical.split("## CLI output")[1]?.trim() : fullTechnical;
 
   async function copyAll() {
     if (!artifact) return;
@@ -53,12 +57,21 @@ export function ObservabilityPanel({ events, artifact, sessionLog }: Observabili
           </header>
           <h4>{artifact.title}</h4>
           <div className="observability-split">
+            {hasSession ? (
+              <div className="observability-technical">
+                <div className="obs-block-head">
+                  <small>Behind the scenes</small>
+                  <CopyChip text={sceneText} label="behind the scenes" />
+                </div>
+                <pre>{sceneText}</pre>
+              </div>
+            ) : null}
             <div className="observability-technical">
               <div className="obs-block-head">
-                <small>Technical</small>
-                <CopyChip text={artifactTechnicalText(artifact)} label="technical output" />
+                <small>{hasSession ? "CLI output" : "Technical"}</small>
+                <CopyChip text={cliText} label="technical output" />
               </div>
-              <pre>{artifactTechnicalText(artifact)}</pre>
+              <pre>{cliText}</pre>
             </div>
             <div className="observability-narrative">
               <div className="obs-block-head">

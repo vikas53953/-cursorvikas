@@ -500,6 +500,73 @@ function parsePrecheckFastPath(message, agentsApi) {
   return { team, device, commands: PRECHECK_COMMANDS };
 }
 
+function buildSessionTechnicalContent(steps, cliOutput) {
+  const scene = Array.isArray(steps) ? steps.filter(Boolean) : [String(steps || "")];
+  return ["## Behind the scenes", ...scene, "", "## CLI output", cliOutput || "(no output)"].join("\n");
+}
+
+function buildPrecheckArtifact({ device, agent, commands, cliOutput, elapsedMs }) {
+  const steps = [
+    `- Task: device pre-check`,
+    `- Device: ${device}`,
+    agent ? `- Agent: ${agent}` : "",
+    `- Tool: run_show_command (batched)`,
+    `- Commands (${commands.length}): ${commands.join(", ")}`,
+    `- Status: completed`,
+    elapsedMs != null ? `- Elapsed: ${(elapsedMs / 1000).toFixed(1)}s` : "",
+  ].filter(Boolean);
+  return {
+    title: `Pre-check: ${device}`,
+    kind: "code",
+    content: buildSessionTechnicalContent(steps, cliOutput),
+  };
+}
+
+function buildChatActivity(tool, narrative, technical, status = "done") {
+  return { tool, narrative, technical, status };
+}
+
+function describeChatTool(name, args) {
+  if (name === "run_show_command") {
+    const device = String(args.device || "all");
+    const count = Array.isArray(args.commands) ? args.commands.length : 0;
+    return `run_show_command on ${device} (${count} command${count === 1 ? "" : "s"})`;
+  }
+  if (name === "delegate_task") {
+    return `delegate_task → ${String(args.team || "team")}`;
+  }
+  if (name === "precheck_capture" && args.label) {
+    return `precheck_capture (${args.label})`;
+  }
+  return name.replace(/_/g, " ");
+}
+
+function formatChatToolArgs(name, args) {
+  if (name === "run_show_command") {
+    const device = String(args.device || "all");
+    const commands = Array.isArray(args.commands) ? args.commands.map(String) : [];
+    return ["Tool: run_show_command", `Device: ${device}`, "Commands:", ...commands.map((command) => `  $ ${command}`)].join("\n");
+  }
+  if (name === "delegate_task") {
+    return ["Tool: delegate_task", `Team: ${String(args.team || "")}`, `Task: ${String(args.task || "")}`].join("\n");
+  }
+  return `Tool: ${name}\n${JSON.stringify(args, null, 2)}`;
+}
+
+function formatChatToolResult(name, args, result, ms) {
+  if (result.ok === false) {
+    return [`Tool: ${name}`, "Status: failed", `Error: ${result.error || result.message || "unknown"}`, `Elapsed: ${(ms / 1000).toFixed(1)}s`].join("\n");
+  }
+  const lines = [`Tool: ${name}`, "Status: ok", `Elapsed: ${(ms / 1000).toFixed(1)}s`];
+  if (result.artifact) {
+    lines.push(`Artifact: ${result.artifact.kind} — ${result.artifact.title}`);
+    if (result.artifact.kind === "code" && !result.artifact.content.includes("## Behind the scenes")) {
+      lines.push("", result.artifact.content.slice(0, 2500));
+    }
+  }
+  return lines.join("\n").slice(0, 6000);
+}
+
 function createTools({ readDb, updateDb }) {
   const agents = createAgents({
     executeTool: (name, args, context) => execute(name, args, context),
@@ -1019,19 +1086,39 @@ function createTools({ readDb, updateDb }) {
     const device = extractDeviceFromPrecheckLabel(label);
     if (device) {
       logger.log("precheck.device_cli", { device, label });
+      const started = Date.now();
       const cliResult = await runShowCommand({ device, commands: PRECHECK_COMMANDS });
       if (cliResult.ok && cliResult.artifact) {
+        const elapsed = Date.now() - started;
+        const artifact = buildPrecheckArtifact({
+          device,
+          agent: label,
+          commands: PRECHECK_COMMANDS,
+          cliOutput: cliResult.artifact.content,
+          elapsedMs: elapsed,
+        });
         return {
           ...cliResult,
           label,
           device,
           redirected: "run_show_command",
           message: `CLI pre-check completed on ${device}.`,
-          artifact: {
-            title: `CLI pre-check: ${device}`,
-            kind: "code",
-            content: cliResult.artifact.content,
-          },
+          artifact,
+          activity: [
+            buildChatActivity(
+              "run_show_command",
+              `Pre-check on ${device} — ${PRECHECK_COMMANDS.length} show commands (batched)`,
+              [
+                "Tool: run_show_command",
+                `Device: ${device}`,
+                `Label: ${label}`,
+                `Commands (${PRECHECK_COMMANDS.length}):`,
+                ...PRECHECK_COMMANDS.map((command) => `  $ ${command}`),
+                "Status: ok",
+                `Elapsed: ${(elapsed / 1000).toFixed(1)}s`,
+              ].join("\n"),
+            ),
+          ],
         };
       }
       return cliResult;
@@ -1332,12 +1419,47 @@ function createTools({ readDb, updateDb }) {
       logger.log("chat.fastpath", { team: fastPath.team, device: fastPath.device, commands: fastPath.commands.length });
       const cliResult = await execute("run_show_command", { device: fastPath.device, commands: fastPath.commands });
       const artifacts = [];
-      collectTechnicalArtifacts(cliResult, artifacts);
       if (cliResult.ok === false) {
-        return { ok: false, error: cliResult.error || "CLI pre-check failed.", artifacts };
+        return {
+          ok: false,
+          error: cliResult.error || "CLI pre-check failed.",
+          artifacts,
+          activity: [
+            buildChatActivity(
+              "run_show_command",
+              `Pre-check on ${fastPath.device} failed`,
+              `Tool: run_show_command\nDevice: ${fastPath.device}\nStatus: failed\nError: ${cliResult.error || "unknown"}`,
+              "error",
+            ),
+          ],
+        };
       }
 
+      const elapsed = Date.now() - started;
       const spec = agents.resolveTeam(fastPath.team);
+      const precheckArtifact = buildPrecheckArtifact({
+        device: fastPath.device,
+        agent: spec?.name || fastPath.team,
+        commands: fastPath.commands,
+        cliOutput: cliResult.artifact?.content || "",
+        elapsedMs: elapsed,
+      });
+      artifacts.push(precheckArtifact);
+      const activity = [
+        buildChatActivity(
+          "run_show_command",
+          `Pre-check on ${fastPath.device} — ${fastPath.commands.length} show commands (batched)`,
+          [
+            "Tool: run_show_command",
+            `Device: ${fastPath.device}`,
+            `Agent: ${spec?.name || fastPath.team}`,
+            `Commands (${fastPath.commands.length}):`,
+            ...fastPath.commands.map((command) => `  $ ${command}`),
+            "Status: ok",
+            `Elapsed: ${(elapsed / 1000).toFixed(1)}s`,
+          ].join("\n"),
+        ),
+      ];
       const summaryMessages = [
         {
           role: "system",
@@ -1370,7 +1492,7 @@ You already ran the read-only CLI pre-check on ${fastPath.device}. Summarize the
             : "AI summary unavailable. See technical output below.");
       }
       logger.log("chat.done", { target: fastPath.team, ms: Date.now() - started, fastPath: true });
-      return { ok: true, text, artifacts };
+      return { ok: true, text, artifacts, activity };
     }
 
     let payload = trimmed;
@@ -1415,6 +1537,7 @@ The engineer is using the Agent Squad #network-ops channel (not voice). @mention
     ];
 
     const artifacts = [];
+    const activity = [];
     const started = Date.now();
     logger.log("chat.start", { target: teamKey, chars: trimmed.length });
 
@@ -1427,7 +1550,7 @@ The engineer is using the Agent Squad #network-ops channel (not voice). @mention
         if (toolCalls.length === 0) {
           const text = sanitizeSquadChatReply(String(modelMessage.content || "").trim() || "Done.");
           logger.log("chat.done", { target: teamKey, ms: Date.now() - started, rounds: round + 1 });
-          return { ok: true, text, artifacts };
+          return { ok: true, text, artifacts, activity };
         }
 
         for (const call of toolCalls) {
@@ -1438,9 +1561,28 @@ The engineer is using the Agent Squad #network-ops channel (not voice). @mention
             args = {};
           }
           const name = call.function?.name || "";
+          const toolStarted = Date.now();
           logger.log("chat.tool", { target: teamKey, tool: name, args });
+          activity.push(
+            buildChatActivity(
+              name,
+              describeChatTool(name, args),
+              formatChatToolArgs(name, args),
+              "running",
+            ),
+          );
           const result = await execute(name, args);
+          const toolMs = Date.now() - toolStarted;
           collectTechnicalArtifacts(result, artifacts);
+          const resultTechnical = formatChatToolResult(name, args, result, toolMs);
+          activity.push(
+            buildChatActivity(
+              name,
+              `${describeChatTool(name, args)} done in ${(toolMs / 1000).toFixed(1)}s`,
+              resultTechnical,
+              result.ok === false ? "error" : "done",
+            ),
+          );
           messages.push({ role: "tool", tool_call_id: call.id, content: compactToolResult(result) });
         }
       }
@@ -1451,6 +1593,7 @@ The engineer is using the Agent Squad #network-ops channel (not voice). @mention
           "Reached the tool-call limit before finishing. Check the Team Board for partial results.",
         ),
         artifacts,
+        activity,
       };
     } catch (error) {
       const errText = error instanceof Error ? error.message : String(error);
