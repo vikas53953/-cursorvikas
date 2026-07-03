@@ -1,10 +1,10 @@
-import { useState, type MouseEvent } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import { Copy } from "lucide-react";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { artifactEmailBody, artifactPlainText, downloadArtifact } from "../lib/artifactExport";
 import { artifactNarrativeText, artifactTechnicalText } from "../lib/observability";
 import type { TranscriptEntry } from "../lib/realtime";
-import type { JarvisArtifact } from "../vite-env";
+import type { JarvisArtifact, SessionAuditTurn, SessionIndexEntry } from "../vite-env";
 import { CliOutputView } from "./CliOutput";
 
 export type ObservabilityEvent = {
@@ -26,6 +26,29 @@ type ObservabilityPanelProps = {
 // Focused observability: current output (technical + narrative) with optional recent tool log.
 export function ObservabilityPanel({ events, artifact, sessionLog }: ObservabilityPanelProps) {
   const [copied, setCopied] = useState<"" | "all" | "email">("");
+  const [auditSessions, setAuditSessions] = useState<SessionIndexEntry[]>([]);
+  const [auditTurns, setAuditTurns] = useState<SessionAuditTurn[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        const sessions = await window.jarvis.listSessions(5);
+        if (!active) return;
+        setAuditSessions(sessions);
+        if (sessions[0]?.id) {
+          const turns = await window.jarvis.listSessionTurns(sessions[0].id, 12);
+          if (active) setAuditTurns(turns);
+        }
+      } catch {
+        // Audit API is optional in dev; never break the panel.
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [events.length, sessionLog.length]);
+
   const recentTools = (events.length > 0 ? events : fallbackFromTranscript(sessionLog))
     .filter((event) => event.role === "tool")
     .slice(0, 8);
@@ -119,6 +142,30 @@ export function ObservabilityPanel({ events, artifact, sessionLog }: Observabili
                     </summary>
                     <pre>{event.technical}</pre>
                   </details>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </CollapsibleSection>
+      ) : null}
+
+      {auditTurns.length > 0 ? (
+        <CollapsibleSection title="Session audit trail" count={auditTurns.length}>
+          <p className="observability-audit-meta">
+            Durable log for enterprise traceability — session <code>{auditSessions[0]?.id || "—"}</code>
+          </p>
+          <ul className="observability-feed-list observability-audit-list">
+            {auditTurns.map((turn) => (
+              <li key={turn.id} className={`obs-entry obs-status-${turn.ok === false ? "error" : "done"}`}>
+                <header>
+                  <time>{new Date(turn.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })}</time>
+                  <strong>{turn.intent || "unknown"}</strong>
+                  {turn.skill ? <span className="obs-skill">{turn.skill}</span> : null}
+                  {turn.ms != null ? <span className="obs-latency">{turn.ms}ms</span> : null}
+                </header>
+                {turn.reply ? <p className="obs-narrative">{turn.reply}</p> : null}
+                {turn.tools && turn.tools.length > 0 ? (
+                  <small className="obs-tools">{turn.tools.map((t) => t.tool).join(", ")}</small>
                 ) : null}
               </li>
             ))}

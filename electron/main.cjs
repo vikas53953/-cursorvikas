@@ -134,8 +134,13 @@ ipcMain.handle("log:event", (_event, event) => {
   return { ok: true };
 });
 
-ipcMain.handle("realtime:create-token", async () => {
-  return createRealtimeToken({ instructions: tools.instructions, toolSpecs: tools.toolSpecs });
+ipcMain.handle("realtime:create-token", async (_event, options) => {
+  const body = asObject(options);
+  return createRealtimeToken({
+    instructions: tools.instructions,
+    toolSpecs: tools.toolSpecs,
+    routerMode: body.routerMode !== false,
+  });
 });
 
 ipcMain.handle("chat:send", async (_event, payload) => {
@@ -146,6 +151,15 @@ ipcMain.handle("chat:send", async (_event, payload) => {
     channel: body.channel,
   });
 });
+
+ipcMain.handle("sessions:list", async (_event, limit) => tools.listSessions(Number(limit) || 30));
+
+ipcMain.handle("sessions:turns", async (_event, payload) => {
+  const body = asObject(payload);
+  return tools.listSessionTurns(String(body.sessionId || ""), Number(body.limit) || 100);
+});
+
+ipcMain.handle("skills:list", () => tools.listSkills());
 
 // ---------------------------------------------------------------------------
 // App lifecycle

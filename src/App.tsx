@@ -57,6 +57,7 @@ export default function App() {
     clientRef.current = null;
 
     const client = new JarvisRealtimeClient({
+      onRoutedSpeech: async (text) => deliverUserMessage({ channel: "voice", message: text, target: { id: "jarvis", name: "NetJarvis" } }),
       onConnectionState: setConnectionState,
       onMood: setMood,
       onMouthShape: setMouthShape,
@@ -171,7 +172,7 @@ export default function App() {
     channel: "chat" | "keyboard" | "voice";
     message: string;
     target: { id: string; name: string; scope?: string };
-  }) {
+  }): Promise<string | undefined> {
     const trimmed = message.trim();
     if (!trimmed || chatBusy) return;
 
@@ -207,7 +208,7 @@ export default function App() {
           }),
         );
         setMood("error");
-        return;
+        return undefined;
       }
 
       if (result.activity?.length) {
@@ -255,10 +256,12 @@ export default function App() {
         }),
       );
       setTaskRefreshToken((value) => value + 1);
+      return reply;
     } catch (error) {
       const err = error instanceof Error ? error.message : String(error);
       setTranscript((items) => commitTranscript(items, newEntry("system", err), "system"));
       setMood("error");
+      return undefined;
     } finally {
       setChatBusy(false);
       if (connectionState !== "connected") setMood("idle");

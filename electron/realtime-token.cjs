@@ -5,7 +5,7 @@
 const crypto = require("node:crypto");
 const logger = require("./logger.cjs");
 
-async function createRealtimeToken({ instructions, toolSpecs }) {
+async function createRealtimeToken({ instructions, toolSpecs, routerMode = true }) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     logger.log("realtime.token.error", { error: "OPENAI_API_KEY missing" });
@@ -27,8 +27,8 @@ async function createRealtimeToken({ instructions, toolSpecs }) {
         instructions,
         output_modalities: ["audio"],
         reasoning: { effort: "low" },
-        tool_choice: "auto",
-        tools: toolSpecs,
+        tool_choice: routerMode ? "none" : "auto",
+        tools: routerMode ? [] : toolSpecs,
         audio: {
           input: {
             // Transcribe the engineer's speech so the HUD and debug logs show
@@ -39,7 +39,7 @@ async function createRealtimeToken({ instructions, toolSpecs }) {
             turn_detection: {
               type: "semantic_vad",
               eagerness: "medium",
-              create_response: true,
+              create_response: !routerMode,
               interrupt_response: true,
             },
           },
@@ -67,7 +67,7 @@ async function createRealtimeToken({ instructions, toolSpecs }) {
     throw new Error("Realtime token response did not include a client secret value.");
   }
   const expiresAt = data.expires_at || data.client_secret?.expires_at || null;
-  logger.log("realtime.token.ok", { expiresAt, ms: Date.now() - started });
+  logger.log("realtime.token.ok", { expiresAt, routerMode, ms: Date.now() - started });
   return { value, expiresAt };
 }
 

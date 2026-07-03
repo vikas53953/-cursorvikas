@@ -112,12 +112,39 @@ async function handleApi(request, response, url) {
   }
 
   if (request.method === "POST" && url.pathname === "/api/realtime/token") {
+    const raw = await readBody(request);
+    let body = {};
     try {
-      const token = await createRealtimeToken({ instructions: tools.instructions, toolSpecs: tools.toolSpecs });
+      body = JSON.parse(raw || "{}");
+    } catch {
+      body = {};
+    }
+    try {
+      const routerMode = body.routerMode !== false;
+      const token = await createRealtimeToken({
+        instructions: tools.instructions,
+        toolSpecs: tools.toolSpecs,
+        routerMode,
+      });
       return sendJson(response, 200, token);
     } catch (error) {
       return sendJson(response, 500, { error: error instanceof Error ? error.message : String(error) });
     }
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/sessions") {
+    const limit = Number(url.searchParams.get("limit") || 30);
+    return sendJson(response, 200, await tools.listSessions(limit));
+  }
+
+  if (request.method === "GET" && url.pathname.startsWith("/api/sessions/") && url.pathname.endsWith("/turns")) {
+    const sessionId = decodeURIComponent(url.pathname.slice("/api/sessions/".length, -"/turns".length));
+    const limit = Number(url.searchParams.get("limit") || 100);
+    return sendJson(response, 200, await tools.listSessionTurns(sessionId, limit));
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/skills") {
+    return sendJson(response, 200, tools.listSkills());
   }
 
   if (request.method === "POST" && url.pathname === "/api/log") {
@@ -241,7 +268,7 @@ async function handleApi(request, response, url) {
     return sendJson(response, 200, {
       ok: true,
       uptimeSeconds: Math.round(process.uptime()),
-      features: ["custom-agents", "squad-chat", "chat-reply-sanitizer"],
+      features: ["custom-agents", "squad-chat", "chat-reply-sanitizer", "message-router", "skill-registry", "session-audit", "voice-router"],
     });
   }
 

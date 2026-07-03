@@ -19,8 +19,11 @@ const { createScheduler } = require("./scheduler.cjs");
 const { createAlertWatcher } = require("./alert-watcher.cjs");
 const { createAgents, chatCompletion, compactToolResult } = require("./agents.cjs");
 const { sanitizeSquadChatReply } = require("./chat-reply.cjs");
-const { createHandleUserMessage } = require("./handle-user-message.cjs");
+const sessionStore = require("./session-store.cjs");
+const { listSkills } = require("./skills/index.cjs");
 const { routerInstructionsAppendix } = require("./message-router.cjs");
+const { validateToolCall } = require("./guardrails.cjs");
+const { createHandleUserMessage } = require("./handle-user-message.cjs");
 const logger = require("./logger.cjs");
 
 const sim = source.sim;
@@ -580,6 +583,11 @@ function createTools({ readDb, updateDb }) {
   const alertWatcher = createAlertWatcher({ getSnapshot: source.getSnapshot });
 
   async function execute(name, args, context = {}) {
+    const guard = validateToolCall(name, args);
+    if (guard.ok === false) {
+      logger.log("tool.blocked", { tool: name, error: guard.error });
+      return { ok: false, error: guard.error };
+    }
     const started = Date.now();
     const result = await executeInner(name, args, context);
     logger.log("tool.execute", {
@@ -1453,6 +1461,9 @@ function createTools({ readDb, updateDb }) {
     scheduler,
     alertWatcher,
     startBackgroundServices,
+    listSessions: sessionStore.listSessions,
+    listSessionTurns: sessionStore.listTurns,
+    listSkills,
   };
 }
 

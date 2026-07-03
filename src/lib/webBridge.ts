@@ -1,4 +1,4 @@
-import type { AgentOrg, ArtifactRecord, DashboardSnapshot, JarvisToolCall, JarvisToolResult, JarvisToolSpec, ProactiveEvent, TaskListResponse, TeamTask } from "../vite-env";
+import type { AgentOrg, ArtifactRecord, DashboardSnapshot, JarvisToolCall, JarvisToolResult, JarvisToolSpec, ProactiveEvent, SessionAuditTurn, SessionIndexEntry, TaskListResponse, TeamTask } from "../vite-env";
 import { normalizeTasksResponse } from "./tasks";
 
 // When the app runs in a plain browser (web mode) there is no Electron
@@ -54,7 +54,8 @@ export function installWebBridge(): void {
   }
 
   window.jarvis = {
-    createRealtimeToken: () => postJson<{ value: string; expiresAt: number | null }>("/api/realtime/token", {}),
+    createRealtimeToken: (options?: { routerMode?: boolean }) =>
+      postJson<{ value: string; expiresAt: number | null }>("/api/realtime/token", options ?? {}),
       sendChatMessage: (payload: { target?: string; message: string; channel?: string }) =>
       postJson<{
         ok: boolean;
@@ -68,6 +69,9 @@ export function installWebBridge(): void {
           status?: "running" | "done" | "error";
         }>;
         intent?: string;
+        skill?: string;
+        sessionId?: string;
+        auditId?: string;
       }>("/api/chat/message", payload),
     executeTool: (toolCall: JarvisToolCall) => postJson<JarvisToolResult>("/api/tools/execute", toolCall),
     getToolSpecs: () => getJson<JarvisToolSpec[]>("/api/tools/list"),
@@ -89,6 +93,10 @@ export function installWebBridge(): void {
     listArtifacts: (limit?: number) => getJson<ArtifactRecord[]>(`/api/artifacts${limit ? `?limit=${limit}` : ""}`),
     getProactiveEvents: () => getJson<ProactiveEvent[]>("/api/proactive/pending"),
     markProactiveSpoken: (id: string) => postJson<{ ok: boolean }>(`/api/proactive/${encodeURIComponent(id)}/spoken`, {}),
+    listSessions: (limit?: number) => getJson<SessionIndexEntry[]>(`/api/sessions${limit ? `?limit=${limit}` : ""}`),
+    listSessionTurns: (sessionId: string, limit?: number) =>
+      getJson<SessionAuditTurn[]>(`/api/sessions/${encodeURIComponent(sessionId)}/turns${limit ? `?limit=${limit}` : ""}`),
+    listSkills: () => getJson<Array<{ id: string }>>("/api/skills"),
     logEvent: logSafe,
   };
 }

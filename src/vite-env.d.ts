@@ -177,10 +177,33 @@ export type DashboardSnapshot = {
   error?: string;
 };
 
+export type SessionIndexEntry = {
+  id: string;
+  channel: string;
+  createdAt: string;
+  lastAt?: string;
+  turnCount: number;
+};
+
+export type SessionAuditTurn = {
+  id: string;
+  sessionId: string;
+  phase: "started" | "completed";
+  at: string;
+  userMessage?: string;
+  intent?: string | null;
+  skill?: string | null;
+  tools?: Array<{ tool: string; narrative: string; status: string }>;
+  reply?: string | null;
+  ms?: number | null;
+  ok?: boolean | null;
+  artifactCount?: number;
+};
+
 declare global {
   interface Window {
     jarvis: {
-      createRealtimeToken: () => Promise<{ value: string; expiresAt: number | null }>;
+      createRealtimeToken: (options?: { routerMode?: boolean }) => Promise<{ value: string; expiresAt: number | null }>;
       sendChatMessage: (payload: { target?: string; message: string; channel?: string }) => Promise<{
         ok: boolean;
         text?: string;
@@ -188,6 +211,9 @@ declare global {
         artifacts?: JarvisArtifact[];
         activity?: Array<{ tool: string; narrative: string; technical?: string; status?: "running" | "done" | "error" }>;
         intent?: string;
+        skill?: string;
+        sessionId?: string;
+        auditId?: string;
       }>;
       executeTool: (toolCall: JarvisToolCall) => Promise<JarvisToolResult>;
       getToolSpecs: () => Promise<JarvisToolSpec[]>;
@@ -200,6 +226,9 @@ declare global {
       listArtifacts: (limit?: number) => Promise<ArtifactRecord[]>;
       getProactiveEvents: () => Promise<ProactiveEvent[]>;
       markProactiveSpoken: (id: string) => Promise<{ ok: boolean }>;
+      listSessions: (limit?: number) => Promise<SessionIndexEntry[]>;
+      listSessionTurns: (sessionId: string, limit?: number) => Promise<SessionAuditTurn[]>;
+      listSkills: () => Promise<Array<{ id: string }>>;
       logEvent: (event: Record<string, unknown>) => Promise<void>;
     };
   }

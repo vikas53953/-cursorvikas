@@ -2,41 +2,44 @@
 
 If a deployment looks worse after a UI or behavior change, you can return to the last known-good state.
 
-## Current rollback point (before unified message core)
+## Current rollback point (before enterprise layers)
+
+**Git tag:** `rollback-pre-enterprise-layers`  
+**Commit:** `9d00b7a` — *Unified message core: router, answer policy, single entry point*
+
+### Roll back to pre-unified-core (device fact patches only)
 
 **Git tag:** `rollback-pre-unified-core`  
 **Commit:** `bd2ae92` — *Fix chat: direct device facts, no duplicate replies*
-
-### Roll back to pre-UI-polish (voice HUD live, before design tokens)
-
-**Git tag:** `rollback-pre-ui-polish`  
-**Commit:** `c238b1d` — *Make voice HUD live: streaming speech, full text, tool feed*
 
 ### Roll back on the server
 
 ```bash
 cd /path/to/netjarvis
 git fetch origin
-git checkout rollback-pre-ui-polish
-# or: git checkout c238b1d
+git checkout rollback-pre-enterprise-layers
+# or: git checkout 9d00b7a
 npm run build
 # restart web server (Ctrl+C then npm run web)
 ```
 
-### Roll back only the UI polish commit (keep later fixes)
+### Roll back only the enterprise layer (keep unified core)
 
 ```bash
-git revert d35ad64 --no-edit
+git checkout rollback-pre-enterprise-layers
 npm run build
 # restart web server
 ```
 
-## What the rollback point includes
+## What the enterprise layer includes
 
-- Agent Squad chat with CLI table output and pre-check fast path
-- Voice HUD with live speech streaming and activity feed
-- No auto-switch to Observability on squad chat
-- CLI quota fallback (returns output even if AI summary fails)
+- Action planner (`planAction`) between classifier and orchestrator
+- Skill registry (`electron/skills/*`) — pluggable intent handlers
+- Session + audit store (`data/sessions/*.jsonl`)
+- Voice ingress through `handleUserMessage` (Realtime = audio + transcription only)
+- Guardrails on CLI (`run_show_command` read-only enforcement)
+- Degradation when OpenAI quota fails (automation still works)
+- APIs: `GET /api/sessions`, `GET /api/sessions/:id/turns`, `GET /api/skills`
 
 ## After rollback
 

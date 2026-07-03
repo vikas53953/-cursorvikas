@@ -38,6 +38,8 @@ export type RealtimeCallbacks = {
   onArtifact: (artifact: JarvisArtifact) => void;
   onStatus: (message: string) => void;
   onActivity?: (activity: JarvisActivity) => void;
+  /** Router mode: transcribed speech is handled by handleUserMessage; return reply text to speak. */
+  onRoutedSpeech?: (text: string) => Promise<string | void>;
 };
 
 type ServerEvent = {
@@ -91,6 +93,9 @@ export class JarvisRealtimeClient {
   private audioContext: AudioContext | null = null;
   private outputMeterFrame = 0;
   private smoothedMouthShape: MouthShape = silentMouthShape();
+  private routerMode = true;
+  private pendingVoiceReply: string | null = null;
+  private routingSpeech = false;
 
   constructor(callbacks: RealtimeCallbacks) {
     this.callbacks = callbacks;
@@ -128,10 +133,12 @@ export class JarvisRealtimeClient {
     };
 
     try {
-      this.toolSpecs = await window.jarvis.getToolSpecs();
-      if (abortIfDisposed()) return;
+      if (!this.routerMode) {
+        this.toolSpecs = await window.jarvis.getToolSpecs();
+        if (abortIfDisposed()) return;
+      }
 
-      const token = await window.jarvis.createRealtimeToken();
+      const token = await window.jarvis.createRealtimeToken({ routerMode: this.routerMode });
       if (abortIfDisposed()) return;
       logEvent("rt.connect.token_ok", { expiresAt: token.expiresAt });
 
@@ -254,6 +261,8 @@ export class JarvisRealtimeClient {
     this.micStream = null;
     this.currentAssistantText = "";
     this.toolRunning = false;
+    this.pendingVoiceReply = null;
+    this.routingSpeech = false;
     this.callbacks.onConnectionState("idle");
     this.callbacks.onMood("idle");
     this.callbacks.onMouthShape(silentMouthShape());
@@ -269,6 +278,10 @@ export class JarvisRealtimeClient {
       return;
     }
     logEvent("rt.user.text", { text });
+    if (this.routerMode && this.callbacks.onRoutedSpeech) {
+      void this.routeSpeech(text);
+      return;
+    }
     this.callbacks.onTranscript(newEntry("user", text));
     this.sendEvent({
       type: "conversation.item.create",
@@ -279,6 +292,43 @@ export class JarvisRealtimeClient {
       },
     });
     this.sendEvent({ type: "response.create" });
+  }
+
+  /** Speak a router reply through Realtime TTS (router mode). */
+  async speakReply(text: string): Promise<void> {
+    if (this.disposed || !text.trim() || !this.dc || this.dc.readyState !== "open") return;
+    this.pendingVoiceReply = text.trim();
+    this.currentAssistantText = "";
+    this.callbacks.onMood("speaking");
+    this.sendEvent({
+      type: "response.create",
+      response: {
+        modalities: ["audio", "text"],
+        instructions: `Speak this answer clearly to the network operator. Do not add tools or extra commentary:\n\n${this.pendingVoiceReply}`,
+      },
+    });
+  }
+
+  private async routeSpeech(transcript: string): Promise<void> {
+    if (!this.callbacks.onRoutedSpeech || this.routingSpeech) return;
+    const trimmed = transcript.trim();
+    if (!trimmed) return;
+    this.routingSpeech = true;
+    this.callbacks.onMood("thinking");
+    try {
+      const reply = await this.callbacks.onRoutedSpeech(trimmed);
+      if (typeof reply === "string" && reply.trim()) {
+        await this.speakReply(reply);
+      } else if (!this.toolRunning) {
+        this.callbacks.onMood("idle");
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.callbacks.onMood("error");
+      this.callbacks.onStatus(message);
+    } finally {
+      this.routingSpeech = false;
+    }
   }
 
   private async handleServerEvent(raw: string): Promise<void> {
@@ -344,9 +394,13 @@ export class JarvisRealtimeClient {
     if (event.type === "conversation.item.input_audio_transcription.completed") {
       const transcript = event.transcript || collectItemText(event.item);
       if (transcript) {
-        logEvent("rt.user.speech", { transcript });
-        this.callbacks.onTranscript(newEntry("user", transcript));
+        logEvent("rt.user.speech", { transcript, routerMode: this.routerMode });
         this.callbacks.onActivity?.({ kind: "heard", text: transcript.trim() });
+        if (this.routerMode && this.callbacks.onRoutedSpeech) {
+          void this.routeSpeech(transcript);
+        } else {
+          this.callbacks.onTranscript(newEntry("user", transcript));
+        }
       }
       return;
     }
@@ -355,6 +409,17 @@ export class JarvisRealtimeClient {
       const output = event.response?.output || [];
       const functionCalls = output.filter((item) => item.type === "function_call" && item.name && item.call_id);
       const spoken = this.currentAssistantText || output.map(collectOutputText).filter(Boolean).join("\n");
+
+      if (this.routerMode) {
+        if (spoken && this.pendingVoiceReply) {
+          this.callbacks.onActivity?.({ kind: "speaking", text: spoken });
+        }
+        this.currentAssistantText = "";
+        this.pendingVoiceReply = null;
+        if (!this.toolRunning && !this.routingSpeech) this.callbacks.onMood("idle");
+        return;
+      }
+
       // Only commit to chat history on the final spoken answer — skip interim "let me check…" lines before tools run.
       if (spoken && functionCalls.length === 0) {
         logEvent("rt.jarvis.speech", { text: spoken });
@@ -457,7 +522,11 @@ export class JarvisRealtimeClient {
           if (!event?.id || this.spokenProactive.has(event.id)) continue;
           this.spokenProactive.add(event.id);
           this.callbacks.onStatus(`Proactive alert: ${event.headline}`);
-          this.sendText(`[SYSTEM ALERT - speak immediately, 2 sentences max] ${event.message}`);
+          if (this.routerMode) {
+            void this.speakReply(event.message);
+          } else {
+            this.sendText(`[SYSTEM ALERT - speak immediately, 2 sentences max] ${event.message}`);
+          }
           void window.jarvis.markProactiveSpoken(event.id);
         }
       } catch {

@@ -1,7 +1,7 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("jarvis", {
-  createRealtimeToken: () => ipcRenderer.invoke("realtime:create-token"),
+  createRealtimeToken: (options) => ipcRenderer.invoke("realtime:create-token", options),
   sendChatMessage: (payload) => ipcRenderer.invoke("chat:send", payload),
   executeTool: (toolCall) => ipcRenderer.invoke("tools:execute", toolCall),
   getToolSpecs: () => ipcRenderer.invoke("tools:list"),
@@ -14,5 +14,8 @@ contextBridge.exposeInMainWorld("jarvis", {
   listArtifacts: (_event, limit) => ipcRenderer.invoke("artifacts:list", limit),
   getProactiveEvents: () => ipcRenderer.invoke("proactive:pending"),
   markProactiveSpoken: (id) => ipcRenderer.invoke("proactive:spoken", id),
+  listSessions: (limit) => ipcRenderer.invoke("sessions:list", limit),
+  listSessionTurns: (sessionId, limit) => ipcRenderer.invoke("sessions:turns", { sessionId, limit }),
+  listSkills: () => ipcRenderer.invoke("skills:list"),
   logEvent: (event) => ipcRenderer.invoke("log:event", event),
 });
