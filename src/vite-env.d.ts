@@ -54,8 +54,19 @@ export type AgentOrg = {
   groups: Array<{
     id: string;
     name: string;
-    agents: Array<{ id: string; name: string; scope?: string }>;
+    agents: Array<{ id: string; name: string; scope?: string; custom?: boolean }>;
   }>;
+};
+
+export type CustomAgent = {
+  id: string;
+  name: string;
+  handle: string;
+  description: string;
+  capabilities: string;
+  scope: string;
+  custom: true;
+  createdAt: string;
 };
 
 export type ArtifactRecord = {
@@ -175,6 +186,9 @@ declare global {
       getDashboard: (options?: { force?: boolean }) => Promise<DashboardSnapshot>;
       getTasks: (options?: { limit?: number; offset?: number; status?: string }) => Promise<TaskListResponse>;
       getOrg: () => Promise<AgentOrg>;
+      listCustomAgents: () => Promise<CustomAgent[]>;
+      createCustomAgent: (payload: { name: string; description?: string; capabilities?: string }) => Promise<{ ok: boolean; agent?: CustomAgent; error?: string }>;
+      deleteCustomAgent: (id: string) => Promise<{ ok: boolean; error?: string }>;
       listArtifacts: (limit?: number) => Promise<ArtifactRecord[]>;
       getProactiveEvents: () => Promise<ProactiveEvent[]>;
       markProactiveSpoken: (id: string) => Promise<{ ok: boolean }>;

@@ -78,6 +78,26 @@ ipcMain.handle("tasks:list", async (_event, options) => {
 
 ipcMain.handle("org:get", () => tools.getOrg());
 
+ipcMain.handle("agents:custom:list", () => tools.listCustomAgents());
+
+ipcMain.handle("agents:custom:create", async (_event, payload) => {
+  const body = asObject(payload);
+  try {
+    const agent = await tools.createCustomAgent({
+      name: body.name,
+      description: body.description,
+      capabilities: body.capabilities,
+    });
+    return { ok: true, agent };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
+});
+
+ipcMain.handle("agents:custom:delete", async (_event, id) => {
+  return tools.removeCustomAgent(String(id || ""));
+});
+
 ipcMain.handle("artifacts:list", async (_event, limit) => {
   try {
     return await tools.listArtifacts(Number(limit) || 40);

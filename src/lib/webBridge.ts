@@ -70,6 +70,10 @@ export function installWebBridge(): void {
       return normalizeTasksResponse(data);
     },
     getOrg: () => getJson<AgentOrg>("/api/org"),
+    listCustomAgents: () => getJson<import("../vite-env").CustomAgent[]>("/api/agents/custom"),
+    createCustomAgent: (payload: { name: string; description?: string; capabilities?: string }) =>
+      postJson<{ ok: boolean; agent?: import("../vite-env").CustomAgent; error?: string }>("/api/agents/custom", payload),
+    deleteCustomAgent: (id: string) => postJson<{ ok: boolean; error?: string }>("/api/agents/custom/delete", { id }),
     listArtifacts: (limit?: number) => getJson<ArtifactRecord[]>(`/api/artifacts${limit ? `?limit=${limit}` : ""}`),
     getProactiveEvents: () => getJson<ProactiveEvent[]>("/api/proactive/pending"),
     markProactiveSpoken: (id: string) => postJson<{ ok: boolean }>(`/api/proactive/${encodeURIComponent(id)}/spoken`, {}),

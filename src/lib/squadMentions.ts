@@ -21,6 +21,20 @@ const HANDLE_TO_TEAM: Record<string, string> = {
   problem: "problem",
 };
 
+// Handles registered at runtime (built-in teams plus any custom agents the
+// engineer created). Used to validate mentions and build delegation prefixes.
+const knownHandles = new Set<string>(Object.keys(HANDLE_TO_TEAM));
+
+export function registerMemberHandles(handles: string[]): void {
+  for (const handle of handles) {
+    if (handle) knownHandles.add(handle.toLowerCase());
+  }
+}
+
+function isKnownHandle(handle: string): boolean {
+  return knownHandles.has(handle.toLowerCase());
+}
+
 const MENTION_PATTERN = /@([a-z][a-z0-9_-]*)/gi;
 
 export function buildMemberMentions(
@@ -58,7 +72,7 @@ export function parseMentionHandles(text: string): string[] {
   const found = new Set<string>();
   for (const match of text.matchAll(MENTION_PATTERN)) {
     const handle = match[1]?.toLowerCase();
-    if (handle && HANDLE_TO_TEAM[handle]) found.add(handle);
+    if (handle && isKnownHandle(handle)) found.add(handle);
   }
   return [...found];
 }
@@ -66,8 +80,9 @@ export function parseMentionHandles(text: string): string[] {
 export function resolveMentionTeams(handles: string[]): string[] {
   const teams = new Set<string>();
   for (const handle of handles) {
-    const team = HANDLE_TO_TEAM[handle];
-    if (team) teams.add(team);
+    // Built-in aliases (fw -> firewall) map through HANDLE_TO_TEAM; custom
+    // agents route to their own handle.
+    teams.add(HANDLE_TO_TEAM[handle] || handle);
   }
   return [...teams];
 }
@@ -96,7 +111,7 @@ export function splitMentionText(text: string): Array<{ type: "text" | "mention"
     parts.push({
       type: "mention",
       value: match[0],
-      handle: HANDLE_TO_TEAM[handle] ? handle : undefined,
+      handle: isKnownHandle(handle) ? handle : undefined,
     });
     lastIndex = index + match[0].length;
   }

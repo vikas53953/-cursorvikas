@@ -145,6 +145,41 @@ async function handleApi(request, response, url) {
     return sendJson(response, 200, tools.getOrg());
   }
 
+  if (request.method === "GET" && url.pathname === "/api/agents/custom") {
+    return sendJson(response, 200, tools.listCustomAgents());
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/agents/custom") {
+    const raw = await readBody(request);
+    let body = {};
+    try {
+      body = JSON.parse(raw || "{}");
+    } catch {
+      return sendJson(response, 400, { ok: false, error: "Invalid JSON body" });
+    }
+    try {
+      const agent = await tools.createCustomAgent({
+        name: body.name,
+        description: body.description,
+        capabilities: body.capabilities,
+      });
+      return sendJson(response, 200, { ok: true, agent });
+    } catch (error) {
+      return sendJson(response, 400, { ok: false, error: error instanceof Error ? error.message : String(error) });
+    }
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/agents/custom/delete") {
+    const raw = await readBody(request);
+    let body = {};
+    try {
+      body = JSON.parse(raw || "{}");
+    } catch {
+      return sendJson(response, 400, { ok: false, error: "Invalid JSON body" });
+    }
+    return sendJson(response, 200, await tools.removeCustomAgent(body.id));
+  }
+
   if (request.method === "GET" && url.pathname === "/api/artifacts") {
     const limit = Number(url.searchParams.get("limit") || 40);
     return sendJson(response, 200, await tools.listArtifacts(limit));

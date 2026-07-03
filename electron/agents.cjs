@@ -6,6 +6,7 @@ const crypto = require("node:crypto");
 const path = require("node:path");
 const fs = require("node:fs/promises");
 const logger = require("./logger.cjs");
+const customAgents = require("./custom-agents.cjs");
 
 const tasksPath = path.join(process.cwd(), "data", "tasks.json");
 let taskWriteQueue = Promise.resolve();
@@ -104,8 +105,26 @@ const SPECIALIST_TOOL_NAMES = [
   "incident_ticket_list",
 ];
 
+// Resolve a team/agent spec by key, checking the static org first, then any
+// user-created custom agents.
+function resolveTeam(teamKey) {
+  const key = String(teamKey || "").toLowerCase();
+  if (TEAMS[key]) return TEAMS[key];
+  const custom = customAgents.get(key);
+  if (custom) {
+    return {
+      name: custom.name,
+      scope: custom.scope,
+      group: "custom",
+      groupName: "Custom Agents",
+      custom: true,
+    };
+  }
+  return null;
+}
+
 function specialistPrompt(team) {
-  const spec = TEAMS[team];
+  const spec = resolveTeam(team) || TEAMS.data;
   return `You are the ${spec.name} on a NOC team. You report to NetJarvis, the SME lead, who delegated this task to you.
 Your scope: ${spec.scope}.
 
@@ -115,7 +134,8 @@ Rules:
 - Investigate with your read-only tools. Use several tool calls if needed; do not guess numbers a tool can give you.
 - Be honest about scope: if the network contains no devices in your domain (for example, no firewalls or load balancers), state that plainly first, then analyze the nearest relevant evidence you CAN see.
 - Only read-only "show" commands are permitted on devices.
-- Finish with a crisp NOC report in markdown: "Findings" (bulleted facts with numbers), "Assessment" (what it means), "Recommended actions" (numbered). Keep it under 300 words.`;
+- Present a clean, professional report the way a network engineer would: lead with a one-line summary, then the concrete facts (bulleted, with numbers) under short markdown headings. Use a table when it reads cleaner. Keep it under 300 words.
+- Do NOT add a generic "Next steps" or "Recommended actions" section. Only add a short "Flag" line if you find something genuinely wrong or risky that needs attention.`;
 }
 
 function routeTitle(toolName, args) {
@@ -173,7 +193,19 @@ async function listTasks(options = {}) {
 }
 
 function getOrg() {
-  return ORG;
+  const custom = customAgents.list();
+  if (custom.length === 0) return ORG;
+  return {
+    ...ORG,
+    groups: [
+      ...ORG.groups,
+      {
+        id: "custom",
+        name: "Custom Agents",
+        agents: custom.map((agent) => ({ id: agent.id, name: agent.name, scope: agent.scope, custom: true })),
+      },
+    ],
+  };
 }
 
 function getActiveMap(tasks) {
@@ -248,8 +280,8 @@ function createAgents({ executeTool, toolSpecs }) {
   }
 
   async function createTaskRecord({ team, title, request, source, executor, tool }) {
-    const teamKey = team && TEAMS[team] ? team : "jarvis";
-    const spec = TEAMS[teamKey] || { name: "NetJarvis", group: "jarvis", groupName: "Jarvis" };
+    const teamKey = team && resolveTeam(team) ? String(team).toLowerCase() : "jarvis";
+    const spec = resolveTeam(teamKey) || { name: "NetJarvis", group: "jarvis", groupName: "Jarvis" };
     const task = {
       id: `TASK-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
       team: teamKey,
@@ -344,8 +376,10 @@ function createAgents({ executeTool, toolSpecs }) {
 
   async function delegate(team, taskText) {
     const teamKey = String(team || "").toLowerCase();
-    if (!TEAMS[teamKey]) {
-      throw new Error(`Unknown team "${team}". Valid teams: ${Object.keys(TEAMS).join(", ")}`);
+    const spec = resolveTeam(teamKey);
+    if (!spec) {
+      const validTeams = [...Object.keys(TEAMS), ...customAgents.list().map((agent) => agent.id)];
+      throw new Error(`Unknown team "${team}". Valid teams: ${validTeams.join(", ")}`);
     }
     const task = await createTaskRecord({
       team: teamKey,
@@ -358,13 +392,13 @@ function createAgents({ executeTool, toolSpecs }) {
     logger.log("agent.delegate", { taskId: task.id, team: teamKey, task: task.title });
 
     await setStatus(task.id, "in_progress", { startedAt: new Date().toISOString() });
-    await appendStep(task.id, `handed off by NetJarvis to ${TEAMS[teamKey].name}`);
+    await appendStep(task.id, `handed off by NetJarvis to ${spec.name}`);
 
     try {
       const result = await runSpecialist(task.id, teamKey, String(taskText));
       await setStatus(task.id, "done", { finishedAt: new Date().toISOString(), result });
       logger.log("agent.done", { taskId: task.id, team: teamKey });
-      return { taskId: task.id, team: teamKey, teamName: TEAMS[teamKey].name, result };
+      return { taskId: task.id, team: teamKey, teamName: spec.name, result };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       await setStatus(task.id, "failed", { finishedAt: new Date().toISOString(), error: message });
@@ -373,7 +407,23 @@ function createAgents({ executeTool, toolSpecs }) {
     }
   }
 
-  return { ORG, TEAMS, TOOL_ROUTING, delegate, listTasks, recordJarvisActivity, getOrg, getActiveMap, createTaskRecord, appendStep, setStatus };
+  return {
+    ORG,
+    TEAMS,
+    TOOL_ROUTING,
+    delegate,
+    listTasks,
+    recordJarvisActivity,
+    getOrg,
+    getActiveMap,
+    createTaskRecord,
+    appendStep,
+    setStatus,
+    resolveTeam,
+    listCustomAgents: customAgents.list,
+    createCustomAgent: customAgents.create,
+    removeCustomAgent: customAgents.remove,
+  };
 }
 
 module.exports = { createAgents, TEAMS, ORG, TOOL_ROUTING, chatCompletion, compactToolResult };

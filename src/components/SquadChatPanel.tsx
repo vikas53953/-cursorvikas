@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
-import { ChevronLeft, ChevronRight, Copy, Hash, Loader2, Maximize2, Minimize2, Send, Sparkles, Users } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type MouseEvent } from "react";
+import { ChevronLeft, ChevronRight, Copy, Hash, Loader2, Maximize2, Minimize2, Plus, Send, Sparkles, Trash2, Users, X } from "lucide-react";
 import type { JarvisConnectionState, TranscriptEntry } from "../lib/realtime";
 import { splitArtifactOutput } from "../lib/observability";
 import { Markdown } from "./Markdown";
-import { buildMemberMentions, filterMemberMentions, splitMentionText, type SquadMention } from "../lib/squadMentions";
+import { buildMemberMentions, filterMemberMentions, registerMemberHandles, splitMentionText, type SquadMention } from "../lib/squadMentions";
 import { expandSlashCommand, filterSlashCommands, type SlashCommand } from "../lib/squadSlashCommands";
-import type { AgentOrg, JarvisArtifact } from "../vite-env";
+import type { AgentOrg, CustomAgent, JarvisArtifact } from "../vite-env";
 
 export type SquadChatTarget = {
   id: string;
@@ -49,12 +49,17 @@ export function SquadChatPanel({
   const [picker, setPicker] = useState<PickerState | null>(null);
   const [pickerIndex, setPickerIndex] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [membersOpen, setMembersOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const feedRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
 
   const load = useCallback(async () => {
     try {
-      setOrg(await window.jarvis.getOrg());
+      const next = await window.jarvis.getOrg();
+      setOrg(next);
+      const handles = [next.jarvis.id, ...next.groups.flatMap((group) => group.agents.map((agent) => agent.id))];
+      registerMemberHandles(handles);
     } catch {
       // Keep last good org chart.
     }
@@ -63,6 +68,11 @@ export function SquadChatPanel({
   useEffect(() => {
     void load();
   }, [load]);
+
+  async function handleAgentCreated() {
+    setCreateOpen(false);
+    await load();
+  }
 
   useEffect(() => {
     if (!expanded) return;
@@ -144,6 +154,19 @@ export function SquadChatPanel({
       const pos = replaced.length;
       field.focus();
       field.setSelectionRange(pos, pos);
+      resizeComposer(field);
+    });
+  }
+
+  function insertMentionHandle(handle: string) {
+    const prefix = draft.length === 0 || draft.endsWith(" ") ? "" : " ";
+    const next = `${draft}${prefix}@${handle} `;
+    setDraft(next);
+    requestAnimationFrame(() => {
+      const field = composerRef.current;
+      if (!field) return;
+      field.focus();
+      field.setSelectionRange(next.length, next.length);
       resizeComposer(field);
     });
   }
@@ -287,9 +310,38 @@ export function SquadChatPanel({
             </label>
           ) : (
             <div className="squad-chat-topbar-actions">
-              <span className="squad-chat-members">
-                <Users size={13} /> {targets.length} members
-              </span>
+              <div className="squad-chat-members-wrap">
+                <button
+                  type="button"
+                  className="squad-chat-members"
+                  onClick={() => setMembersOpen((value) => !value)}
+                  aria-expanded={membersOpen}
+                  title="View squad members"
+                >
+                  <Users size={13} /> {targets.length} members
+                </button>
+                {membersOpen ? (
+                  <MembersPopover
+                    org={org}
+                    onClose={() => setMembersOpen(false)}
+                    onMention={(handle) => {
+                      insertMentionHandle(handle);
+                      setMembersOpen(false);
+                    }}
+                    onCreate={() => {
+                      setMembersOpen(false);
+                      setCreateOpen(true);
+                    }}
+                    onDelete={async (id) => {
+                      await window.jarvis.deleteCustomAgent(id);
+                      await load();
+                    }}
+                  />
+                ) : null}
+              </div>
+              <button type="button" className="squad-chat-new-agent" onClick={() => setCreateOpen(true)} title="Create a custom agent">
+                <Plus size={13} /> New agent
+              </button>
             </div>
           )}
         </header>
@@ -421,7 +473,189 @@ export function SquadChatPanel({
           </div>
         </footer>
       </div>
+
+      {createOpen ? <CreateAgentModal onClose={() => setCreateOpen(false)} onCreated={handleAgentCreated} /> : null}
     </aside>
+  );
+}
+
+function MembersPopover({
+  org,
+  onClose,
+  onMention,
+  onCreate,
+  onDelete,
+}: {
+  org: AgentOrg | null;
+  onClose: () => void;
+  onMention: (handle: string) => void;
+  onCreate: () => void;
+  onDelete: (id: string) => void | Promise<void>;
+}) {
+  const jarvis = org?.jarvis;
+  return (
+    <>
+      <button className="squad-chat-popover-backdrop" onClick={onClose} aria-label="Close members" />
+      <div className="squad-chat-members-popover" role="dialog" aria-label="Squad members">
+        <header className="squad-chat-members-popover-head">
+          <strong>Squad members</strong>
+          <button type="button" onClick={onClose} aria-label="Close">
+            <X size={14} />
+          </button>
+        </header>
+        <div className="squad-chat-members-list">
+          {jarvis ? (
+            <button type="button" className="squad-chat-member-row" onClick={() => onMention(jarvis.id)}>
+              <span className="squad-chat-avatar squad-chat-avatar-jarvis">NJ</span>
+              <span className="squad-chat-member-copy">
+                <strong>{jarvis.name}</strong>
+                <span>@{jarvis.id} · Squad lead</span>
+              </span>
+            </button>
+          ) : null}
+          {org?.groups.map((group) => (
+            <section key={group.id} className="squad-chat-member-group">
+              <h5>{group.name}</h5>
+              {group.agents.map((agent) => (
+                <div key={agent.id} className="squad-chat-member-row-wrap">
+                  <button type="button" className="squad-chat-member-row" onClick={() => onMention(agent.id)}>
+                    <span className={`squad-chat-avatar squad-chat-avatar-${agent.custom ? "custom" : "user"}`}>
+                      {agent.name.slice(0, 2).toUpperCase()}
+                    </span>
+                    <span className="squad-chat-member-copy">
+                      <strong>{agent.name}</strong>
+                      <span>
+                        @{agent.id}
+                        {agent.scope ? ` · ${agent.scope.slice(0, 60)}` : ""}
+                      </span>
+                    </span>
+                  </button>
+                  {agent.custom ? (
+                    <button
+                      type="button"
+                      className="squad-chat-member-delete"
+                      onClick={() => void onDelete(agent.id)}
+                      title={`Delete ${agent.name}`}
+                      aria-label={`Delete ${agent.name}`}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  ) : null}
+                </div>
+              ))}
+            </section>
+          ))}
+        </div>
+        <button type="button" className="squad-chat-members-create" onClick={onCreate}>
+          <Plus size={14} /> Create custom agent
+        </button>
+      </div>
+    </>
+  );
+}
+
+function CreateAgentModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void | Promise<void> }) {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [capabilities, setCapabilities] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    function onKey(event: globalThis.KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (!name.trim() || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const result = await window.jarvis.createCustomAgent({
+        name: name.trim(),
+        description: description.trim(),
+        capabilities: capabilities.trim(),
+      });
+      if (result.ok === false) {
+        setError(result.error || "Could not create agent");
+        return;
+      }
+      await onCreated();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="squad-agent-overlay" role="dialog" aria-modal="true" aria-label="Create custom agent">
+      <button className="squad-agent-backdrop" onClick={onClose} aria-label="Close" />
+      <form className="squad-agent-modal" onSubmit={submit}>
+        <header className="squad-agent-modal-head">
+          <div>
+            <span className="squad-chat-eyebrow">Agent Squad</span>
+            <strong>Create a custom agent</strong>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close">
+            <X size={16} />
+          </button>
+        </header>
+        <p className="squad-agent-modal-intro">
+          Define a specialist agent. NetJarvis delegates to it behind the scenes with read-only network tools, scoped to what you
+          describe. Call it in chat with <code>@handle</code>.
+        </p>
+
+        <label className="squad-agent-field">
+          <span>Agent name</span>
+          <input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="e.g. Wireless Agent"
+            autoFocus
+            maxLength={60}
+          />
+        </label>
+
+        <label className="squad-agent-field">
+          <span>Description</span>
+          <textarea
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+            placeholder="What is this agent responsible for? e.g. Wireless LAN health: APs, RF, clients, roaming."
+            rows={2}
+            maxLength={400}
+          />
+        </label>
+
+        <label className="squad-agent-field">
+          <span>Capabilities</span>
+          <textarea
+            value={capabilities}
+            onChange={(event) => setCapabilities(event.target.value)}
+            placeholder="What should it be able to do? e.g. Check AP status, client counts, interference, and summarize RF health."
+            rows={3}
+            maxLength={600}
+          />
+        </label>
+
+        {error ? <p className="squad-agent-error">{error}</p> : null}
+
+        <footer className="squad-agent-modal-foot">
+          <button type="button" className="squad-agent-cancel" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="submit" className="squad-agent-submit" disabled={!name.trim() || busy}>
+            {busy ? <Loader2 size={14} className="squad-chat-spinner" /> : <Plus size={14} />}
+            Create agent
+          </button>
+        </footer>
+      </form>
+    </div>
   );
 }
 
@@ -512,26 +746,14 @@ function ChatMessageRow({
           {isUser ? <MessageText text={entry.text} /> : <Markdown text={entry.text} />}
         </div>
         {!isUser ? (
-          <ChatOutputAttachments
-            artifacts={entry.artifacts || (entry.artifact ? [entry.artifact] : [])}
-            replyText={entry.text}
-            technical={entry.technical}
-          />
+          <ChatOutputAttachments artifacts={entry.artifacts || (entry.artifact ? [entry.artifact] : [])} technical={entry.technical} />
         ) : null}
       </div>
     </article>
   );
 }
 
-function ChatOutputAttachments({
-  artifacts,
-  replyText,
-  technical,
-}: {
-  artifacts: JarvisArtifact[];
-  replyText: string;
-  technical?: string;
-}) {
+function ChatOutputAttachments({ artifacts, technical }: { artifacts: JarvisArtifact[]; technical?: string }) {
   const unique = dedupeArtifacts(artifacts);
   if (unique.length === 0) return null;
   return (
@@ -541,30 +763,16 @@ function ChatOutputAttachments({
           key={`${artifact.title}-${index}`}
           artifact={artifact}
           technical={index === unique.length - 1 ? technical : undefined}
-          replyText={index === 0 ? replyText : ""}
         />
       ))}
     </>
   );
 }
 
-function ChatOutputAttachment({
-  artifact,
-  technical,
-  replyText,
-}: {
-  artifact: JarvisArtifact;
-  technical?: string;
-  replyText?: string;
-}) {
+function ChatOutputAttachment({ artifact, technical }: { artifact: JarvisArtifact; technical?: string }) {
   const [showTechnical, setShowTechnical] = useState(false);
   const [copied, setCopied] = useState(false);
-  const split = splitArtifactOutput(artifact);
-  const techText = technical || split.technical;
-  const narrative =
-    artifact.kind === "code"
-      ? ""
-      : split.narrative || (replyText ? summarizeReply(replyText) : "");
+  const techText = technical || splitArtifactOutput(artifact).technical;
 
   async function copyOutput(event: MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
@@ -573,49 +781,38 @@ function ChatOutputAttachment({
     window.setTimeout(() => setCopied(false), 1500);
   }
 
-  if (!techText && !narrative) return null;
+  // The human summary already lives in the reply bubble above; this card carries
+  // only the raw technical output, collapsed by default.
+  if (!techText) return null;
+  const lineCount = techText.split("\n").length;
 
   return (
     <div className="squad-chat-attachment">
       <header className="squad-chat-attachment-head">
         <div>
           <strong>{artifact.title}</strong>
-          <span>{artifact.kind === "code" ? "CLI output" : artifact.kind}</span>
+          <span>{artifact.kind === "code" ? "CLI output" : `${artifact.kind} · ${lineCount} lines`}</span>
         </div>
-        {techText ? (
-          <button type="button" className="squad-chat-attachment-copy" onClick={(event) => void copyOutput(event)} title="Copy technical output">
-            <Copy size={12} />
-            {copied ? "Copied" : "Copy"}
-          </button>
-        ) : null}
+        <button type="button" className="squad-chat-attachment-copy" onClick={(event) => void copyOutput(event)} title="Copy technical output">
+          <Copy size={12} />
+          {copied ? "Copied" : "Copy"}
+        </button>
       </header>
 
-      {narrative ? (
-        <section className="squad-chat-attachment-section">
-          <small className="squad-chat-attachment-label">Summary</small>
-          <p className="squad-chat-attachment-narrative">{narrative}</p>
-        </section>
-      ) : null}
-
-      {techText ? (
-        <section className="squad-chat-attachment-section">
-          {!showTechnical ? (
-            <button type="button" className="squad-chat-attachment-toggle" onClick={() => setShowTechnical(true)}>
-              Show technical output
+      <section className="squad-chat-attachment-section">
+        {!showTechnical ? (
+          <button type="button" className="squad-chat-attachment-toggle" onClick={() => setShowTechnical(true)}>
+            Show technical output
+          </button>
+        ) : (
+          <>
+            <pre className="squad-chat-attachment-body">{techText}</pre>
+            <button type="button" className="squad-chat-attachment-toggle" onClick={() => setShowTechnical(false)}>
+              Hide technical output
             </button>
-          ) : (
-            <>
-              <div className="squad-chat-attachment-tech-head">
-                <small className="squad-chat-attachment-label">Technical output</small>
-              </div>
-              <pre className="squad-chat-attachment-body">{techText}</pre>
-              <button type="button" className="squad-chat-attachment-toggle" onClick={() => setShowTechnical(false)}>
-                Hide technical output
-              </button>
-            </>
-          )}
-        </section>
-      ) : null}
+          </>
+        )}
+      </section>
     </div>
   );
 }
@@ -630,14 +827,6 @@ function dedupeArtifacts(artifacts: JarvisArtifact[]): JarvisArtifact[] {
     result.push(artifact);
   }
   return result;
-}
-
-function summarizeReply(text: string): string {
-  const lines = text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith("```") && !line.startsWith("#"));
-  return lines.slice(0, 4).join(" ");
 }
 
 function MessageText({ text }: { text: string }) {
