@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { ChevronLeft, ChevronRight, Copy, Hash, Loader2, Maximize2, Minimize2, Send, Sparkles, Users } from "lucide-react";
 import type { JarvisConnectionState, TranscriptEntry } from "../lib/realtime";
-import { artifactPreviewText, artifactTechnicalText } from "../lib/observability";
+import { splitArtifactOutput } from "../lib/observability";
 import { buildMemberMentions, filterMemberMentions, splitMentionText, type SquadMention } from "../lib/squadMentions";
 import { expandSlashCommand, filterSlashCommands, type SlashCommand } from "../lib/squadSlashCommands";
 import type { AgentOrg, JarvisArtifact } from "../vite-env";
@@ -27,6 +27,7 @@ type ChatMessage = {
   text: string;
   at: string;
   artifact?: JarvisArtifact;
+  artifacts?: JarvisArtifact[];
   technical?: string;
 };
 
@@ -86,6 +87,7 @@ export function SquadChatPanel({
           text: entry.text,
           at: entry.at,
           artifact: entry.artifact,
+          artifacts: entry.artifacts,
           technical: entry.technical,
         })),
     [sessionLog],
@@ -484,45 +486,120 @@ function ChatMessageRow({
         <div className={`squad-chat-bubble ${isUser ? "squad-chat-bubble-user" : "squad-chat-bubble-agent"}`}>
           <MessageText text={entry.text} />
         </div>
-        {!isUser && entry.artifact ? <ChatOutputAttachment artifact={entry.artifact} technical={entry.technical} /> : null}
+        {!isUser ? (
+          <ChatOutputAttachments
+            artifacts={entry.artifacts || (entry.artifact ? [entry.artifact] : [])}
+            replyText={entry.text}
+            technical={entry.technical}
+          />
+        ) : null}
       </div>
     </article>
   );
 }
 
-function ChatOutputAttachment({ artifact, technical }: { artifact: JarvisArtifact; technical?: string }) {
-  const [expandedOutput, setExpandedOutput] = useState(false);
+function ChatOutputAttachments({
+  artifacts,
+  replyText,
+  technical,
+}: {
+  artifacts: JarvisArtifact[];
+  replyText: string;
+  technical?: string;
+}) {
+  if (artifacts.length === 0) return null;
+  return (
+    <>
+      {artifacts.map((artifact, index) => (
+        <ChatOutputAttachment
+          key={`${artifact.title}-${index}`}
+          artifact={artifact}
+          technical={index === artifacts.length - 1 ? technical : undefined}
+          replyText={index === 0 ? replyText : ""}
+        />
+      ))}
+    </>
+  );
+}
+
+function ChatOutputAttachment({
+  artifact,
+  technical,
+  replyText,
+}: {
+  artifact: JarvisArtifact;
+  technical?: string;
+  replyText?: string;
+}) {
+  const [showTechnical, setShowTechnical] = useState(false);
   const [copied, setCopied] = useState(false);
-  const fullText = technical || artifactTechnicalText(artifact);
-  const preview = artifactPreviewText(artifact, expandedOutput ? 40 : 5);
+  const split = splitArtifactOutput(artifact);
+  const techText = technical || split.technical;
+  const narrative =
+    artifact.kind === "code"
+      ? ""
+      : split.narrative || (replyText ? summarizeReply(replyText) : "");
 
   async function copyOutput(event: MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
-    await navigator.clipboard.writeText(fullText);
+    await navigator.clipboard.writeText(techText);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1500);
   }
+
+  if (!techText && !narrative) return null;
 
   return (
     <div className="squad-chat-attachment">
       <header className="squad-chat-attachment-head">
         <div>
           <strong>{artifact.title}</strong>
-          <span>{artifact.kind}</span>
+          <span>{artifact.kind === "code" ? "CLI output" : artifact.kind}</span>
         </div>
-        <button type="button" className="squad-chat-attachment-copy" onClick={(event) => void copyOutput(event)} title="Copy output">
-          <Copy size={12} />
-          {copied ? "Copied" : "Copy"}
-        </button>
+        {techText ? (
+          <button type="button" className="squad-chat-attachment-copy" onClick={(event) => void copyOutput(event)} title="Copy technical output">
+            <Copy size={12} />
+            {copied ? "Copied" : "Copy"}
+          </button>
+        ) : null}
       </header>
-      <pre className="squad-chat-attachment-body">{preview}</pre>
-      {fullText.split("\n").length > 5 ? (
-        <button type="button" className="squad-chat-attachment-toggle" onClick={() => setExpandedOutput((value) => !value)}>
-          {expandedOutput ? "Show less" : "Show more"}
-        </button>
+
+      {narrative ? (
+        <section className="squad-chat-attachment-section">
+          <small className="squad-chat-attachment-label">Summary</small>
+          <p className="squad-chat-attachment-narrative">{narrative}</p>
+        </section>
+      ) : null}
+
+      {techText ? (
+        <section className="squad-chat-attachment-section">
+          {!showTechnical ? (
+            <button type="button" className="squad-chat-attachment-toggle" onClick={() => setShowTechnical(true)}>
+              Show technical output
+            </button>
+          ) : (
+            <>
+              <div className="squad-chat-attachment-tech-head">
+                <small className="squad-chat-attachment-label">Technical output</small>
+              </div>
+              <pre className="squad-chat-attachment-body">{techText}</pre>
+              <button type="button" className="squad-chat-attachment-toggle" onClick={() => setShowTechnical(false)}>
+                Hide technical output
+              </button>
+            </>
+          )}
+        </section>
       ) : null}
     </div>
   );
+}
+
+function summarizeReply(text: string): string {
+  const lines = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("```") && !line.startsWith("#"));
+  return lines.slice(0, 4).join(" ");
 }
 
 function MessageText({ text }: { text: string }) {

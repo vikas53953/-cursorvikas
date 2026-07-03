@@ -41,6 +41,55 @@ export function artifactPreviewText(artifact: JarvisArtifact, maxLines = 5): str
   return `${lines.slice(0, maxLines).join("\n")}\n…`;
 }
 
+export function splitArtifactOutput(artifact: JarvisArtifact): { narrative: string; technical: string } {
+  if (artifact.kind === "code") {
+    return { narrative: "", technical: artifact.content };
+  }
+
+  if (artifact.kind === "table") {
+    return {
+      narrative: artifact.title,
+      technical: artifactTechnicalText(artifact),
+    };
+  }
+
+  if (artifact.kind === "markdown") {
+    const codeBlocks: string[] = [];
+    const stripped = artifact.content.replace(/```[\w-]*\n?([\s\S]*?)```/g, (_match, body: string) => {
+      if (body?.trim()) codeBlocks.push(body.trim());
+      return "";
+    });
+
+    const narrativeLines: string[] = [];
+    const technicalLines: string[] = [];
+
+    for (const line of stripped.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      if (trimmed.startsWith("#")) {
+        narrativeLines.push(trimmed.replace(/^#+\s*/, ""));
+      } else if (trimmed.startsWith("- ") || trimmed.startsWith("|") || trimmed.startsWith("##")) {
+        technicalLines.push(line);
+      } else {
+        narrativeLines.push(line);
+      }
+    }
+
+    const technical = [...technicalLines, ...codeBlocks].filter(Boolean).join("\n").trim();
+    const narrative = narrativeLines.join("\n").trim();
+
+    return {
+      narrative: narrative || artifactNarrativeText(artifact),
+      technical: technical || artifact.content,
+    };
+  }
+
+  return {
+    narrative: artifactNarrativeText(artifact),
+    technical: artifactTechnicalText(artifact),
+  };
+}
+
 export function formatToolTechnical(name: string, args: Record<string, unknown>): string {
   if (name === "run_show_command") {
     const device = String(args.device || "all");

@@ -17,6 +17,7 @@ export type TranscriptEntry = {
   text: string;
   at: string;
   artifact?: JarvisArtifact;
+  artifacts?: JarvisArtifact[];
   technical?: string;
 };
 

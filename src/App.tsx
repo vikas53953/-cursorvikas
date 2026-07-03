@@ -193,16 +193,18 @@ export default function App() {
       }
 
       const reply = result.text?.trim() || "Done.";
-      const lastArtifact = result.artifacts?.[result.artifacts.length - 1];
+      const artifacts = result.artifacts || [];
       const jarvisEntry: TranscriptEntry = { ...newEntry("jarvis", reply) };
-      if (lastArtifact) {
-        jarvisEntry.artifact = lastArtifact;
-        jarvisEntry.technical = artifactTechnicalText(lastArtifact);
-        setArtifact(lastArtifact);
+      if (artifacts.length > 0) {
+        jarvisEntry.artifacts = artifacts;
+        const primary = artifacts.find((item) => item.kind === "code") || artifacts[artifacts.length - 1];
+        jarvisEntry.artifact = primary;
+        jarvisEntry.technical = artifactTechnicalText(primary);
+        setArtifact(primary);
         setObservabilityEvents((items) =>
           pushObservabilityEvent(items, {
             role: "artifact",
-            narrative: lastArtifact.title,
+            narrative: primary.title,
             technical: jarvisEntry.technical,
             status: "done",
           }),
