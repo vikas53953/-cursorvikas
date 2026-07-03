@@ -10,6 +10,8 @@ type FloatingConsoleProps = {
   mouthShape: MouthShape;
   activity: HudActivity;
   lastHeard: string;
+  speakingText?: string;
+  feed?: string[];
   isConnected: boolean;
   onConnect: () => void;
   onDisconnect: () => void;
@@ -31,6 +33,8 @@ export function FloatingConsole({
   mouthShape,
   activity,
   lastHeard,
+  speakingText = "",
+  feed = [],
   isConnected,
   onConnect,
   onDisconnect,
@@ -44,13 +48,17 @@ export function FloatingConsole({
     connectionState === "connecting" ? "Connecting" : offline ? "Voice off" : STATE_LABEL[mood] || mood;
   const stateClass = connectionState === "connecting" ? "connecting" : offline ? "offline" : mood;
   const statusLine =
-    isConnected && lastHeard
-      ? lastHeard
-      : isConnected && activity.kind !== "idle"
-        ? activity.text
-        : isConnected
-          ? stateLabel
-          : "Hover here to talk";
+    isConnected && speakingText.trim() && (mood === "speaking" || mood === "thinking" || mood === "working")
+      ? speakingText
+      : isConnected && lastHeard
+        ? lastHeard
+        : isConnected && activity.kind !== "idle"
+          ? activity.text
+          : isConnected && feed[0]
+            ? feed[0]
+            : isConnected
+              ? stateLabel
+              : "Hover here to talk";
 
   const rootClass = [
     "voice-dock-minimal",

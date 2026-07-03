@@ -22,7 +22,7 @@ export type TranscriptEntry = {
 };
 
 export type JarvisActivity = {
-  kind: "tool_start" | "tool_done" | "tool_error" | "heard";
+  kind: "tool_start" | "tool_done" | "tool_error" | "heard" | "speaking";
   text: string;
   tool?: string;
   technical?: string;
@@ -298,6 +298,8 @@ export class JarvisRealtimeClient {
     }
 
     if (event.type === "input_audio_buffer.speech_started") {
+      this.currentAssistantText = "";
+      this.callbacks.onActivity?.({ kind: "speaking", text: "" });
       this.callbacks.onMood("listening");
       return;
     }
@@ -323,6 +325,18 @@ export class JarvisRealtimeClient {
       event.type === "response.output_text.delta"
     ) {
       this.currentAssistantText += event.delta || "";
+      if (this.currentAssistantText.trim()) {
+        this.callbacks.onActivity?.({ kind: "speaking", text: this.currentAssistantText });
+      }
+      return;
+    }
+
+    if (event.type === "response.output_audio_transcript.done" || event.type === "response.audio_transcript.done") {
+      const transcript = String(event.transcript || this.currentAssistantText || "").trim();
+      if (transcript) {
+        this.currentAssistantText = transcript;
+        this.callbacks.onActivity?.({ kind: "speaking", text: transcript });
+      }
       return;
     }
 

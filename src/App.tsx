@@ -27,6 +27,8 @@ export default function App() {
   const [mood, setMood] = useState<JarvisMood>("idle");
   const [hudActivity, setHudActivity] = useState<HudActivity>({ kind: "idle", text: "" });
   const [lastHeard, setLastHeard] = useState("");
+  const [speakingText, setSpeakingText] = useState("");
+  const [hudFeed, setHudFeed] = useState<string[]>([]);
   const [artifact, setArtifact] = useState<JarvisArtifact | null>(null);
   const [panelTab, setPanelTab] = useState<RightPanelTab>("dashboard");
   const [panelVisible, setPanelVisible] = useState(true);
@@ -60,6 +62,10 @@ export default function App() {
       onTranscript: (entry) => {
         setTranscript((items) => [entry, ...items].slice(0, 80));
         if (entry.role === "user" || entry.role === "jarvis") {
+          if (entry.role === "jarvis") {
+            setSpeakingText(entry.text);
+            setHudFeed((items) => [`Jarvis: ${entry.text}`, ...items].slice(0, 4));
+          }
           setObservabilityEvents((items) =>
             pushObservabilityEvent(items, {
               role: entry.role === "jarvis" ? "jarvis" : "user",
@@ -98,8 +104,19 @@ export default function App() {
       onActivity: (activity) => {
         if (activity.kind === "heard") {
           setLastHeard(activity.text);
+          setSpeakingText("");
+          setHudFeed((items) => [`You: ${activity.text}`, ...items].slice(0, 4));
+        } else if (activity.kind === "speaking") {
+          setSpeakingText(activity.text);
         } else {
           setHudActivity({ kind: activity.kind, text: activity.text });
+          const feedLine =
+            activity.kind === "tool_start"
+              ? `▶ ${activity.text}`
+              : activity.kind === "tool_error"
+                ? `✗ ${activity.text}`
+                : `✓ ${activity.text}`;
+          setHudFeed((items) => [feedLine, ...items].slice(0, 4));
           setObservabilityEvents((items) =>
             pushObservabilityEvent(items, {
               role: "tool",
@@ -109,18 +126,7 @@ export default function App() {
               status: activity.status || (activity.kind === "tool_start" ? "running" : activity.kind === "tool_error" ? "error" : "done"),
             }),
           );
-          if (activity.kind === "tool_start") {
-            setTaskRefreshToken((value) => value + 1);
-            setPanelVisible(true);
-            if (!squadChatExpandedRef.current) {
-              if (activity.text.toLowerCase().includes("delegate_task") || activity.text.toLowerCase().includes("delegate")) {
-                setPanelTab("team");
-              } else {
-                setPanelTab("observability");
-              }
-            }
-          }
-          if (activity.kind === "tool_done" || activity.kind === "tool_error") {
+          if (activity.kind === "tool_start" || activity.kind === "tool_done" || activity.kind === "tool_error") {
             setTaskRefreshToken((value) => value + 1);
           }
         }
@@ -142,6 +148,8 @@ export default function App() {
     setMood("idle");
     setMouthShape({ open: 0, width: 0.18, round: 0, teeth: 0 });
     setLastHeard("");
+    setSpeakingText("");
+    setHudFeed([]);
     setHudActivity({ kind: "idle", text: "" });
     setTranscript((items) => [newEntry("system", "Voice disconnected."), ...items].slice(0, 80));
   }
@@ -252,7 +260,14 @@ export default function App() {
         </section>
 
         <footer className="bottom-console">
-          <Hud connectionState={connectionState} mood={mood} activity={hudActivity} lastHeard={lastHeard} />
+          <Hud
+            connectionState={connectionState}
+            mood={mood}
+            activity={hudActivity}
+            lastHeard={lastHeard}
+            speakingText={speakingText}
+            feed={hudFeed}
+          />
           {showTypeInput ? (
             <section className="prompt-box">
               <input
@@ -366,6 +381,8 @@ export default function App() {
           mouthShape={mouthShape}
           activity={hudActivity}
           lastHeard={lastHeard}
+          speakingText={speakingText}
+          feed={hudFeed}
           isConnected={isConnected}
           onConnect={() => void connect()}
           onDisconnect={disconnect}
