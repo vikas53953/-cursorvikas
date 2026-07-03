@@ -21,8 +21,9 @@ npm run build
 ### Roll back only the UI polish commit (keep later fixes)
 
 ```bash
-git revert <ui-polish-commit-sha> --no-edit
+git revert d35ad64 --no-edit
 npm run build
+# restart web server
 ```
 
 ## What the rollback point includes
