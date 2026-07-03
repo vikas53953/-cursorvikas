@@ -6,6 +6,7 @@ import { CliOutputView } from "./CliOutput";
 import { Markdown } from "./Markdown";
 import { buildMemberMentions, filterMemberMentions, registerMemberHandles, splitMentionText, type SquadMention } from "../lib/squadMentions";
 import { expandSlashCommand, filterSlashCommands, type SlashCommand } from "../lib/squadSlashCommands";
+import { composeActionLabel } from "../lib/composeActionLabel";
 import type { AgentOrg, CustomAgent, JarvisArtifact } from "../vite-env";
 
 export type SquadChatTarget = {
@@ -106,6 +107,7 @@ export function SquadChatPanel({
   );
   const busy = sending || chatBusy;
   const voiceLive = connectionState === "connected";
+  const actionLabel = composeActionLabel(draft, busy);
 
   const mentionSuggestions = picker?.kind === "mention" ? filterMemberMentions(members, picker.query) : [];
   const slashSuggestions = picker?.kind === "slash" ? filterSlashCommands(picker.query) : [];
@@ -463,12 +465,13 @@ export function SquadChatPanel({
               </small>
               <button
                 type="button"
-                className="squad-chat-send-btn"
+                className={`squad-chat-send-btn ${busy ? "squad-chat-send-btn-busy" : ""}`}
                 onClick={() => void submit()}
                 disabled={busy || !draft.trim()}
-                aria-label="Send message"
+                aria-label={actionLabel}
               >
-                {busy ? <Loader2 size={16} className="squad-chat-spinner" /> : <Send size={16} />}
+                {busy ? <Loader2 size={14} className="squad-chat-spinner" aria-hidden="true" /> : <Send size={14} aria-hidden="true" />}
+                <span>{actionLabel}</span>
               </button>
             </div>
           </div>
@@ -792,42 +795,44 @@ function ChatOutputAttachment({ artifact, technical }: { artifact: JarvisArtifac
   const lineCount = (hasSession ? fullText : techText).split("\n").length;
 
   return (
-    <div className="squad-chat-attachment">
-      <header className="squad-chat-attachment-head">
+    <article className="squad-chat-attachment ui-card" aria-label={`Technical output: ${artifact.title}`}>
+      <header className="squad-chat-attachment-head ui-card-head">
         <div>
-          <strong>{artifact.title}</strong>
-          <span>{hasSession ? "Technical session" : artifact.kind === "code" ? "CLI output" : `${artifact.kind} · ${lineCount} lines`}</span>
+          <h5 className="ui-section-title">{artifact.title}</h5>
+          <span className={`ui-badge ${hasSession ? "ui-badge-accent" : "ui-badge-neutral"}`}>
+            {hasSession ? "Session" : artifact.kind === "code" ? "CLI" : artifact.kind}
+          </span>
         </div>
-        <button type="button" className="squad-chat-attachment-copy" onClick={(event) => void copyOutput(event)} title="Copy technical output">
-          <Copy size={12} />
+        <button type="button" className="ui-btn-ghost squad-chat-attachment-copy" onClick={(event) => void copyOutput(event)} aria-label="Copy technical output">
+          <Copy size={12} aria-hidden="true" />
           {copied ? "Copied" : "Copy"}
         </button>
       </header>
 
-      <section className="squad-chat-attachment-section">
+      <section className="squad-chat-attachment-section ui-card-body">
         {!showTechnical ? (
-          <button type="button" className="squad-chat-attachment-toggle" onClick={() => setShowTechnical(true)}>
-            Show technical output
+          <button type="button" className="ui-btn-secondary squad-chat-attachment-toggle" onClick={() => setShowTechnical(true)}>
+            View output · {lineCount} lines
           </button>
         ) : (
           <>
             {hasSession ? (
-              <div className="squad-chat-attachment-scene">
-                <strong>Behind the scenes</strong>
+              <details className="squad-chat-attachment-scene" open>
+                <summary className="ui-section-label">Behind the scenes</summary>
                 <pre>{splitArtifactOutput(artifact).narrative}</pre>
-              </div>
+              </details>
             ) : null}
             <div className="squad-chat-attachment-cli">
-              <strong>{hasSession ? "CLI output" : "Output"}</strong>
+              <span className="ui-section-label">{hasSession ? "CLI output" : "Output"}</span>
               <CliOutputView text={techText} />
             </div>
-            <button type="button" className="squad-chat-attachment-toggle" onClick={() => setShowTechnical(false)}>
-              Hide technical output
+            <button type="button" className="ui-btn-ghost squad-chat-attachment-toggle" onClick={() => setShowTechnical(false)}>
+              Hide output
             </button>
           </>
         )}
       </section>
-    </div>
+    </article>
   );
 }
 

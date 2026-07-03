@@ -20,7 +20,7 @@ export function CliOutputView({ text }: { text: string }) {
                 <thead>
                   <tr>
                     {block.table.headers.map((header) => (
-                      <th key={header}>{header}</th>
+                      <th scope="col" key={header}>{header}</th>
                     ))}
                   </tr>
                 </thead>
