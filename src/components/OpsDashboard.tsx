@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import type { TranscriptEntry } from "../lib/realtime";
-import type { DashboardSnapshot } from "../vite-env";
+import type { DashboardSnapshot, TeamTask } from "../vite-env";
 
 const REFRESH_MS = 30000;
 
@@ -11,6 +11,7 @@ type OpsDashboardProps = {
 
 export function OpsDashboard({ sessionLog = [] }: OpsDashboardProps) {
   const [snapshot, setSnapshot] = useState<DashboardSnapshot | null>(null);
+  const [tasks, setTasks] = useState<TeamTask[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const timerRef = useRef<number>(0);
@@ -20,13 +21,17 @@ export function OpsDashboard({ sessionLog = [] }: OpsDashboardProps) {
   const load = useCallback(async (force: boolean) => {
     setLoading(true);
     try {
-      const data = await window.jarvis.getDashboard({ force });
+      const [data, taskData] = await Promise.all([
+        window.jarvis.getDashboard({ force }),
+        window.jarvis.getTasks(),
+      ]);
       if (data.error) {
         setError(data.error);
       } else {
         setSnapshot(data);
         setError(data.liveError || data.staleError || null);
       }
+      setTasks(Array.isArray(taskData) ? taskData.slice(0, 8) : []);
     } catch (loadError) {
       // Keep the last good snapshot on screen and retry soon; transient
       // tunnel/proxy hiccups should self-heal without user action.
@@ -159,6 +164,23 @@ export function OpsDashboard({ sessionLog = [] }: OpsDashboardProps) {
               <li key={index} className={link.status === "up" ? "" : "dash-link-down"}>
                 <span>{link.source}</span> {shortPort(link.sourcePort)} — {shortPort(link.targetPort)} <span>{link.target}</span>
                 <em>{link.status}</em>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {tasks.length > 0 ? (
+        <section className="dash-section">
+          <h3>Agent activity</h3>
+          <ul className="dash-list dash-session">
+            {tasks.map((task) => (
+              <li key={task.id} className={`dash-session-${task.status === "in_progress" ? "tool" : "system"}`}>
+                <time>{task.updatedAt.slice(11, 16)}</time>
+                <strong>{task.executor === "jarvis" ? "Jarvis" : task.teamName}</strong>
+                <span>
+                  {task.title} ({task.status.replace("_", " ")})
+                </span>
               </li>
             ))}
           </ul>

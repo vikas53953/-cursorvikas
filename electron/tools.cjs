@@ -9,6 +9,14 @@ const fs = require("node:fs/promises");
 const source = require("./network-source.cjs");
 const nvd = require("./sources/nvd.cjs");
 const checks = require("./checks.cjs");
+const artifacts = require("./artifacts.cjs");
+const tickets = require("./tickets.cjs");
+const trends = require("./problem-trends.cjs");
+const mail = require("./mail.cjs");
+const prometheus = require("./sources/prometheus.cjs");
+const snmp = require("./sources/snmp.cjs");
+const { createScheduler } = require("./scheduler.cjs");
+const { createAlertWatcher } = require("./alert-watcher.cjs");
 const { createAgents } = require("./agents.cjs");
 const logger = require("./logger.cjs");
 
@@ -39,12 +47,21 @@ Talk like a sharp NOC colleague, not a chatbot. Confident, concise, calm. Lead w
 - Use web_search only for outside-world questions (vendor advisories, outage news).
 - Use note_add for shift or handoff notes.
 
-# Your team (delegation)
-You are the SME lead of a NOC team with specialist agents: data (switching, routing, STP, VLANs, interfaces, capacity), firewall, loadbalancer, proxy, incident (active alert triage), and problem (root-cause and trends).
-- When a request is deep domain work, an investigation, or the engineer asks for a team or a handoff, announce it briefly ("Handing this to the Data agent") and call delegate_task with the team and a precise task. The task appears live on the Team Board (Kanban) tab; the specialist investigates with read-only tools and returns a report, which you then summarize aloud.
-- Delegation takes 15-60 seconds; the tool blocks until the specialist finishes, so you will have the result in the same turn.
-- For quick facts (one show command, a health check), answer yourself instead of delegating.
+# Your team (hierarchy and delegation)
+You are the SME lead. Your org chart (shown on the left panel):
+- Data Team: Data Network Agent (switching, routing, STP, VLANs, interfaces, capacity)
+- Security Team: Firewall Agent, Proxy Agent, Load Balancer Agent
+- Incident Management: Change Management Agent, Incident Management Agent, Problem Management Agent
+Every tool you run AND every delegation appears live on the Team Board and the agent roster on the left.
+- Deep investigations or explicit handoffs: announce briefly ("Handing this to the Data agent") and call delegate_task. Teams: data, firewall, loadbalancer, proxy, change, incident, problem.
+- Delegation blocks 15-60s until the specialist finishes; summarize the report aloud.
+- Quick facts (one show command, a health check): run the tool yourself - it still shows on the board under the routed specialist team.
 - Use team_board when the engineer asks what the team is working on.
+- Use incident_ticket_open / incident_ticket_list for formal incident records.
+- Use problem_trends for recurring-issue history from accumulated snapshots.
+- Use send_email when the engineer wants email delivery (not just copy-paste). SMTP must be configured in .env.local.
+- Use shift_briefing for an on-demand shift rundown (scheduled briefings also run automatically).
+- Use multi_source_status to report Catalyst Center plus optional Prometheus/SNMP adapters.
 
 # Pre-checks and comparisons
 - "Run a pre-check" or "take a snapshot": call precheck_capture with a label like "pre-maintenance". It records device health, all interfaces, and error counters.
@@ -221,11 +238,11 @@ const toolSpecs = [
   {
     type: "function",
     name: "delegate_task",
-    description: "Hand a task off to a specialist agent on your team. The task shows up on the Team Board (Kanban); the specialist investigates with read-only network tools and returns a written report. Blocks until done (15-60s). Teams: data (switching/routing/STP/VLANs/interfaces/capacity), firewall, loadbalancer, proxy, incident (alert triage), problem (root cause/trends).",
+    description: "Hand a task off to a specialist agent on your team. The task shows up on the Team Board (Kanban) and the left agent roster; the specialist investigates with read-only network tools and returns a written report. Blocks until done (15-60s). Teams: data (switching/routing/STP/VLANs/interfaces/capacity), firewall, loadbalancer, proxy, change (pre/post checks), incident (alert triage/tickets), problem (root cause/trends).",
     parameters: {
       type: "object",
       properties: {
-        team: { type: "string", enum: ["data", "firewall", "loadbalancer", "proxy", "incident", "problem"] },
+        team: { type: "string", enum: ["data", "firewall", "loadbalancer", "proxy", "change", "incident", "problem"] },
         task: { type: "string", description: "Precise task for the specialist, e.g. 'Check spanning tree health across all switches: root bridge, blocked ports, any loops or flapping.'" },
       },
       required: ["team", "task"],
@@ -330,6 +347,68 @@ const toolSpecs = [
   },
   {
     type: "function",
+    name: "incident_ticket_open",
+    description: "Open a formal incident ticket in the Incident Management Agent ticket store. Use when triaging a real incident that needs tracking.",
+    parameters: {
+      type: "object",
+      properties: {
+        title: { type: "string" },
+        severity: { type: "string", enum: ["low", "medium", "high", "critical"] },
+        device: { type: "string" },
+        summary: { type: "string" },
+        sourceAlertId: { type: "string" },
+      },
+      required: ["title", "summary"],
+      additionalProperties: false,
+    },
+  },
+  {
+    type: "function",
+    name: "incident_ticket_list",
+    description: "List open and recent incident tickets from the Incident Management Agent ticket store.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    type: "function",
+    name: "problem_trends",
+    description: "Problem Management Agent: trend history built from accumulated pre-check snapshots (health score, down interfaces, error counter totals over time).",
+    parameters: {
+      type: "object",
+      properties: {
+        limit: { type: "number", minimum: 2, maximum: 30 },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    type: "function",
+    name: "send_email",
+    description: "Send a report by SMTP email (not copy-paste). Requires SMTP_HOST, SMTP_USER, SMTP_PASS in .env.local.",
+    parameters: {
+      type: "object",
+      properties: {
+        to: { type: "string" },
+        subject: { type: "string" },
+        body: { type: "string" },
+      },
+      required: ["to", "subject", "body"],
+      additionalProperties: false,
+    },
+  },
+  {
+    type: "function",
+    name: "shift_briefing",
+    description: "Run an on-demand shift briefing: network overview headlines plus active issues. Scheduled automatic briefings also run in the background.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    type: "function",
+    name: "multi_source_status",
+    description: "Report status across all configured data sources: Catalyst Center (primary), plus optional Prometheus and SNMP adapters.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    type: "function",
     name: "note_add",
     description: "Add a shift note or handoff note to the local notes board.",
     parameters: {
@@ -345,11 +424,17 @@ const toolSpecs = [
 ];
 
 function createTools({ readDb, updateDb }) {
-  const agents = createAgents({ executeTool: (name, args) => execute(name, args), toolSpecs });
+  const agents = createAgents({
+    executeTool: (name, args, context) => execute(name, args, context),
+    toolSpecs,
+  });
 
-  async function execute(name, args) {
+  let scheduler;
+  const alertWatcher = createAlertWatcher({ getSnapshot: source.getSnapshot });
+
+  async function execute(name, args, context = {}) {
     const started = Date.now();
-    const result = await executeInner(name, args);
+    const result = await executeInner(name, args, context);
     logger.log("tool.execute", {
       tool: name,
       args,
@@ -359,10 +444,25 @@ function createTools({ readDb, updateDb }) {
       artifactKind: result.artifact?.kind,
       artifactTitle: result.artifact?.title,
     });
+    if (result.artifact?.title && result.artifact?.content) {
+      const route = agents.TOOL_ROUTING?.[name];
+      const saved = await artifacts.saveArtifact({
+        tool: name,
+        team: route?.team || "jarvis",
+        artifact: result.artifact,
+      });
+      if (saved) {
+        result.artifactId = saved.id;
+        result.artifact = { ...result.artifact, downloadUrl: saved.downloadUrl, downloadName: saved.downloadName || result.artifact.downloadName };
+      }
+    }
+    if (!context.skipActivity) {
+      await agents.recordJarvisActivity(name, args, result);
+    }
     return result;
   }
 
-  async function executeInner(name, args) {
+  async function executeInner(name, args, context = {}) {
     try {
       switch (name) {
         case "network_overview":
@@ -411,6 +511,18 @@ function createTools({ readDb, updateDb }) {
           return await showMenu();
         case "web_search":
           return await webSearch(args);
+        case "incident_ticket_open":
+          return await incidentTicketOpen(args);
+        case "incident_ticket_list":
+          return await incidentTicketList();
+        case "problem_trends":
+          return await problemTrends(args);
+        case "send_email":
+          return await sendEmailTool(args);
+        case "shift_briefing":
+          return await shiftBriefing(context);
+        case "multi_source_status":
+          return await multiSourceStatus();
         case "note_add":
           return await noteAdd(args);
         default:
@@ -970,6 +1082,116 @@ function createTools({ readDb, updateDb }) {
     };
   }
 
+  async function incidentTicketOpen(args) {
+    const ticket = await tickets.openTicket(args);
+    const lines = [
+      `# Incident ticket opened`,
+      "",
+      `- Id: ${ticket.id}`,
+      `- Title: ${ticket.title}`,
+      `- Severity: ${ticket.severity}`,
+      `- Device: ${ticket.device || "n/a"}`,
+      "",
+      ticket.summary,
+    ];
+    return {
+      ok: true,
+      ticket,
+      artifact: { title: `Ticket ${ticket.id}`, kind: "markdown", content: lines.join("\n") },
+    };
+  }
+
+  async function incidentTicketList() {
+    const list = await tickets.listTickets();
+    const open = list.filter((ticket) => ticket.status === "open");
+    return {
+      ok: true,
+      count: list.length,
+      open: open.length,
+      tickets: list.slice(0, 20),
+      artifact: { title: "Incident Tickets", kind: "table", content: JSON.stringify(list.slice(0, 20)) },
+    };
+  }
+
+  async function problemTrends(args) {
+    const history = await trends.buildTrendHistory(Number(args.limit) || 12);
+    const lines = ["# Problem trend history", "", `Snapshots analyzed: ${history.snapshotCount}`, ""];
+    if (history.points.length > 0) {
+      lines.push("## Timeline");
+      for (const point of history.points) {
+        lines.push(`- ${point.label} (${point.at.slice(0, 16)}): health ${point.healthScore ?? "n/a"}%, down ifaces ${point.downInterfaces}, error counters ${point.errorCounterTotal}`);
+      }
+    }
+    if (history.trends.length > 0) {
+      lines.push("", "## Detected shifts");
+      for (const trend of history.trends) {
+        lines.push(`- ${trend.from} -> ${trend.to}: ${trend.changes.join("; ")}`);
+      }
+    } else {
+      lines.push("", "No significant shifts detected between snapshots yet. Run more pre-checks to build trend history.");
+    }
+    return {
+      ok: true,
+      ...history,
+      artifact: { title: "Problem Trend History", kind: "markdown", content: lines.join("\n") },
+    };
+  }
+
+  async function sendEmailTool(args) {
+    const outcome = await mail.sendEmail(args);
+    if (!outcome.ok) return outcome;
+    return {
+      ok: true,
+      messageId: outcome.messageId,
+      artifact: {
+        title: `Email sent: ${args.subject}`,
+        kind: "markdown",
+        content: `# Email sent\n\n- To: ${args.to}\n- Subject: ${args.subject}\n- Message id: ${outcome.messageId}`,
+      },
+    };
+  }
+
+  async function shiftBriefing(context = {}) {
+    const snapshot = await source.getSnapshot();
+    const markdown = overviewMarkdown(snapshot);
+    const prefix = context.scheduled ? "# Scheduled shift briefing\n\n" : "# Shift briefing\n\n";
+    return {
+      ok: true,
+      scheduled: Boolean(context.scheduled),
+      overall: snapshot.overall,
+      healthScore: snapshot.health?.score,
+      activeIssues: snapshot.issues?.active,
+      artifact: { title: context.scheduled ? "Scheduled Shift Briefing" : "Shift Briefing", kind: "markdown", content: prefix + markdown },
+    };
+  }
+
+  async function multiSourceStatus() {
+    const snapshot = await source.getSnapshot();
+    const prom = await prometheus.getSummary();
+    const snmpStatus = await snmp.getSummary();
+    const lines = [
+      "# Multi-source status",
+      "",
+      `## Catalyst Center (${snapshot.mode === "live" ? "LIVE" : "SIM"})`,
+      `- Overall: ${snapshot.overall}`,
+      `- Devices: ${snapshot.devices?.length || 0}`,
+      `- Active issues: ${snapshot.issues?.active || 0}`,
+      "",
+      "## Prometheus",
+      prom.ok ? `- Targets: ${prom.targets}, up ${prom.up}, down ${prom.down}` : `- ${prom.error || "not configured"}`,
+      "",
+      "## SNMP",
+      snmpStatus.ok ? `- Host: ${snmpStatus.host} (${snmpStatus.note})` : `- ${snmpStatus.error || "not configured"}`,
+    ];
+    return {
+      ok: true,
+      catalyst: { mode: snapshot.mode, overall: snapshot.overall },
+      prometheus: prom,
+      snmp: snmpStatus,
+      artifact: { title: "Multi-source Status", kind: "markdown", content: lines.join("\n") },
+    };
+  }
+
   async function noteAdd(args) {
     const { db, result } = await updateDb(async (current) => {
       const note = {
@@ -988,7 +1210,31 @@ function createTools({ readDb, updateDb }) {
     };
   }
 
-  return { toolSpecs, instructions: JARVIS_INSTRUCTIONS, execute, getSnapshot: source.getSnapshot, listTasks: agents.listTasks };
+  scheduler = createScheduler({
+    runBriefing: async () => {
+      const result = await execute("shift_briefing", {}, { scheduled: true });
+      return { title: result.artifact?.title, overall: result.overall };
+    },
+  });
+
+  function startBackgroundServices() {
+    scheduler.start();
+    alertWatcher.start();
+  }
+
+  return {
+    toolSpecs,
+    instructions: JARVIS_INSTRUCTIONS,
+    execute,
+    getSnapshot: source.getSnapshot,
+    listTasks: agents.listTasks,
+    getOrg: agents.getOrg,
+    listArtifacts: artifacts.listArtifacts,
+    getArtifactDownload: artifacts.getDownload,
+    scheduler,
+    alertWatcher,
+    startBackgroundServices,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -1153,11 +1399,23 @@ Current source: **${mode === "live" ? "LIVE" : "SIMULATED"}** - ${sourceLabel}
 - "Any vulnerabilities on these switches?"
 - "Any recent CVEs for this IOS-XE version?"
 
-## Team delegation (Kanban)
+## Team delegation (Kanban + left agent roster)
 
 - "Hand this to the data team: full spanning tree health check."
 - "Ask the incident agent to triage the current alerts."
+- "Ask change management to run a pre-check."
 - "What is the team working on?" (or open the Team Board tab)
+
+## Incident and problem management
+
+- "Open an incident ticket for sw2 reachability flap."
+- "Show me open incident tickets."
+- "What trends do you see across our pre-check snapshots?"
+
+## Email and multi-source
+
+- "Email this report to noc@company.com."
+- "What data sources are you watching?" (Catalyst Center + Prometheus + SNMP)
 
 ## Pre-checks and comparisons
 

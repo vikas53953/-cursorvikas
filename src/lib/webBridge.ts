@@ -1,4 +1,4 @@
-import type { DashboardSnapshot, JarvisToolCall, JarvisToolResult, JarvisToolSpec, TeamTask } from "../vite-env";
+import type { AgentOrg, ArtifactRecord, DashboardSnapshot, JarvisToolCall, JarvisToolResult, JarvisToolSpec, ProactiveEvent, TeamTask } from "../vite-env";
 
 // When the app runs in a plain browser (web mode) there is no Electron
 // preload, so window.jarvis is missing. This shim provides the same surface
@@ -58,6 +58,10 @@ export function installWebBridge(): void {
     getToolSpecs: () => getJson<JarvisToolSpec[]>("/api/tools/list"),
     getDashboard: (options?: { force?: boolean }) => getJson<DashboardSnapshot>(`/api/dashboard${options?.force ? "?force=1" : ""}`),
     getTasks: () => getJson<TeamTask[]>("/api/tasks"),
+    getOrg: () => getJson<AgentOrg>("/api/org"),
+    listArtifacts: () => getJson<ArtifactRecord[]>("/api/artifacts"),
+    getProactiveEvents: () => getJson<ProactiveEvent[]>("/api/proactive/pending"),
+    markProactiveSpoken: (id: string) => postJson<{ ok: boolean }>(`/api/proactive/${encodeURIComponent(id)}/spoken`, {}),
     logEvent: logSafe,
   };
 }

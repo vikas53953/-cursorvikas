@@ -1,9 +1,9 @@
-import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import mermaid from "mermaid";
 import { OpsDashboard } from "./OpsDashboard";
 import { TeamBoard } from "./TeamBoard";
 import type { TranscriptEntry } from "../lib/realtime";
-import type { JarvisArtifact, TeamTask } from "../vite-env";
+import type { ArtifactRecord, JarvisArtifact, TeamTask } from "../vite-env";
 
 export type RightPanelTab = "dashboard" | "team" | "reports";
 
@@ -60,8 +60,24 @@ mermaid.initialize({
 
 export function ArtifactPanel({ artifact, tab, onTabChange, visible, fullscreen, onToggleVisible, onToggleFullscreen, sessionLog }: ArtifactPanelProps) {
   const [mermaidState, setMermaidState] = useState<MermaidState>({ svg: "", error: null, source: "" });
+  const [history, setHistory] = useState<ArtifactRecord[]>([]);
   const rawId = useId();
   const mermaidId = useMemo(() => `mermaid-${rawId.replace(/[^a-zA-Z0-9_-]/g, "")}`, [rawId]);
+
+  const loadHistory = useCallback(async () => {
+    try {
+      const items = await window.jarvis.listArtifacts();
+      setHistory(Array.isArray(items) ? items : []);
+    } catch {
+      // Keep last good history.
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadHistory();
+    const timer = window.setInterval(() => void loadHistory(), 8000);
+    return () => window.clearInterval(timer);
+  }, [loadHistory, artifact?.title]);
 
   useEffect(() => {
     let cancelled = false;
@@ -140,9 +156,15 @@ export function ArtifactPanel({ artifact, tab, onTabChange, visible, fullscreen,
         ) : tab === "team" ? (
           <TeamBoard />
         ) : artifact ? (
-          renderArtifact(artifact, mermaidState)
+          <>
+            <ArtifactHistory history={history} />
+            {renderArtifact(artifact, mermaidState)}
+          </>
         ) : (
-          <EmptyArtifact />
+          <>
+            <ArtifactHistory history={history} />
+            <EmptyArtifact />
+          </>
         )}
       </div>
     </aside>
@@ -187,6 +209,13 @@ function ArtifactActions({ artifact }: { artifact: JarvisArtifact }) {
   }
 
   function download() {
+    if (artifact.downloadUrl) {
+      const anchor = document.createElement("a");
+      anchor.href = artifact.downloadUrl;
+      anchor.download = artifact.downloadName || "";
+      anchor.click();
+      return;
+    }
     const isTable = artifact.kind === "table";
     const content = isTable ? plainText() : artifact.content;
     const name =
@@ -228,6 +257,28 @@ function tableToCsv(rows: Array<Record<string, unknown>>): string {
     return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
   };
   return [keys.map(escape).join(","), ...rows.map((row) => keys.map((key) => escape(row[key])).join(","))].join("\r\n");
+}
+
+function ArtifactHistory({ history }: { history: ArtifactRecord[] }) {
+  if (history.length === 0) return null;
+  return (
+    <section className="artifact-history">
+      <h3>Downloadable artifacts</h3>
+      <ul>
+        {history.slice(0, 12).map((item) => (
+          <li key={item.id}>
+            <div>
+              <span>{item.title}</span>
+              <time> {item.createdAt.slice(11, 16)}</time>
+            </div>
+            <a href={item.downloadUrl} download={item.downloadName || undefined}>
+              Download
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
 }
 
 function EmptyArtifact() {

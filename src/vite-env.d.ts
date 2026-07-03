@@ -23,6 +23,11 @@ export type TeamTask = {
   id: string;
   team: string;
   teamName: string;
+  group?: string;
+  groupName?: string;
+  executor?: string;
+  source?: "jarvis_direct" | "delegated";
+  tool?: string | null;
   title: string;
   request?: string;
   status: "queued" | "in_progress" | "done" | "failed";
@@ -31,6 +36,39 @@ export type TeamTask = {
   steps?: Array<{ ts: string; text: string }>;
   result?: string | null;
   error?: string | null;
+  artifactId?: string | null;
+  artifactTitle?: string | null;
+};
+
+export type AgentOrg = {
+  jarvis: { id: string; name: string; role: string };
+  groups: Array<{
+    id: string;
+    name: string;
+    agents: Array<{ id: string; name: string; scope?: string }>;
+  }>;
+};
+
+export type ArtifactRecord = {
+  id: string;
+  tool: string;
+  team: string;
+  title: string;
+  kind: string;
+  createdAt: string;
+  downloadUrl: string;
+  downloadName?: string | null;
+};
+
+export type ProactiveEvent = {
+  id: string;
+  type: string;
+  at: string;
+  headline: string;
+  message: string;
+  overall?: string;
+  activeIssues?: number;
+  spoken?: boolean;
 };
 
 export type JarvisToolSpec = {
@@ -126,6 +164,10 @@ declare global {
       getToolSpecs: () => Promise<JarvisToolSpec[]>;
       getDashboard: (options?: { force?: boolean }) => Promise<DashboardSnapshot>;
       getTasks: () => Promise<TeamTask[]>;
+      getOrg: () => Promise<AgentOrg>;
+      listArtifacts: () => Promise<ArtifactRecord[]>;
+      getProactiveEvents: () => Promise<ProactiveEvent[]>;
+      markProactiveSpoken: (id: string) => Promise<{ ok: boolean }>;
       logEvent: (event: Record<string, unknown>) => Promise<void>;
     };
   }

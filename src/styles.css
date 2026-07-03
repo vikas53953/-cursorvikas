@@ -64,10 +64,194 @@ button:disabled {
 .companion-window {
   position: relative;
   display: grid;
-  grid-template-rows: 1fr auto;
+  grid-template-rows: auto 1fr auto;
   min-width: 0;
   overflow: hidden;
   border-right: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.agent-roster {
+  display: grid;
+  gap: 10px;
+  max-height: 220px;
+  padding: 14px 16px 8px;
+  overflow: auto;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.agent-roster-jarvis .agent-node {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.agent-node strong {
+  display: block;
+  font-size: 13px;
+}
+
+.agent-node small {
+  color: #8b93a5;
+  font-size: 10px;
+}
+
+.agent-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 8px rgba(74, 222, 128, 0.5);
+}
+
+.agent-node-jarvis.agent-mood-working .agent-dot,
+.agent-node-active .agent-dot,
+.agent-node-active {
+  animation: agent-pulse 1.6s ease-in-out infinite;
+}
+
+.agent-group h3,
+.agent-feed h3 {
+  margin: 0 0 6px;
+  color: #8b93a5;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.agent-group ul,
+.agent-feed ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.agent-group li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #c5ccda;
+  font-size: 11px;
+}
+
+.agent-name {
+  flex: 1;
+}
+
+.agent-active-badge {
+  min-width: 18px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(125, 162, 255, 0.2);
+  color: #9fb4e8;
+  font-size: 10px;
+  font-style: normal;
+  text-align: center;
+}
+
+.agent-feed {
+  margin-top: 4px;
+}
+
+.agent-feed li {
+  display: grid;
+  grid-template-columns: 42px 72px 1fr;
+  gap: 6px;
+  align-items: baseline;
+  color: #aeb7c8;
+  font-size: 10px;
+}
+
+.agent-feed li time {
+  color: #6ef2be;
+}
+
+.agent-feed li strong {
+  color: #dbe4f4;
+  font-size: 10px;
+}
+
+.agent-feed-in_progress {
+  color: #9fb4e8;
+}
+
+.agent-feed-failed {
+  color: #ff8a9a;
+}
+
+.agent-feed-empty {
+  margin: 0;
+  color: #6d7685;
+  font-size: 10px;
+}
+
+@keyframes agent-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.kanban-meta {
+  margin: 0;
+  color: #6d7685;
+  font-size: 10px;
+}
+
+.artifact-history {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.artifact-history h3 {
+  margin: 0;
+  color: #8b93a5;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.artifact-history ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.artifact-history li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 11px;
+}
+
+.artifact-history li span {
+  color: #c5ccda;
+}
+
+.artifact-history li time {
+  color: #6d7685;
+  font-size: 10px;
+}
+
+.artifact-history button {
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #dbe4f4;
+  font-size: 10px;
 }
 
 .artifact-panel {

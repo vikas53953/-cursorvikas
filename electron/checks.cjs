@@ -181,4 +181,4 @@ async function compareSnapshots(beforeRef, afterRef) {
   return { before: { id: before.id, label: before.label, at: before.at }, after: { id: after.id, label: after.label, at: after.at }, totalChanges: total, changes };
 }
 
-module.exports = { captureSnapshot, compareSnapshots, listSnapshots };
+module.exports = { captureSnapshot, compareSnapshots, listSnapshots, loadSnapshot };

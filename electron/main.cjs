@@ -11,6 +11,7 @@ const { createTools } = require("./tools.cjs");
 const { createRealtimeToken } = require("./realtime-token.cjs");
 
 const tools = createTools({ readDb: db.readDb, updateDb: db.updateDb });
+tools.startBackgroundServices();
 let mainWindow = null;
 
 function asObject(value) {
@@ -72,6 +73,28 @@ ipcMain.handle("tasks:list", async () => {
   } catch {
     return [];
   }
+});
+
+ipcMain.handle("org:get", () => tools.getOrg());
+
+ipcMain.handle("artifacts:list", async () => {
+  try {
+    return await tools.listArtifacts();
+  } catch {
+    return [];
+  }
+});
+
+ipcMain.handle("proactive:pending", async () => {
+  try {
+    return await tools.alertWatcher.pendingEvents();
+  } catch {
+    return [];
+  }
+});
+
+ipcMain.handle("proactive:spoken", async (_event, id) => {
+  return tools.alertWatcher.markSpoken(String(id || ""));
 });
 
 ipcMain.handle("dashboard:snapshot", async (_event, options) => {

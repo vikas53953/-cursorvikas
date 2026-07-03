@@ -76,6 +76,8 @@ export class JarvisRealtimeClient {
   private currentAssistantText = "";
   private toolSpecs: JarvisToolSpec[] = [];
   private toolRunning = false;
+  private proactiveTimer = 0;
+  private spokenProactive = new Set<string>();
   private audioContext: AudioContext | null = null;
   private outputMeterFrame = 0;
   private smoothedMouthShape: MouthShape = silentMouthShape();
@@ -119,6 +121,7 @@ export class JarvisRealtimeClient {
         this.callbacks.onMood("idle");
         this.callbacks.onStatus("NetJarvis is live. Ask how your network is doing.");
         logEvent("rt.connect.data_channel_open");
+        this.startProactiveWatcher();
       });
       dc.addEventListener("message", (event) => {
         void this.handleServerEvent(event.data);
@@ -159,6 +162,7 @@ export class JarvisRealtimeClient {
   }
 
   disconnect(): void {
+    this.stopProactiveWatcher();
     this.dc?.close();
     this.pc?.close();
     this.micStream?.getTracks().forEach((track) => track.stop());
@@ -315,6 +319,32 @@ export class JarvisRealtimeClient {
         output: JSON.stringify(sanitizeToolResult(result)),
       },
     });
+  }
+
+  private startProactiveWatcher(): void {
+    this.stopProactiveWatcher();
+    const poll = async () => {
+      if (!this.dc || this.dc.readyState !== "open" || this.toolRunning) return;
+      try {
+        const events = await window.jarvis.getProactiveEvents();
+        for (const event of events) {
+          if (!event?.id || this.spokenProactive.has(event.id)) continue;
+          this.spokenProactive.add(event.id);
+          this.callbacks.onStatus(`Proactive alert: ${event.headline}`);
+          this.sendText(`[SYSTEM ALERT - speak immediately, 2 sentences max] ${event.message}`);
+          void window.jarvis.markProactiveSpoken(event.id);
+        }
+      } catch {
+        // Proactive polling must never break voice.
+      }
+    };
+    void poll();
+    this.proactiveTimer = window.setInterval(() => void poll(), 30000);
+  }
+
+  private stopProactiveWatcher(): void {
+    if (this.proactiveTimer) window.clearInterval(this.proactiveTimer);
+    this.proactiveTimer = 0;
   }
 
   private sendEvent(event: Record<string, unknown>): void {

@@ -8,21 +8,21 @@ const COLUMNS: Array<{ key: TeamTask["status"][]; title: string; className: stri
 ];
 
 const TEAM_BADGE: Record<string, string> = {
+  jarvis: "JARVIS",
   data: "DATA",
   firewall: "FW",
   loadbalancer: "LB",
   proxy: "PROXY",
+  change: "CHG",
   incident: "INC",
   problem: "PRB",
 };
 
 type TeamBoardProps = {
-  // When provided (taskBoard artifact), renders statically; otherwise
-  // self-refreshes from the task API.
   staticTasks?: TeamTask[];
 };
 
-// Kanban view of NetJarvis's delegations to the specialist agents.
+// Kanban view of every NetJarvis tool run and specialist delegation.
 export function TeamBoard({ staticTasks }: TeamBoardProps) {
   const [tasks, setTasks] = useState<TeamTask[]>(staticTasks || []);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +42,7 @@ export function TeamBoard({ staticTasks }: TeamBoardProps) {
   useEffect(() => {
     if (!isLive) return;
     void load();
-    timerRef.current = window.setInterval(() => void load(), 5000);
+    timerRef.current = window.setInterval(() => void load(), 3000);
     return () => window.clearInterval(timerRef.current);
   }, [isLive, load]);
 
@@ -52,7 +52,7 @@ export function TeamBoard({ staticTasks }: TeamBoardProps) {
         <p>
           {error
             ? `Team board error: ${error}`
-            : "No delegated tasks yet. Ask NetJarvis to hand work to the team, e.g. \u201cHand this to the data team: full spanning tree health check.\u201d Tasks move across this board as agents work them."}
+            : "No activity yet. Every tool NetJarvis runs and every delegation appears here: vulnerability checks, pre-checks, CLI commands, exports, and specialist handoffs."}
         </p>
       </div>
     );
@@ -84,11 +84,13 @@ function TaskCard({ task }: { task: TeamTask }) {
   const [expanded, setExpanded] = useState(false);
   const failed = task.status === "failed";
   const steps = task.steps || [];
+  const delegated = task.source === "delegated";
 
   function copyAsEmail() {
     const subject = `[NOC] ${task.teamName}: ${task.title}`;
     const body = [
       `Team: ${task.teamName}`,
+      `Executor: ${task.executor === "jarvis" ? "NetJarvis" : task.teamName}`,
       `Task: ${task.request || task.title}`,
       `Status: ${task.status}${failed && task.error ? ` (${task.error})` : ""}`,
       `Opened: ${task.createdAt}`,
@@ -101,6 +103,14 @@ function TaskCard({ task }: { task: TeamTask }) {
     void navigator.clipboard.writeText(`Subject: ${subject}\n\n${body}`);
   }
 
+  function downloadArtifact() {
+    if (!task.artifactId) return;
+    const anchor = document.createElement("a");
+    anchor.href = `/api/artifacts/${task.artifactId}/download`;
+    anchor.download = "";
+    anchor.click();
+  }
+
   return (
     <article className={`kanban-card kanban-card-${task.status}`}>
       <header>
@@ -108,6 +118,11 @@ function TaskCard({ task }: { task: TeamTask }) {
         <small>{task.id}</small>
       </header>
       <p className="kanban-title">{task.title}</p>
+      <p className="kanban-meta">
+        {delegated ? "Delegated" : "Jarvis direct"}
+        {task.tool ? ` · ${task.tool}` : ""}
+        {task.groupName ? ` · ${task.groupName}` : ""}
+      </p>
       {task.status === "in_progress" && steps.length > 0 ? <p className="kanban-step">{steps[steps.length - 1].text}</p> : null}
       {failed ? <p className="kanban-error">{task.error}</p> : null}
       {expanded ? (
@@ -130,6 +145,7 @@ function TaskCard({ task }: { task: TeamTask }) {
           {steps.length > 0 || task.result ? (
             <button onClick={() => setExpanded((value) => !value)}>{expanded ? "Less" : "Detail"}</button>
           ) : null}
+          {task.artifactId ? <button onClick={downloadArtifact}>Download</button> : null}
           {task.result ? <button onClick={copyAsEmail}>Copy email</button> : null}
         </div>
       </footer>

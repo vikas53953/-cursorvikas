@@ -6,5 +6,9 @@ contextBridge.exposeInMainWorld("jarvis", {
   getToolSpecs: () => ipcRenderer.invoke("tools:list"),
   getDashboard: (options) => ipcRenderer.invoke("dashboard:snapshot", options),
   getTasks: () => ipcRenderer.invoke("tasks:list"),
+  getOrg: () => ipcRenderer.invoke("org:get"),
+  listArtifacts: () => ipcRenderer.invoke("artifacts:list"),
+  getProactiveEvents: () => ipcRenderer.invoke("proactive:pending"),
+  markProactiveSpoken: (id) => ipcRenderer.invoke("proactive:spoken", id),
   logEvent: (event) => ipcRenderer.invoke("log:event", event),
 });

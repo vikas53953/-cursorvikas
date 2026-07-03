@@ -24,6 +24,7 @@ const { createTools } = require("../electron/tools.cjs");
 const { createRealtimeToken } = require("../electron/realtime-token.cjs");
 
 const tools = createTools({ readDb: db.readDb, updateDb: db.updateDb });
+tools.startBackgroundServices();
 const distDir = path.join(process.cwd(), "dist");
 const port = Number(process.env.PORT || 8080);
 
@@ -118,6 +119,46 @@ async function handleApi(request, response, url) {
 
   if (request.method === "GET" && url.pathname === "/api/tasks") {
     return sendJson(response, 200, await tools.listTasks());
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/org") {
+    return sendJson(response, 200, tools.getOrg());
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/artifacts") {
+    const limit = Number(url.searchParams.get("limit") || 40);
+    return sendJson(response, 200, await tools.listArtifacts(limit));
+  }
+
+  if (request.method === "GET" && url.pathname.startsWith("/api/artifacts/") && url.pathname.endsWith("/download")) {
+    const id = path.basename(url.pathname.replace(/\/download$/, ""));
+    const download = await tools.getArtifactDownload(id);
+    if (!download) {
+      return sendJson(response, 404, { error: `No such artifact: ${id}` });
+    }
+    response.writeHead(200, {
+      "Content-Type": download.mime,
+      "Content-Disposition": `attachment; filename="${download.filename}"`,
+    });
+    response.end(download.body);
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/proactive/pending") {
+    return sendJson(response, 200, await tools.alertWatcher.pendingEvents());
+  }
+
+  if (request.method === "POST" && url.pathname.startsWith("/api/proactive/") && url.pathname.endsWith("/spoken")) {
+    const id = path.basename(url.pathname.replace(/\/spoken$/, ""));
+    return sendJson(response, 200, await tools.alertWatcher.markSpoken(id));
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/scheduler/briefing") {
+    return sendJson(response, 200, await tools.scheduler.run("api"));
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/scheduler/status") {
+    return sendJson(response, 200, tools.scheduler.status());
   }
 
   if (request.method === "GET" && url.pathname.startsWith("/api/exports/")) {
