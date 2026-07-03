@@ -35,8 +35,8 @@ export function FloatingConsole({
   onExitFullscreen,
 }: FloatingConsoleProps) {
   return (
-    <div className="floating-console" role="toolbar" aria-label="Voice controls">
-      <Hud connectionState={connectionState} mood={mood} activity={activity} lastHeard={lastHeard} />
+    <div className={`floating-console ${showTypeInput ? "floating-console-expanded" : ""}`} role="toolbar" aria-label="Voice controls">
+      <Hud connectionState={connectionState} mood={mood} activity={activity} lastHeard={lastHeard} compact />
       {showTypeInput ? (
         <section className="floating-prompt">
           <input

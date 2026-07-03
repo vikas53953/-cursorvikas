@@ -11,6 +11,7 @@ type HudProps = {
   activity: HudActivity;
   lastHeard: string;
   floating?: boolean;
+  compact?: boolean;
 };
 
 const STATE_LABEL: Record<string, string> = {
@@ -25,14 +26,15 @@ const STATE_LABEL: Record<string, string> = {
 // Always-visible heads-up display: what state Jarvis is in, what it heard,
 // and which command is running right now. `floating` renders a compact
 // overlay so Jarvis stays visible even when the panel is fullscreen.
-export function Hud({ connectionState, mood, activity, lastHeard, floating = false }: HudProps) {
+export function Hud({ connectionState, mood, activity, lastHeard, floating = false, compact = false }: HudProps) {
   const offline = connectionState !== "connected";
   const stateLabel =
     connectionState === "connecting" ? "Connecting..." : offline ? "Voice off - press the mic" : STATE_LABEL[mood] || mood;
   const stateClass = offline ? "offline" : mood;
+  const hudClass = compact || floating ? "hud hud-floating hud-compact" : "hud";
 
   return (
-    <div className={floating ? "hud hud-floating" : "hud"}>
+    <div className={hudClass}>
       <div className={`hud-state hud-state-${stateClass}`}>
         <span className="hud-dot" />
         <strong>{stateLabel}</strong>

@@ -4,8 +4,20 @@ import { ArtifactPanel, type RightPanelTab } from "./components/ArtifactPanel";
 import { FloatingConsole } from "./components/FloatingConsole";
 import { Hud, type HudActivity } from "./components/Hud";
 import { NetworkCore } from "./components/NetworkCore";
+import type { ObservabilityEvent } from "./components/ObservabilityPanel";
 import { JarvisRealtimeClient, newEntry, type JarvisConnectionState, type JarvisMood, type MouthShape, type TranscriptEntry } from "./lib/realtime";
 import type { JarvisArtifact } from "./vite-env";
+
+function pushObservabilityEvent(events: ObservabilityEvent[], event: Omit<ObservabilityEvent, "id" | "at">): ObservabilityEvent[] {
+  return [
+    {
+      id: crypto.randomUUID(),
+      at: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" }),
+      ...event,
+    },
+    ...events,
+  ].slice(0, 80);
+}
 
 export default function App() {
   const [connectionState, setConnectionState] = useState<JarvisConnectionState>("idle");
@@ -24,6 +36,7 @@ export default function App() {
   ]);
   const [textPrompt, setTextPrompt] = useState("");
   const [taskRefreshToken, setTaskRefreshToken] = useState(0);
+  const [observabilityEvents, setObservabilityEvents] = useState<ObservabilityEvent[]>([]);
   const clientRef = useRef<JarvisRealtimeClient | null>(null);
 
   const isConnected = connectionState === "connected";
@@ -33,25 +46,61 @@ export default function App() {
       onConnectionState: setConnectionState,
       onMood: setMood,
       onMouthShape: setMouthShape,
-      onTranscript: (entry) => setTranscript((items) => [entry, ...items].slice(0, 80)),
+      onTranscript: (entry) => {
+        setTranscript((items) => [entry, ...items].slice(0, 80));
+        if (entry.role === "user" || entry.role === "jarvis") {
+          setObservabilityEvents((items) =>
+            pushObservabilityEvent(items, {
+              role: entry.role === "jarvis" ? "jarvis" : "user",
+              narrative: entry.text,
+              status: "done",
+            }),
+          );
+        }
+      },
       onArtifact: (nextArtifact) => {
         setArtifact(nextArtifact);
+        setObservabilityEvents((items) =>
+          pushObservabilityEvent(items, {
+            role: "artifact",
+            narrative: nextArtifact.title,
+            technical: nextArtifact.content.slice(0, 4000),
+            status: "done",
+          }),
+        );
         setPanelVisible(true);
         setPanelTab("observability");
         if (nextArtifact.fullscreen) setPanelFullscreen(true);
       },
       onStatus: (message) => {
         setTranscript((items) => [newEntry("system", message), ...items].slice(0, 80));
+        setObservabilityEvents((items) =>
+          pushObservabilityEvent(items, {
+            role: "system",
+            narrative: message,
+            status: "done",
+          }),
+        );
       },
       onActivity: (activity) => {
         if (activity.kind === "heard") {
           setLastHeard(activity.text);
         } else {
           setHudActivity({ kind: activity.kind, text: activity.text });
+          setObservabilityEvents((items) =>
+            pushObservabilityEvent(items, {
+              role: "tool",
+              narrative: activity.text,
+              technical: activity.technical,
+              tool: activity.tool,
+              status: activity.status || (activity.kind === "tool_start" ? "running" : activity.kind === "tool_error" ? "error" : "done"),
+            }),
+          );
           if (activity.kind === "tool_start") {
             setTaskRefreshToken((value) => value + 1);
+            setPanelVisible(true);
+            setPanelTab("observability");
             if (activity.text.toLowerCase().includes("delegate_task") || activity.text.toLowerCase().includes("delegate")) {
-              setPanelVisible(true);
               setPanelTab("team");
             }
           }
@@ -188,6 +237,7 @@ export default function App() {
         sessionLog={transcript}
         mood={mood}
         taskRefreshToken={taskRefreshToken}
+        observabilityEvents={observabilityEvents}
       />
 
       {panelFullscreen ? (

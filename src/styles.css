@@ -1869,14 +1869,52 @@ td {
   width: min(420px, calc(100vw - 36px));
   padding: 10px;
   border-radius: 12px;
-  background: rgba(6, 9, 8, 0.96);
-  border: 1px solid rgba(110, 242, 190, 0.35);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.65);
+  background: rgba(6, 9, 8, 0.82);
+  border: 1px solid rgba(110, 242, 190, 0.22);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
   pointer-events: auto;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.floating-console:hover,
+.floating-console:focus-within,
+.floating-console-expanded {
+  background: rgba(6, 9, 8, 0.96);
+  border-color: rgba(110, 242, 190, 0.35);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.65);
 }
 
 .floating-console .hud {
   width: 100%;
+}
+
+.floating-console .floating-controls {
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition: opacity 0.18s ease, max-height 0.2s ease;
+}
+
+.floating-console .floating-prompt {
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition: opacity 0.18s ease, max-height 0.2s ease;
+}
+
+.floating-console:hover .floating-controls,
+.floating-console:focus-within .floating-controls,
+.floating-console-expanded .floating-controls,
+.floating-console-expanded .floating-prompt {
+  opacity: 1;
+  max-height: 120px;
+  pointer-events: auto;
+}
+
+.floating-console-expanded .floating-prompt {
+  display: grid;
 }
 
 .floating-controls {
@@ -1922,6 +1960,14 @@ td {
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.04);
   color: #f6f7fb;
+}
+
+.hud-compact .hud-line p {
+  font-size: 11px;
+}
+
+.hud-compact .hud-state strong {
+  font-size: 12px;
 }
 
 /* Agent visual states */
@@ -2218,7 +2264,8 @@ td {
   min-height: calc(100vh - 120px);
 }
 
-.agent-roster-board {
+.agent-roster-board,
+.agent-squad {
   display: grid;
   gap: 12px;
   align-content: start;
@@ -2228,6 +2275,54 @@ td {
   border: 1px solid rgba(255, 255, 255, 0.08);
   max-height: calc(100vh - 140px);
   overflow: auto;
+}
+
+.agent-squad-header {
+  display: grid;
+  gap: 10px;
+}
+
+.agent-squad-eyebrow {
+  color: #6ef2be;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.agent-squad .agent-node-jarvis {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(110, 242, 190, 0.08);
+  border: 1px solid rgba(110, 242, 190, 0.2);
+}
+
+.agent-feed-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.agent-feed-list li {
+  display: grid;
+  grid-template-columns: 42px 72px 1fr;
+  gap: 6px;
+  align-items: baseline;
+  color: #aeb7c8;
+  font-size: 10px;
+}
+
+.agent-feed-list li time {
+  color: #6ef2be;
+}
+
+.agent-feed-list li strong {
+  color: #dbe4f4;
+  font-size: 10px;
 }
 
 .agent-handoff-flow {
@@ -2418,5 +2513,179 @@ td {
 
   .artifacts-table-head {
     display: none;
+  }
+}
+
+/* --- Observability stream -------------------------------------------- */
+
+.observability-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.observability-header h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.observability-header p {
+  margin: 4px 0 0;
+  color: #8b93a5;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.observability-current {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(110, 242, 190, 0.06);
+  border: 1px solid rgba(110, 242, 190, 0.18);
+}
+
+.observability-current header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #8b93a5;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.observability-current h4 {
+  margin: 8px 0 10px;
+  font-size: 14px;
+}
+
+.observability-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: 12px;
+}
+
+.observability-technical,
+.observability-narrative {
+  display: grid;
+  gap: 6px;
+}
+
+.observability-technical small,
+.observability-narrative small {
+  color: #6ef2be;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.observability-technical pre,
+.obs-technical-block pre {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #c5e8d8;
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 280px;
+  overflow: auto;
+}
+
+.observability-narrative div {
+  color: #dbe4f4;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.observability-feed h4 {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: #8b93a5;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.observability-feed ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.obs-entry {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.obs-entry header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 10px;
+}
+
+.obs-entry time {
+  color: #6ef2be;
+}
+
+.obs-entry strong {
+  color: #dbe4f4;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.obs-running {
+  color: #ffd166;
+  font-style: normal;
+}
+
+.obs-narrative {
+  margin: 0;
+  color: #c5ccda;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.obs-technical-block {
+  margin-top: 8px;
+}
+
+.obs-technical-block summary {
+  cursor: pointer;
+  color: #8b93a5;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.obs-entry-tool {
+  border-color: rgba(125, 162, 255, 0.2);
+}
+
+.obs-status-running {
+  border-color: rgba(255, 209, 102, 0.25);
+}
+
+.obs-status-error {
+  border-color: rgba(255, 138, 154, 0.25);
+}
+
+.observability-empty {
+  margin: 0;
+  color: #6d7685;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+@media (max-width: 900px) {
+  .observability-split {
+    grid-template-columns: 1fr;
   }
 }

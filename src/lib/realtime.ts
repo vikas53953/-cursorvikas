@@ -1,4 +1,5 @@
 import type { JarvisArtifact, JarvisToolCall, JarvisToolResult, JarvisToolSpec } from "../vite-env";
+import { formatToolResultTechnical, formatToolTechnical } from "./observability";
 
 export type JarvisConnectionState = "idle" | "connecting" | "connected" | "error";
 export type JarvisMood = "idle" | "listening" | "thinking" | "speaking" | "working" | "error";
@@ -20,6 +21,9 @@ export type TranscriptEntry = {
 export type JarvisActivity = {
   kind: "tool_start" | "tool_done" | "tool_error" | "heard";
   text: string;
+  tool?: string;
+  technical?: string;
+  status?: "running" | "done" | "error";
 };
 
 export type RealtimeCallbacks = {
@@ -289,17 +293,31 @@ export class JarvisRealtimeClient {
       }
 
       const description = describeToolCall(name, parsedArgs);
+      const technical = formatToolTechnical(name, parsedArgs);
       this.callbacks.onTranscript(newEntry("tool", `Running ${description}`));
-      this.callbacks.onActivity?.({ kind: "tool_start", text: description });
+      this.callbacks.onActivity?.({ kind: "tool_start", text: description, tool: name, technical, status: "running" });
       logEvent("rt.tool.call", { tool: name, args: parsedArgs });
       const startedAt = Date.now();
       const result = await window.jarvis.executeTool({ name, arguments: parsedArgs } satisfies JarvisToolCall);
       const seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
       logEvent("rt.tool.result", { tool: name, ok: result.ok !== false, error: result.error });
+      const resultTechnical = formatToolResultTechnical(name, result);
       if (result.ok === false) {
-        this.callbacks.onActivity?.({ kind: "tool_error", text: `${name} failed: ${result.error || result.message || "unknown error"}` });
+        this.callbacks.onActivity?.({
+          kind: "tool_error",
+          text: `${name} failed: ${result.error || result.message || "unknown error"}`,
+          tool: name,
+          technical: resultTechnical,
+          status: "error",
+        });
       } else {
-        this.callbacks.onActivity?.({ kind: "tool_done", text: `${description} done in ${seconds}s` });
+        this.callbacks.onActivity?.({
+          kind: "tool_done",
+          text: `${description} done in ${seconds}s`,
+          tool: name,
+          technical: resultTechnical,
+          status: "done",
+        });
       }
       if (result.artifact) this.callbacks.onArtifact(result.artifact);
       shouldCreateResponse = true;

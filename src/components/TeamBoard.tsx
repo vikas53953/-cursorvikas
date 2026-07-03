@@ -21,7 +21,8 @@ const TEAM_BADGE: Record<string, string> = {
   problem: "PRB",
 };
 
-const PAGE = 20;
+const DONE_INITIAL = 7;
+const DONE_PAGE = 10;
 
 type TeamBoardProps = {
   staticTasks?: TeamTask[];
@@ -33,7 +34,7 @@ type TeamBoardProps = {
 export function TeamBoard({ staticTasks, mood = "idle", active = true, refreshToken = 0 }: TeamBoardProps) {
   const live = useTeamTasks(active && !staticTasks, refreshToken);
   const tasks = staticTasks || live.tasks;
-  const [doneVisible, setDoneVisible] = useState(PAGE);
+  const [doneVisible, setDoneVisible] = useState(DONE_INITIAL);
 
   if (!staticTasks && tasks.length === 0 && !live.error) {
     return (
@@ -78,9 +79,9 @@ export function TeamBoard({ staticTasks, mood = "idle", active = true, refreshTo
       <div className="team-board-main">
         <header className="team-board-toolbar">
           <div>
-            <strong>Task board</strong>
+            <strong>Kanban board</strong>
             <p>
-              {live.storeCount || tasks.length} tasks in store (cap {live.storeCap || 500}) · live sync every 1s
+              {live.storeCount || tasks.length} tasks in store (cap {live.storeCap || 500}) · Done shows latest {DONE_INITIAL} by default
             </p>
           </div>
           <div className="team-board-toolbar-right">
@@ -109,8 +110,8 @@ export function TeamBoard({ staticTasks, mood = "idle", active = true, refreshTo
                   ))}
                 </div>
                 {isDone && doneVisible < items.length ? (
-                  <button className="noc-load-more kanban-load-more" onClick={() => setDoneVisible((count) => count + PAGE)}>
-                    Load more ({items.length - doneVisible} in Done)
+                  <button className="noc-load-more kanban-load-more" onClick={() => setDoneVisible((count) => count + DONE_PAGE)}>
+                    Load more ({items.length - doneVisible} older in Done)
                   </button>
                 ) : null}
               </section>

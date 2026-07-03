@@ -3,6 +3,7 @@ import mermaid from "mermaid";
 import { OpsDashboard } from "./OpsDashboard";
 import { TeamBoard } from "./TeamBoard";
 import { ArtifactsPanel } from "./ArtifactsPanel";
+import { ObservabilityPanel, type ObservabilityEvent } from "./ObservabilityPanel";
 import type { TranscriptEntry } from "../lib/realtime";
 import type { JarvisArtifact, TeamTask } from "../vite-env";
 
@@ -19,6 +20,7 @@ type ArtifactPanelProps = {
   sessionLog: TranscriptEntry[];
   mood: import("../lib/realtime").JarvisMood;
   taskRefreshToken: number;
+  observabilityEvents: ObservabilityEvent[];
 };
 
 type MermaidState = {
@@ -61,7 +63,7 @@ mermaid.initialize({
   securityLevel: "strict",
 });
 
-export function ArtifactPanel({ artifact, tab, onTabChange, visible, fullscreen, onToggleVisible, onToggleFullscreen, sessionLog, mood, taskRefreshToken }: ArtifactPanelProps) {
+export function ArtifactPanel({ artifact, tab, onTabChange, visible, fullscreen, onToggleVisible, onToggleFullscreen, sessionLog, mood, taskRefreshToken, observabilityEvents }: ArtifactPanelProps) {
   const [mermaidState, setMermaidState] = useState<MermaidState>({ svg: "", error: null, source: "" });
   const rawId = useId();
   const mermaidId = useMemo(() => `mermaid-${rawId.replace(/[^a-zA-Z0-9_-]/g, "")}`, [rawId]);
@@ -108,7 +110,7 @@ export function ArtifactPanel({ artifact, tab, onTabChange, visible, fullscreen,
   const titleByTab: Record<RightPanelTab, string> = {
     dashboard: fullscreen ? "NOC Dashboard" : "Dashboard",
     team: "Team Board",
-    observability: artifact?.title || "Live Observability",
+    observability: "Live Observability",
     artifacts: "Artifacts",
   };
 
@@ -159,11 +161,7 @@ export function ArtifactPanel({ artifact, tab, onTabChange, visible, fullscreen,
         ) : tab === "artifacts" ? (
           <ArtifactsPanel />
         ) : tab === "observability" ? (
-          artifact ? (
-            renderArtifact(artifact, mermaidState)
-          ) : (
-            <EmptyObservability />
-          )
+          <ObservabilityPanel events={observabilityEvents} artifact={artifact} sessionLog={sessionLog} />
         ) : null}
       </div>
     </aside>
@@ -258,13 +256,6 @@ function tableToCsv(rows: Array<Record<string, unknown>>): string {
   return [keys.map(escape).join(","), ...rows.map((row) => keys.map((key) => escape(row[key])).join(","))].join("\r\n");
 }
 
-function EmptyObservability() {
-  return (
-    <div className="empty-artifact">
-      <p>Live observability stream — output from your current Jarvis session appears here as you speak. Saved downloads are under Artifacts.</p>
-    </div>
-  );
-}
 
 function renderArtifact(artifact: JarvisArtifact, mermaidState: MermaidState) {
   if (artifact.kind === "table") {

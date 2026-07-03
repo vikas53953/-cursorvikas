@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { CollapsibleSection } from "./CollapsibleSection";
 import type { JarvisMood } from "../lib/realtime";
 import type { AgentOrg, TeamTask } from "../vite-env";
 
@@ -9,7 +10,7 @@ type AgentRosterProps = {
 
 type AgentVisualState = "idle" | "active" | "handoff-target";
 
-// Agent hierarchy on Team Board — idle by default, highlights handoff target when working.
+// Network Agent Squad — Jarvis leads specialists on the Team Board left rail.
 export function AgentRoster({ mood = "idle", tasks = [] }: AgentRosterProps) {
   const [org, setOrg] = useState<AgentOrg | null>(null);
   const timerRef = useRef<number>(0);
@@ -29,29 +30,30 @@ export function AgentRoster({ mood = "idle", tasks = [] }: AgentRosterProps) {
   }, [load]);
 
   const handoff = findHandoff(tasks);
-  const recent = tasks.slice(0, 6);
+  const recent = tasks.slice(0, 8);
 
   return (
-    <aside className="agent-roster agent-roster-board">
-      <header className="agent-roster-jarvis">
+    <aside className="agent-squad">
+      <header className="agent-squad-header">
+        <span className="agent-squad-eyebrow">Network Agent Squad</span>
         <div className={`agent-node agent-node-jarvis agent-jarvis-${mood} ${handoff ? "agent-node-handoff-source" : ""}`}>
           <span className={`agent-dot agent-dot-jarvis agent-dot-${mood}`} />
           <div>
             <strong>{org?.jarvis?.name || "NetJarvis"}</strong>
-            <small>{jarvisStateLabel(mood)}</small>
+            <small>Squad Lead · {jarvisStateLabel(mood)}</small>
           </div>
         </div>
       </header>
 
       {handoff ? (
         <div className="agent-handoff-flow">
-          <span className="agent-handoff-arrow">Jarvis handing off →</span>
+          <span className="agent-handoff-arrow">Squad lead handing off →</span>
           <strong>{handoff.teamName}</strong>
           <p>{handoff.title}</p>
           <em className={`agent-handoff-status agent-handoff-${handoff.status}`}>{handoff.status.replace("_", " ")}</em>
         </div>
       ) : (
-        <p className="agent-handoff-idle">All specialists idle. Jarvis listens, then routes work to one agent.</p>
+        <p className="agent-handoff-idle">Squad on standby. Jarvis listens, then assigns one specialist.</p>
       )}
 
       {org?.groups?.map((group) => (
@@ -73,10 +75,9 @@ export function AgentRoster({ mood = "idle", tasks = [] }: AgentRosterProps) {
         </section>
       ))}
 
-      <section className="agent-feed">
-        <h3>Live delegation</h3>
+      <CollapsibleSection title="Live delegation" count={recent.length}>
         {recent.length > 0 ? (
-          <ul>
+          <ul className="agent-feed-list">
             {recent.map((task) => (
               <li key={task.id} className={`agent-feed-${task.status}`}>
                 <time>{task.updatedAt.slice(11, 19)}</time>
@@ -89,9 +90,9 @@ export function AgentRoster({ mood = "idle", tasks = [] }: AgentRosterProps) {
             ))}
           </ul>
         ) : (
-          <p className="agent-feed-empty">Waiting for activity...</p>
+          <p className="agent-feed-empty">No delegations yet.</p>
         )}
-      </section>
+      </CollapsibleSection>
     </aside>
   );
 }
@@ -102,7 +103,7 @@ function jarvisStateLabel(mood: JarvisMood): string {
   if (mood === "speaking") return "Speaking";
   if (mood === "working") return "Delegating / running tools";
   if (mood === "error") return "Error";
-  return "SME Lead · idle";
+  return "Idle";
 }
 
 function findHandoff(tasks: TeamTask[]): TeamTask | null {
