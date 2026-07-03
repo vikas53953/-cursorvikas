@@ -19,6 +19,15 @@ export type JarvisArtifact = {
   downloadName?: string;
 };
 
+export type TaskListResponse = {
+  tasks: TeamTask[];
+  total: number;
+  limit: number;
+  offset: number;
+  storeCap: number;
+  storeCount: number;
+};
+
 export type TeamTask = {
   id: string;
   team: string;
@@ -163,9 +172,9 @@ declare global {
       executeTool: (toolCall: JarvisToolCall) => Promise<JarvisToolResult>;
       getToolSpecs: () => Promise<JarvisToolSpec[]>;
       getDashboard: (options?: { force?: boolean }) => Promise<DashboardSnapshot>;
-      getTasks: () => Promise<TeamTask[]>;
+      getTasks: (options?: { limit?: number; offset?: number; status?: string }) => Promise<TaskListResponse>;
       getOrg: () => Promise<AgentOrg>;
-      listArtifacts: () => Promise<ArtifactRecord[]>;
+      listArtifacts: (limit?: number) => Promise<ArtifactRecord[]>;
       getProactiveEvents: () => Promise<ProactiveEvent[]>;
       markProactiveSpoken: (id: string) => Promise<{ ok: boolean }>;
       logEvent: (event: Record<string, unknown>) => Promise<void>;

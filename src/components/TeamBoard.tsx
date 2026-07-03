@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AgentRoster } from "./AgentRoster";
 import type { TeamTask } from "../vite-env";
 
 const COLUMNS: Array<{ key: TeamTask["status"][]; title: string; className: string }> = [
@@ -18,21 +19,27 @@ const TEAM_BADGE: Record<string, string> = {
   problem: "PRB",
 };
 
+const PAGE = 20;
+
 type TeamBoardProps = {
   staticTasks?: TeamTask[];
 };
 
-// Kanban view of every NetJarvis tool run and specialist delegation.
 export function TeamBoard({ staticTasks }: TeamBoardProps) {
   const [tasks, setTasks] = useState<TeamTask[]>(staticTasks || []);
+  const [storeCount, setStoreCount] = useState(0);
+  const [storeCap, setStoreCap] = useState(500);
+  const [doneVisible, setDoneVisible] = useState(PAGE);
   const [error, setError] = useState<string | null>(null);
   const timerRef = useRef<number>(0);
   const isLive = !staticTasks;
 
   const load = useCallback(async () => {
     try {
-      const data = await window.jarvis.getTasks();
-      setTasks(Array.isArray(data) ? data : []);
+      const data = await window.jarvis.getTasks({ limit: 500 });
+      setTasks(data.tasks || []);
+      setStoreCount(data.storeCount || 0);
+      setStoreCap(data.storeCap || 500);
       setError(null);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : String(loadError));
@@ -46,36 +53,63 @@ export function TeamBoard({ staticTasks }: TeamBoardProps) {
     return () => window.clearInterval(timerRef.current);
   }, [isLive, load]);
 
-  if (tasks.length === 0) {
+  if (!isLive && tasks.length === 0) {
     return (
       <div className="empty-artifact">
-        <p>
-          {error
-            ? `Team board error: ${error}`
-            : "No activity yet. Every tool NetJarvis runs and every delegation appears here: vulnerability checks, pre-checks, CLI commands, exports, and specialist handoffs."}
-        </p>
+        <p>No delegated tasks in this snapshot.</p>
       </div>
     );
   }
 
+  const doneItems = tasks.filter((task) => task.status === "done" || task.status === "failed");
+
   return (
-    <div className="kanban">
-      {COLUMNS.map((column) => {
-        const items = tasks.filter((task) => column.key.includes(task.status));
-        return (
-          <section className={`kanban-column ${column.className}`} key={column.title}>
-            <header>
-              <h3>{column.title}</h3>
-              <span>{items.length}</span>
-            </header>
-            <div className="kanban-cards">
-              {items.map((task) => (
-                <TaskCard task={task} key={task.id} />
-              ))}
-            </div>
-          </section>
-        );
-      })}
+    <div className="team-board-layout">
+      <AgentRoster tasks={tasks} />
+
+      <div className="team-board-main">
+        <header className="team-board-toolbar">
+          <div>
+            <strong>Task board</strong>
+            <p>
+              {storeCount} tasks in store (cap {storeCap}) · showing latest per column
+            </p>
+          </div>
+          {error ? <span className="team-board-error">{error}</span> : null}
+        </header>
+
+        {tasks.length === 0 ? (
+          <div className="empty-artifact team-board-empty">
+            <p>Every tool run and delegation appears here. Ask Jarvis to investigate — you will see Jarvis hand off to the agent on the left.</p>
+          </div>
+        ) : (
+          <div className="kanban">
+            {COLUMNS.map((column) => {
+              const items = tasks.filter((task) => column.key.includes(task.status));
+              const isDone = column.title === "Done";
+              const visible = isDone ? items.slice(0, doneVisible) : items;
+              return (
+                <section className={`kanban-column ${column.className}`} key={column.title}>
+                  <header>
+                    <h3>{column.title}</h3>
+                    <span>{items.length}</span>
+                  </header>
+                  <div className="kanban-cards">
+                    {visible.map((task) => (
+                      <TaskCard task={task} key={task.id} />
+                    ))}
+                  </div>
+                  {isDone && doneVisible < items.length ? (
+                    <button className="noc-load-more kanban-load-more" onClick={() => setDoneVisible((count) => count + PAGE)}>
+                      Load more ({items.length - doneVisible} in Done)
+                    </button>
+                  ) : null}
+                </section>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -119,9 +153,9 @@ function TaskCard({ task }: { task: TeamTask }) {
       </header>
       <p className="kanban-title">{task.title}</p>
       <p className="kanban-meta">
-        {delegated ? "Delegated" : "Jarvis direct"}
+        {delegated ? "Jarvis → " : ""}
+        {task.teamName}
         {task.tool ? ` · ${task.tool}` : ""}
-        {task.groupName ? ` · ${task.groupName}` : ""}
       </p>
       {task.status === "in_progress" && steps.length > 0 ? <p className="kanban-step">{steps[steps.length - 1].text}</p> : null}
       {failed ? <p className="kanban-error">{task.error}</p> : null}
@@ -142,9 +176,7 @@ function TaskCard({ task }: { task: TeamTask }) {
       <footer>
         <time>{task.updatedAt.slice(11, 16)}</time>
         <div className="kanban-actions">
-          {steps.length > 0 || task.result ? (
-            <button onClick={() => setExpanded((value) => !value)}>{expanded ? "Less" : "Detail"}</button>
-          ) : null}
+          {steps.length > 0 || task.result ? <button onClick={() => setExpanded((value) => !value)}>{expanded ? "Less" : "Detail"}</button> : null}
           {task.artifactId ? <button onClick={downloadArtifact}>Download</button> : null}
           {task.result ? <button onClick={copyAsEmail}>Copy email</button> : null}
         </div>

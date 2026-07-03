@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { Activity, History, Keyboard, Mic, MicOff, PanelRight, Send } from "lucide-react";
 import { ArtifactPanel, type RightPanelTab } from "./components/ArtifactPanel";
+import { FloatingConsole } from "./components/FloatingConsole";
 import { Hud, type HudActivity } from "./components/Hud";
 import { NetworkCore } from "./components/NetworkCore";
 import { JarvisRealtimeClient, newEntry, type JarvisConnectionState, type JarvisMood, type MouthShape, type TranscriptEntry } from "./lib/realtime";
@@ -177,7 +178,21 @@ export default function App() {
       />
 
       {panelFullscreen && panelVisible ? (
-        <Hud connectionState={connectionState} mood={mood} activity={hudActivity} lastHeard={lastHeard} floating />
+        <FloatingConsole
+          connectionState={connectionState}
+          mood={mood}
+          activity={hudActivity}
+          lastHeard={lastHeard}
+          isConnected={isConnected}
+          showTypeInput={showTypeInput}
+          textPrompt={textPrompt}
+          onConnect={() => void connect()}
+          onDisconnect={disconnect}
+          onToggleTypeInput={() => setShowTypeInput((value) => !value)}
+          onTextPromptChange={setTextPrompt}
+          onSendText={sendTextPrompt}
+          onExitFullscreen={() => setPanelFullscreen(false)}
+        />
       ) : null}
     </main>
   );

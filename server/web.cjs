@@ -118,7 +118,12 @@ async function handleApi(request, response, url) {
   }
 
   if (request.method === "GET" && url.pathname === "/api/tasks") {
-    return sendJson(response, 200, await tools.listTasks());
+    const options = {
+      limit: url.searchParams.get("limit"),
+      offset: url.searchParams.get("offset"),
+      status: url.searchParams.get("status"),
+    };
+    return sendJson(response, 200, await tools.listTasks(options));
   }
 
   if (request.method === "GET" && url.pathname === "/api/org") {

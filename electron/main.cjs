@@ -67,19 +67,19 @@ ipcMain.handle("tools:execute", async (_event, toolCall) => {
   return tools.execute(name, args);
 });
 
-ipcMain.handle("tasks:list", async () => {
+ipcMain.handle("tasks:list", async (_event, options) => {
   try {
-    return await tools.listTasks();
+    return await tools.listTasks(options || {});
   } catch {
-    return [];
+    return { tasks: [], total: 0, limit: 0, offset: 0, storeCap: 500, storeCount: 0 };
   }
 });
 
 ipcMain.handle("org:get", () => tools.getOrg());
 
-ipcMain.handle("artifacts:list", async () => {
+ipcMain.handle("artifacts:list", async (_event, limit) => {
   try {
-    return await tools.listArtifacts();
+    return await tools.listArtifacts(Number(limit) || 40);
   } catch {
     return [];
   }

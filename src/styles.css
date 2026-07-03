@@ -1855,3 +1855,447 @@ td {
     opacity: 0;
   }
 }
+
+/* --- Floating console (fullscreen voice controls) ---------------------- */
+
+.floating-console {
+  position: fixed;
+  z-index: 40;
+  left: 18px;
+  bottom: 18px;
+  display: grid;
+  gap: 8px;
+  width: min(400px, calc(100vw - 36px));
+}
+
+.floating-controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.floating-controls .simple-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 8px;
+  background: rgba(8, 11, 10, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #e7edf7;
+  font-size: 12px;
+}
+
+.floating-controls .simple-button.active {
+  border-color: rgba(110, 242, 190, 0.45);
+  background: rgba(110, 242, 190, 0.12);
+}
+
+.floating-prompt {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 10px;
+  background: rgba(8, 11, 10, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.floating-prompt input {
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f6f7fb;
+}
+
+/* --- NOC dashboard --------------------------------------------------- */
+
+.noc-dashboard {
+  gap: 10px;
+}
+
+.noc-dashboard-expanded {
+  padding-top: 4px;
+}
+
+.noc-command-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(8, 11, 10, 0.95));
+  border: 1px solid rgba(110, 242, 190, 0.15);
+}
+
+.noc-command-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.noc-command-left strong {
+  display: block;
+  font-size: 15px;
+}
+
+.noc-command-left p {
+  margin: 2px 0 0;
+  color: #8b93a5;
+  font-size: 11px;
+}
+
+.noc-overall {
+  font-style: normal;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.noc-overall-healthy {
+  color: #4ade80;
+}
+
+.noc-overall-degraded,
+.noc-overall-warning {
+  color: #ffd166;
+}
+
+.noc-overall-critical,
+.noc-overall-unhealthy {
+  color: #ff8a9a;
+}
+
+.noc-kpi-ribbon {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.noc-kpi {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  text-align: center;
+}
+
+.noc-kpi strong {
+  font-size: 18px;
+  color: #e7edf7;
+}
+
+.noc-kpi span {
+  color: #8b93a5;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.noc-kpi-alert strong {
+  color: #ffd166;
+}
+
+.noc-section {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+}
+
+.noc-section-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  color: #dbe4f4;
+  text-align: left;
+}
+
+.noc-section-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.noc-section-count {
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(125, 162, 255, 0.18);
+  color: #9fb4e8;
+  font-size: 10px;
+  font-style: normal;
+}
+
+.noc-section-badge {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(255, 91, 114, 0.2);
+  color: #ff8a9a;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.noc-section-body {
+  padding: 12px 14px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.noc-chevron-open {
+  transform: rotate(180deg);
+}
+
+.noc-empty {
+  margin: 0;
+  color: #8b93a5;
+  font-size: 12px;
+}
+
+.noc-table-list li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.noc-device-grid {
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+}
+
+.noc-load-more {
+  width: 100%;
+  margin-top: 8px;
+  min-height: 32px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #c5ccda;
+  font-size: 11px;
+}
+
+.artifact-body-noc {
+  padding-top: 12px;
+}
+
+/* --- Team board split layout ----------------------------------------- */
+
+.team-board-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: 14px;
+  min-height: calc(100vh - 120px);
+}
+
+.agent-roster-board {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  padding: 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  max-height: calc(100vh - 140px);
+  overflow: auto;
+}
+
+.agent-handoff-flow {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(125, 162, 255, 0.12);
+  border: 1px solid rgba(125, 162, 255, 0.25);
+}
+
+.agent-handoff-arrow {
+  display: block;
+  color: #9fb4e8;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.agent-handoff-flow strong {
+  display: block;
+  margin-top: 4px;
+  color: #dbe4f4;
+  font-size: 12px;
+}
+
+.agent-handoff-flow p {
+  margin: 4px 0 0;
+  color: #aeb7c8;
+  font-size: 11px;
+}
+
+.agent-handoff-idle {
+  margin: 0;
+  color: #6d7685;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.agent-node-handoff-source .agent-dot,
+.agent-node-handoff-target {
+  box-shadow: 0 0 0 1px rgba(125, 162, 255, 0.35);
+}
+
+.agent-node-handoff-target {
+  background: rgba(125, 162, 255, 0.1);
+  border-radius: 6px;
+  padding: 4px 6px;
+}
+
+.team-board-main {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.team-board-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.team-board-toolbar strong {
+  display: block;
+  font-size: 13px;
+}
+
+.team-board-toolbar p {
+  margin: 2px 0 0;
+  color: #6d7685;
+  font-size: 10px;
+}
+
+.team-board-error {
+  color: #ff8a9a;
+  font-size: 11px;
+}
+
+.team-board-empty {
+  min-height: 280px;
+}
+
+.kanban-load-more {
+  margin: 0 8px 8px;
+  width: calc(100% - 16px);
+}
+
+/* --- Artifacts library ------------------------------------------------ */
+
+.artifacts-library {
+  display: grid;
+  gap: 14px;
+}
+
+.artifacts-library-header {
+  display: grid;
+  gap: 10px;
+}
+
+.artifacts-library-header h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.artifacts-library-header p {
+  margin: 4px 0 0;
+  color: #8b93a5;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.artifacts-search {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f6f7fb;
+}
+
+.artifacts-meta {
+  margin: 0;
+  color: #6d7685;
+  font-size: 11px;
+}
+
+.artifacts-table {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.artifacts-table li {
+  display: grid;
+  grid-template-columns: 2fr 0.8fr 1fr 1.2fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 11px;
+}
+
+.artifacts-table-head {
+  background: rgba(255, 255, 255, 0.06);
+  color: #8b93a5;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.artifacts-title {
+  color: #dbe4f4;
+}
+
+.artifacts-table a {
+  color: #6ef2be;
+  font-size: 11px;
+  text-decoration: none;
+}
+
+.artifacts-table a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 1200px) {
+  .team-board-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .agent-roster-board {
+    max-height: none;
+  }
+
+  .noc-kpi-ribbon {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .artifacts-table li {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .artifacts-table-head {
+    display: none;
+  }
+}

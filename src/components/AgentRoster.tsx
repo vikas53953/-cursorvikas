@@ -1,47 +1,55 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AgentOrg, TeamTask } from "../vite-env";
 
 type AgentRosterProps = {
   mood?: "idle" | "listening" | "thinking" | "speaking" | "working" | "error";
+  tasks?: TeamTask[];
 };
 
-// Hierarchical agent team on the operations dashboard (right panel).
-export function AgentRoster({ mood = "idle" }: AgentRosterProps) {
+// Agent hierarchy for Team Board sidebar — shows who Jarvis is handing work to.
+export function AgentRoster({ mood = "idle", tasks = [] }: AgentRosterProps) {
   const [org, setOrg] = useState<AgentOrg | null>(null);
-  const [tasks, setTasks] = useState<TeamTask[]>([]);
   const timerRef = useRef<number>(0);
 
   const load = useCallback(async () => {
     try {
-      const [orgData, taskData] = await Promise.all([window.jarvis.getOrg(), window.jarvis.getTasks()]);
-      setOrg(orgData);
-      setTasks(Array.isArray(taskData) ? taskData : []);
+      setOrg(await window.jarvis.getOrg());
     } catch {
-      // Keep last good state on transient errors.
+      // Keep last good org chart.
     }
   }, []);
 
   useEffect(() => {
     void load();
-    timerRef.current = window.setInterval(() => void load(), 2500);
+    timerRef.current = window.setInterval(() => void load(), 10000);
     return () => window.clearInterval(timerRef.current);
   }, [load]);
 
   const active = buildActiveMap(tasks);
-  const recent = tasks.slice(0, 4);
+  const handoff = useMemo(() => findHandoff(tasks), [tasks]);
+  const recent = tasks.slice(0, 6);
 
   return (
-    <section className="agent-roster agent-roster-dashboard">
+    <aside className="agent-roster agent-roster-board">
       <header className="agent-roster-jarvis">
-        <div className={`agent-node agent-node-jarvis agent-mood-${mood}`}>
+        <div className={`agent-node agent-node-jarvis agent-mood-${mood} ${handoff ? "agent-node-handoff-source" : ""}`}>
           <span className="agent-dot" />
           <div>
             <strong>{org?.jarvis?.name || "NetJarvis"}</strong>
             <small>{org?.jarvis?.role || "SME Lead"}</small>
           </div>
-          {active.jarvis ? <em className="agent-active-badge">{active.jarvis} active</em> : null}
         </div>
       </header>
+
+      {handoff ? (
+        <div className="agent-handoff-flow">
+          <span className="agent-handoff-arrow">handing off →</span>
+          <strong>{handoff.teamName}</strong>
+          <p>{handoff.title}</p>
+        </div>
+      ) : (
+        <p className="agent-handoff-idle">Jarvis routes work to the specialist below when you delegate or run a domain tool.</p>
+      )}
 
       {org?.groups?.map((group) => (
         <section className="agent-group" key={group.id}>
@@ -49,8 +57,9 @@ export function AgentRoster({ mood = "idle" }: AgentRosterProps) {
           <ul>
             {group.agents.map((agent) => {
               const count = active[agent.id] || 0;
+              const isTarget = handoff?.team === agent.id;
               return (
-                <li key={agent.id} className={count > 0 ? "agent-node-active" : ""}>
+                <li key={agent.id} className={[count > 0 ? "agent-node-active" : "", isTarget ? "agent-node-handoff-target" : ""].filter(Boolean).join(" ")}>
                   <span className="agent-dot" />
                   <span className="agent-name">{agent.name}</span>
                   {count > 0 ? <em className="agent-active-badge">{count}</em> : null}
@@ -61,31 +70,38 @@ export function AgentRoster({ mood = "idle" }: AgentRosterProps) {
         </section>
       ))}
 
-      {recent.length > 0 ? (
-        <section className="agent-feed">
-          <h3>Live delegation</h3>
+      <section className="agent-feed">
+        <h3>Live delegation</h3>
+        {recent.length > 0 ? (
           <ul>
             {recent.map((task) => (
               <li key={task.id} className={`agent-feed-${task.status}`}>
                 <time>{task.updatedAt.slice(11, 16)}</time>
-                <strong>{task.executor === "jarvis" ? "Jarvis" : task.teamName}</strong>
-                <span>{task.title}</span>
+                <strong>{task.source === "delegated" ? "Jarvis →" : "Jarvis"}</strong>
+                <span>
+                  {task.source === "delegated" ? `${task.teamName}: ` : ""}
+                  {task.title}
+                </span>
               </li>
             ))}
           </ul>
-        </section>
-      ) : (
-        <p className="agent-feed-empty">Delegated tasks and tool runs appear here live.</p>
-      )}
-    </section>
+        ) : (
+          <p className="agent-feed-empty">No delegations yet.</p>
+        )}
+      </section>
+    </aside>
   );
+}
+
+function findHandoff(tasks: TeamTask[]): TeamTask | null {
+  return tasks.find((task) => task.status === "in_progress" || task.status === "queued") || null;
 }
 
 function buildActiveMap(tasks: TeamTask[]): Record<string, number> {
   const active: Record<string, number> = {};
   for (const task of tasks) {
     if (task.status === "queued" || task.status === "in_progress") {
-      const key = task.executor === "jarvis" ? "jarvis" : task.team;
+      const key = task.executor === "jarvis" && task.source !== "delegated" ? task.team : task.team;
       active[key] = (active[key] || 0) + 1;
     }
   }

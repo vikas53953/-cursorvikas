@@ -918,7 +918,8 @@ function createTools({ readDb, updateDb }) {
   }
 
   async function teamBoard() {
-    const tasks = await agents.listTasks();
+    const listResult = await agents.listTasks({ limit: 500 });
+    const tasks = listResult.tasks || [];
     return {
       ok: true,
       counts: {
@@ -927,6 +928,8 @@ function createTools({ readDb, updateDb }) {
         done: tasks.filter((task) => task.status === "done").length,
         failed: tasks.filter((task) => task.status === "failed").length,
       },
+      storeCap: listResult.storeCap,
+      storeCount: listResult.storeCount,
       tasks: tasks.slice(0, 10).map((task) => ({ id: task.id, team: task.teamName, title: task.title, status: task.status })),
       artifact: { title: "Team Board", kind: "taskBoard", content: JSON.stringify({ tasks }) },
     };

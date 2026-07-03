@@ -144,16 +144,32 @@ async function mutateTasks(mutator) {
     const tasks = await readTasks();
     const result = await mutator(tasks);
     await fs.mkdir(path.dirname(tasksPath), { recursive: true });
-    await fs.writeFile(tasksPath, JSON.stringify({ tasks: tasks.slice(-150) }, null, 2));
+    await fs.writeFile(tasksPath, JSON.stringify({ tasks: tasks.slice(-500) }, null, 2));
     return result;
   });
   taskWriteQueue = operation.catch(() => {});
   return operation;
 }
 
-async function listTasks() {
+async function listTasks(options = {}) {
   const tasks = await readTasks();
-  return tasks.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  const sorted = tasks.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  let filtered = sorted;
+  if (options.status) {
+    const statuses = Array.isArray(options.status) ? options.status : String(options.status).split(",");
+    filtered = filtered.filter((task) => statuses.includes(task.status));
+  }
+  const total = filtered.length;
+  const limit = Math.min(Math.max(1, Number(options.limit) || 500), 500);
+  const offset = Math.max(0, Number(options.offset) || 0);
+  return {
+    tasks: filtered.slice(offset, offset + limit),
+    total,
+    limit,
+    offset,
+    storeCap: 500,
+    storeCount: sorted.length,
+  };
 }
 
 function getOrg() {

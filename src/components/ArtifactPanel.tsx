@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import mermaid from "mermaid";
 import { OpsDashboard } from "./OpsDashboard";
 import { TeamBoard } from "./TeamBoard";
+import { ArtifactsPanel } from "./ArtifactsPanel";
 import type { TranscriptEntry } from "../lib/realtime";
-import type { ArtifactRecord, JarvisArtifact, TeamTask } from "../vite-env";
+import type { JarvisArtifact, TeamTask } from "../vite-env";
 
-export type RightPanelTab = "dashboard" | "team" | "reports";
+export type RightPanelTab = "dashboard" | "team" | "reports" | "artifacts";
 
 type ArtifactPanelProps = {
   artifact: JarvisArtifact | null;
@@ -60,24 +61,8 @@ mermaid.initialize({
 
 export function ArtifactPanel({ artifact, tab, onTabChange, visible, fullscreen, onToggleVisible, onToggleFullscreen, sessionLog }: ArtifactPanelProps) {
   const [mermaidState, setMermaidState] = useState<MermaidState>({ svg: "", error: null, source: "" });
-  const [history, setHistory] = useState<ArtifactRecord[]>([]);
   const rawId = useId();
   const mermaidId = useMemo(() => `mermaid-${rawId.replace(/[^a-zA-Z0-9_-]/g, "")}`, [rawId]);
-
-  const loadHistory = useCallback(async () => {
-    try {
-      const items = await window.jarvis.listArtifacts();
-      setHistory(Array.isArray(items) ? items : []);
-    } catch {
-      // Keep last good history.
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadHistory();
-    const timer = window.setInterval(() => void loadHistory(), 8000);
-    return () => window.clearInterval(timer);
-  }, [loadHistory, artifact?.title]);
 
   useEffect(() => {
     let cancelled = false;
@@ -119,10 +104,18 @@ export function ArtifactPanel({ artifact, tab, onTabChange, visible, fullscreen,
   }
 
   const titleByTab: Record<RightPanelTab, string> = {
-    dashboard: "Dashboard",
+    dashboard: fullscreen ? "NOC Dashboard" : "Dashboard",
     team: "Team Board",
-    reports: artifact?.title || "Reports",
+    reports: artifact?.title || "Live Report",
+    artifacts: "Artifacts",
   };
+
+  const tabs: Array<{ key: RightPanelTab; label: string }> = [
+    { key: "dashboard", label: "Dashboard" },
+    { key: "team", label: "Team Board" },
+    { key: "reports", label: "Reports" },
+    { key: "artifacts", label: "Artifacts" },
+  ];
 
   return (
     <aside className={`artifact-panel ${fullscreen ? "artifact-fullscreen" : ""}`}>
@@ -133,7 +126,7 @@ export function ArtifactPanel({ artifact, tab, onTabChange, visible, fullscreen,
         </div>
         <div className="artifact-actions">
           <div className="panel-tabs" role="tablist">
-            {(["dashboard", "team", "reports"] as const).map((key) => (
+            {tabs.map(({ key, label }) => (
               <button
                 key={key}
                 role="tab"
@@ -141,30 +134,32 @@ export function ArtifactPanel({ artifact, tab, onTabChange, visible, fullscreen,
                 className={tab === key ? "panel-tab active" : "panel-tab"}
                 onClick={() => onTabChange(key)}
               >
-                {key === "dashboard" ? "Dashboard" : key === "team" ? "Team Board" : "Reports"}
+                {label}
               </button>
             ))}
           </div>
           {tab === "reports" && artifact ? <ArtifactActions artifact={artifact} /> : null}
-          <button onClick={onToggleFullscreen}>{fullscreen ? "Window" : "Fullscreen"}</button>
+          {tab === "dashboard" ? (
+            <button onClick={onToggleFullscreen} title={fullscreen ? "Exit full NOC dashboard" : "Open full NOC dashboard"}>
+              {fullscreen ? "Window" : "Full NOC"}
+            </button>
+          ) : (
+            <button onClick={onToggleFullscreen}>{fullscreen ? "Window" : "Fullscreen"}</button>
+          )}
           <button onClick={onToggleVisible}>Hide</button>
         </div>
       </header>
-      <div className="artifact-body">
+      <div className={`artifact-body ${fullscreen && tab === "dashboard" ? "artifact-body-noc" : ""}`}>
         {tab === "dashboard" ? (
-          <OpsDashboard sessionLog={sessionLog} />
+          <OpsDashboard sessionLog={sessionLog} expanded={fullscreen} />
         ) : tab === "team" ? (
           <TeamBoard />
+        ) : tab === "artifacts" ? (
+          <ArtifactsPanel />
         ) : artifact ? (
-          <>
-            <ArtifactHistory history={history} />
-            {renderArtifact(artifact, mermaidState)}
-          </>
+          renderArtifact(artifact, mermaidState)
         ) : (
-          <>
-            <ArtifactHistory history={history} />
-            <EmptyArtifact />
-          </>
+          <EmptyReport />
         )}
       </div>
     </aside>
@@ -259,35 +254,10 @@ function tableToCsv(rows: Array<Record<string, unknown>>): string {
   return [keys.map(escape).join(","), ...rows.map((row) => keys.map((key) => escape(row[key])).join(","))].join("\r\n");
 }
 
-function ArtifactHistory({ history }: { history: ArtifactRecord[] }) {
-  if (history.length === 0) return null;
-  return (
-    <section className="artifact-history">
-      <h3>Downloadable artifacts</h3>
-      <ul>
-        {history.slice(0, 12).map((item) => (
-          <li key={item.id}>
-            <div>
-              <span>{item.title}</span>
-              <time> {item.createdAt.slice(11, 16)}</time>
-            </div>
-            <a href={item.downloadUrl} download={item.downloadName || undefined}>
-              Download
-            </a>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-function EmptyArtifact() {
+function EmptyReport() {
   return (
     <div className="empty-artifact">
-      <p>
-        Reports from NetJarvis land here: overviews, tables, CLI output, topology diagrams, and notes. Ask for the rundown, VLANs, MAC
-        tables, routes, interface errors, or anything else on the network.
-      </p>
+      <p>Live reports from NetJarvis appear here as you ask questions. Switch to Artifacts to download anything saved earlier.</p>
     </div>
   );
 }

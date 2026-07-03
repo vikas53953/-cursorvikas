@@ -41,15 +41,16 @@ async function main() {
     }
   }
 
-  const tasks = await tools.listTasks();
+  const listResult = await tools.listTasks({ limit: 500 });
+  const tasks = listResult.tasks || [];
   const artifacts = await tools.listArtifacts(10);
   const recentLogs = logger.recent(30).filter((entry) => String(entry.type || "").startsWith("tool."));
   console.log(`\nTasks on board: ${tasks.length}`);
   console.log(`Artifacts saved: ${artifacts.length}`);
   console.log(`Recent tool logs: ${recentLogs.length}`);
 
-  if (tasks.length < CASES.length - 1) {
-    failures.push(`Expected at least ${CASES.length - 1} board tasks, got ${tasks.length}`);
+  if (listResult.storeCount < CASES.length - 1) {
+    failures.push(`Expected at least ${CASES.length - 1} board tasks, got ${listResult.storeCount}`);
   }
 
   if (failures.length > 0) {
