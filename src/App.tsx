@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Activity, History, Keyboard, Mic, MicOff, PanelRight, Send } from "lucide-react";
-import { ArtifactPanel } from "./components/ArtifactPanel";
+import { ArtifactPanel, type RightPanelTab } from "./components/ArtifactPanel";
 import { JarvisFace } from "./components/JarvisFace";
 import { JarvisRealtimeClient, newEntry, type JarvisConnectionState, type JarvisMood, type MouthShape, type TranscriptEntry } from "./lib/realtime";
 import type { JarvisArtifact } from "./vite-env";
@@ -9,8 +9,9 @@ export default function App() {
   const [connectionState, setConnectionState] = useState<JarvisConnectionState>("idle");
   const [mood, setMood] = useState<JarvisMood>("idle");
   const [artifact, setArtifact] = useState<JarvisArtifact | null>(null);
-  const [artifactVisible, setArtifactVisible] = useState(true);
-  const [artifactFullscreen, setArtifactFullscreen] = useState(false);
+  const [panelTab, setPanelTab] = useState<RightPanelTab>("dashboard");
+  const [panelVisible, setPanelVisible] = useState(true);
+  const [panelFullscreen, setPanelFullscreen] = useState(false);
   const [showLog, setShowLog] = useState(false);
   const [showTypeInput, setShowTypeInput] = useState(false);
   const [mouthShape, setMouthShape] = useState<MouthShape>({ open: 0, width: 0.18, round: 0, teeth: 0 });
@@ -30,8 +31,9 @@ export default function App() {
       onTranscript: (entry) => setTranscript((items) => [entry, ...items].slice(0, 80)),
       onArtifact: (nextArtifact) => {
         setArtifact(nextArtifact);
-        setArtifactVisible(true);
-        if (nextArtifact.fullscreen) setArtifactFullscreen(true);
+        setPanelVisible(true);
+        setPanelTab("reports");
+        if (nextArtifact.fullscreen) setPanelFullscreen(true);
       },
       onStatus: (message) => {
         setTranscript((items) => [newEntry("system", message), ...items].slice(0, 80));
@@ -45,14 +47,6 @@ export default function App() {
     clientRef.current?.disconnect();
     clientRef.current = null;
     setTranscript((items) => [newEntry("system", "Disconnected."), ...items].slice(0, 80));
-  }
-
-  async function showStatusBoard() {
-    const result = await window.jarvis.executeTool({ name: "network_status_board", arguments: {} });
-    if (result.artifact) {
-      setArtifact(result.artifact);
-      setArtifactVisible(true);
-    }
   }
 
   function sendTextPrompt() {
@@ -82,7 +76,7 @@ export default function App() {
                   if (event.key === "Enter") sendTextPrompt();
                 }}
                 autoFocus
-                placeholder="Type to NetJarvis... e.g. any drops overnight?"
+                placeholder="Type to NetJarvis... e.g. what VLANs are on sw1?"
               />
               <button onClick={sendTextPrompt} aria-label="Send typed prompt" title="Send typed prompt">
                 <Send size={15} />
@@ -109,18 +103,21 @@ export default function App() {
               <Keyboard size={16} />
             </button>
             <button
-              className="simple-button"
-              onClick={() => void showStatusBoard()}
-              aria-label="Show network status board"
-              title="Show network status board"
+              className={panelTab === "dashboard" && panelVisible ? "simple-button active" : "simple-button"}
+              onClick={() => {
+                setPanelVisible(true);
+                setPanelTab("dashboard");
+              }}
+              aria-label="Show operations dashboard"
+              title="Show operations dashboard"
             >
               <Activity size={16} />
             </button>
             <button
-              className={artifactVisible ? "simple-button active" : "simple-button"}
-              onClick={() => setArtifactVisible((value) => !value)}
-              aria-label="Toggle network panel"
-              title="Toggle network panel"
+              className={panelVisible ? "simple-button active" : "simple-button"}
+              onClick={() => setPanelVisible((value) => !value)}
+              aria-label="Toggle right panel"
+              title="Toggle right panel"
             >
               <PanelRight size={16} />
             </button>
@@ -158,10 +155,12 @@ export default function App() {
 
       <ArtifactPanel
         artifact={artifact}
-        visible={artifactVisible}
-        fullscreen={artifactFullscreen}
-        onToggleVisible={() => setArtifactVisible((value) => !value)}
-        onToggleFullscreen={() => setArtifactFullscreen((value) => !value)}
+        tab={panelTab}
+        onTabChange={setPanelTab}
+        visible={panelVisible}
+        fullscreen={panelFullscreen}
+        onToggleVisible={() => setPanelVisible((value) => !value)}
+        onToggleFullscreen={() => setPanelFullscreen((value) => !value)}
       />
     </main>
   );

@@ -1,68 +1,75 @@
 # NetJarvis
 
-NetJarvis is a local Electron desktop AI copilot for network operations, inspired by [RileyJarvis](https://github.com/rbrown101010/rileyjarvis). You talk to it like a NOC colleague — over realtime voice — and it answers from live network state through tools: shift briefings, BGP and OSPF status, device health, interface errors, traffic anomalies, packet drops, alerts, and a topology view.
+NetJarvis is a local Electron desktop AI copilot for network operations, inspired by [RileyJarvis](https://github.com/rbrown101010/rileyjarvis). You talk to it like a NOC colleague — over realtime voice — while a live **network operations dashboard** sits on the right side of the window. Jarvis on the left, the network on the right.
 
-It is built with Electron, React, Vite, TypeScript, and the OpenAI Realtime API.
+It runs against a **real network out of the box**: the [Cisco DevNet Catalyst Center Always-On sandbox](https://sandboxdnac.cisco.com), a public four-switch Catalyst 9000v network (`sw1`–`sw4`) managed by Catalyst Center. No VPN or account is needed. When that source is unreachable, NetJarvis falls back to a built-in simulated service-provider network so nothing breaks.
+
+Network operations here means **any layer, L1–L7** — not just routing protocols. In live mode NetJarvis can run any read-only `show` command on the actual switches through the Catalyst Center Command Runner: VLANs, MAC address tables, spanning tree, CDP neighbors, ARP, routing tables, interface counters and errors, logs, versions, CPU processes, and more.
+
+Built with Electron, React, Vite, TypeScript, and the OpenAI Realtime API.
 
 ## What you can ask
 
 Start of shift:
 
-- "How is my network doing?"
-- "Give me the overnight rundown."
+- "How is my network doing?" / "Give me the rundown."
 - "Anything happen overnight?"
 
-Routing protocols:
+Inventory and health:
 
-- "How is BGP doing?" / "BGP status on EDGE-R3."
-- "Any BGP flaps last night?"
-- "What's the OSPF status? Are all adjacencies up?"
+- "What devices do we have?"
+- "How is sw1 doing?" / "Any devices unreachable?"
+- "Any interfaces down?" / "Interface report for sw2."
 
-Devices and interfaces:
+Layer 2:
 
-- "How are my edge routers?" / "What's the health of EDGE-R2?"
-- "Any interfaces with errors?"
+- "What VLANs are configured?"
+- "Show me the MAC address table on sw1."
+- "What's the spanning tree state?" / "Who are sw3's CDP neighbors?"
 
-Traffic and drops:
+Layer 3:
 
-- "Any increase in traffic?" / "What are the busiest links?"
-- "Any drops reported overnight?"
+- "Show me the routing table on sw1." / "Show the ARP table."
+- "Any OSPF neighbors?" / "Is BGP running anywhere?"
 
-Alerts, events, and the big picture:
+Traffic, errors, logs:
 
-- "What alerts are active?" / "Show me the overnight event log."
-- "Acknowledge alert ALM-2483." (NetJarvis asks for confirmation first)
-- "Show me the status board." / "Show me the network topology."
+- "Any drops or errors on the interfaces?"
+- "Show interface counters on sw2."
+- "Show me the last 20 log lines on sw1."
 
-Extras:
+Big picture:
 
-- Web search with Exa for ISP outage news and vendor advisories.
-- Shift notes / handoff notes on a local notes board.
+- "Show me the status board." (the right-hand dashboard shows this continuously)
+- "Show me the network topology."
 
-## Features
+Extras: Exa web search for vendor advisories and outage news, and local shift/handoff notes.
 
-- Realtime speech-to-speech conversation with OpenAI Realtime (WebRTC), with interruption support.
-- Animated companion face with listening, thinking, speaking, and working states.
-- Network panel that renders shift briefings (markdown), status tables, a color-coded NOC status board, mermaid topology diagrams, alert detail, and notes.
-- Voice-confirmed alert acknowledgement.
-- Typed input as a fallback when you cannot talk.
+## The window
 
-## Network data: simulator now, your network later
+- **Left:** the NetJarvis face — connect voice, talk, interrupt, or type.
+- **Right:** the operations panel with two tabs:
+  - **Dashboard** — always-on view of the network: LIVE/SIM source badge, health score, device tiles with CPU/memory/health, link status, active issues, and recent events. Auto-refreshes every 30 seconds.
+  - **Reports** — artifacts produced by Jarvis: overviews, tables, raw CLI output, mermaid topology diagrams, and notes. Opens automatically when a tool produces something.
 
-All network state comes from one module: `electron/network-data.cjs`. Out of the box it runs a deterministic simulator that models a realistic dual-site network:
+## Architecture
 
-- 2 core routers (Cisco 8201), 4 edge routers (Juniper MX304), 2 distribution switches (Nexus 93180), 2 firewalls (PA-5450)
-- Dual ISP transit (Lumen AS3356, Arelion AS1299), one IX peering (HE AS6939), iBGP route-reflector mesh, OSPF areas 0 and 1
-- Injected "overnight" incidents so shift-start questions have real answers: a recovered BGP flap, an active CRC-error alert, a degraded PSU, and an inbound traffic anomaly
+- `electron/sources/catalyst-center.cjs` — Catalyst Center Intent API adapter: auth token management, inventory, device/network health, physical topology, per-device interfaces, issues, events, and the Command Runner (read-only CLI on real devices).
+- `electron/network-source.cjs` — source facade. Picks live vs simulator (`NETJARVIS_SOURCE=auto|live|sim`), normalizes both into the same JSON shapes, and builds the dashboard snapshot.
+- `electron/network-data.cjs` — the deterministic simulator (dual-site SP-style network with injected overnight incidents). Used as fallback and for offline demos.
+- `electron/tools.cjs` — the voice model's tools (overview, inventory, device health, interfaces, `run_show_command`, topology, alerts, events, protocol/traffic/drop reports, notes, search) plus the NetJarvis persona. No Electron dependency, so it is testable with plain node.
+- `electron/main.cjs` — window, IPC, Realtime session token minting.
+- `src/` — React UI: face with lip-sync, live log, dashboard, and reports panel.
 
-To point NetJarvis at a real network, replace the exported functions in `electron/network-data.cjs` with adapters for your actual sources — SNMP, gNMI/streaming telemetry, Prometheus, NetBox, syslog, or your alert manager. The function contracts are plain JSON, so the tools, the UI, and the voice model do not need to change.
+Only `run_show_command` touches device CLI, and it hard-rejects anything that is not a `show` command.
 
 ## Requirements
 
 - Node.js 20+
 - npm
-- An OpenAI API key with Realtime access
+- An OpenAI API key with Realtime access (for voice)
 - Optional: an Exa API key for web search
+- Internet access to `sandboxdnac.cisco.com` for live mode (falls back to the simulator otherwise)
 
 ## Quick Start
 
@@ -78,22 +85,20 @@ Edit `.env.local` before starting voice features:
 
 ```bash
 OPENAI_API_KEY=your_openai_api_key_here
-EXA_API_KEY=your_exa_api_key_here
 ```
 
-`OPENAI_API_KEY` is required. `EXA_API_KEY` is optional; web search will show a setup message when it is missing.
+The dashboard and all network tools work without any keys — only voice needs `OPENAI_API_KEY`, and only web search needs `EXA_API_KEY`.
+
+## Pointing at other networks
+
+- **Your own Catalyst Center:** set `CATC_BASE_URL`, `CATC_USERNAME`, `CATC_PASSWORD` in `.env.local`.
+- **Cisco DevNet IOS XE always-on routers (Cat8k/Cat9k):** these now issue per-session dynamic credentials — log in at [devnetsandbox.cisco.com](https://devnetsandbox.cisco.com), launch the sandbox, and a RESTCONF adapter can be added alongside the Catalyst Center one (`electron/sources/` is built for multiple adapters).
+- **Anything else (SNMP, gNMI, Prometheus, NetBox):** implement the same function contracts in a new adapter and register it in `electron/network-source.cjs`.
 
 ## Development
 
 ```bash
-npm run dev
-```
-
-This starts Vite on `127.0.0.1:5173` and launches Electron.
-
-Other useful commands:
-
-```bash
+npm run dev        # Vite on 127.0.0.1:5173 + Electron
 npm run typecheck
 npm run build
 npm start
@@ -103,17 +108,13 @@ npm start
 
 The app creates a local `data/` directory for shift notes and acknowledged-alert state. That directory is intentionally ignored by Git.
 
-Do not commit:
-
-- `.env.local`
-- Anything under `data/`
-- `dist/`
-- `node_modules/`
+Do not commit: `.env.local`, anything under `data/`, `dist/`, `node_modules/`.
 
 ## Security Notes
 
-- API keys are loaded only from local environment files.
-- `.env.local` and all `.env.*` files are ignored except `.env.example`.
+- API keys are loaded only from local environment files; `.env.*` files are git-ignored except `.env.example`.
+- The DevNet sandbox uses a self-signed TLS certificate; verification is disabled only for the Catalyst Center adapter. Do not point it at untrusted hosts with real credentials.
+- Device CLI access is restricted to read-only `show` commands; configuration changes are rejected before any API call.
 - State-changing actions (like acknowledging alerts) require explicit voice confirmation.
 
 ## License

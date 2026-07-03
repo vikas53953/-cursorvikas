@@ -1,9 +1,14 @@
 import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import mermaid from "mermaid";
+import { OpsDashboard } from "./OpsDashboard";
 import type { JarvisArtifact } from "../vite-env";
+
+export type RightPanelTab = "dashboard" | "reports";
 
 type ArtifactPanelProps = {
   artifact: JarvisArtifact | null;
+  tab: RightPanelTab;
+  onTabChange: (tab: RightPanelTab) => void;
   visible: boolean;
   fullscreen: boolean;
   onToggleVisible: () => void;
@@ -50,7 +55,7 @@ mermaid.initialize({
   securityLevel: "strict",
 });
 
-export function ArtifactPanel({ artifact, visible, fullscreen, onToggleVisible, onToggleFullscreen }: ArtifactPanelProps) {
+export function ArtifactPanel({ artifact, tab, onTabChange, visible, fullscreen, onToggleVisible, onToggleFullscreen }: ArtifactPanelProps) {
   const [mermaidState, setMermaidState] = useState<MermaidState>({ svg: "", error: null, source: "" });
   const rawId = useId();
   const mermaidId = useMemo(() => `mermaid-${rawId.replace(/[^a-zA-Z0-9_-]/g, "")}`, [rawId]);
@@ -97,16 +102,36 @@ export function ArtifactPanel({ artifact, visible, fullscreen, onToggleVisible, 
   return (
     <aside className={`artifact-panel ${fullscreen ? "artifact-fullscreen" : ""}`}>
       <header className="artifact-header">
-        <div>
-          <span className="eyebrow">Network Panel</span>
-          <h2>{artifact?.title || "Ready"}</h2>
+        <div className="artifact-title">
+          <span className="eyebrow">Network Operations</span>
+          <h2>{tab === "dashboard" ? "Dashboard" : artifact?.title || "Reports"}</h2>
         </div>
         <div className="artifact-actions">
+          <div className="panel-tabs" role="tablist">
+            <button
+              role="tab"
+              aria-selected={tab === "dashboard"}
+              className={tab === "dashboard" ? "panel-tab active" : "panel-tab"}
+              onClick={() => onTabChange("dashboard")}
+            >
+              Dashboard
+            </button>
+            <button
+              role="tab"
+              aria-selected={tab === "reports"}
+              className={tab === "reports" ? "panel-tab active" : "panel-tab"}
+              onClick={() => onTabChange("reports")}
+            >
+              Reports
+            </button>
+          </div>
           <button onClick={onToggleFullscreen}>{fullscreen ? "Window" : "Fullscreen"}</button>
           <button onClick={onToggleVisible}>Hide</button>
         </div>
       </header>
-      <div className="artifact-body">{artifact ? renderArtifact(artifact, mermaidState) : <EmptyArtifact />}</div>
+      <div className="artifact-body">
+        {tab === "dashboard" ? <OpsDashboard /> : artifact ? renderArtifact(artifact, mermaidState) : <EmptyArtifact />}
+      </div>
     </aside>
   );
 }
@@ -114,7 +139,10 @@ export function ArtifactPanel({ artifact, visible, fullscreen, onToggleVisible, 
 function EmptyArtifact() {
   return (
     <div className="empty-artifact">
-      <p>Ask NetJarvis for the shift briefing, BGP or OSPF status, the status board, traffic, drops, alerts, or the topology. Detail renders here.</p>
+      <p>
+        Reports from NetJarvis land here: overviews, tables, CLI output, topology diagrams, and notes. Ask for the rundown, VLANs, MAC
+        tables, routes, interface errors, or anything else on the network.
+      </p>
     </div>
   );
 }
