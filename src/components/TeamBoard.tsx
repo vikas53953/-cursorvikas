@@ -49,27 +49,47 @@ export function TeamBoard({
   const live = useTeamTasks(active && !staticTasks, refreshToken);
   const tasks = staticTasks || live.tasks;
   const [doneModalOpen, setDoneModalOpen] = useState(false);
+  const [chatExpanded, setChatExpanded] = useState(false);
   const showChat = !staticTasks && Boolean(onSendSquadChat);
 
   if (!staticTasks && tasks.length === 0 && !live.error) {
     return (
-      <div className={`team-board-layout ${showChat ? "team-board-layout-chat" : ""}`}>
-        <AgentRoster mood={mood} tasks={[]} />
-        <div className="team-board-main">
-          <header className="team-board-toolbar">
-            <div>
-              <span className="team-board-eyebrow">Agent Squad</span>
-              <strong>Kanban board</strong>
-              <p>Syncing live tasks…</p>
+      <div className={`team-board-root ${chatExpanded ? "team-board-chat-expanded" : ""}`}>
+        <div className={`team-board-layout ${showChat ? "team-board-layout-chat" : ""} ${chatExpanded ? "team-board-layout-hidden" : ""}`}>
+          <AgentRoster mood={mood} tasks={[]} />
+          <div className="team-board-main">
+            <header className="team-board-toolbar">
+              <div>
+                <span className="team-board-eyebrow">Agent Squad</span>
+                <strong>Kanban board</strong>
+                <p>Syncing live tasks…</p>
+              </div>
+              {live.lastSync ? <span className="team-board-sync">sync {live.lastSync}</span> : null}
+            </header>
+            <div className="empty-artifact team-board-empty">
+              <p>Waiting for Jarvis activity. When you delegate or run a tool, cards appear in Queued → In Progress → Done.</p>
             </div>
-            {live.lastSync ? <span className="team-board-sync">sync {live.lastSync}</span> : null}
-          </header>
-          <div className="empty-artifact team-board-empty">
-            <p>Waiting for Jarvis activity. When you delegate or run a tool, cards appear in Queued → In Progress → Done.</p>
           </div>
+          {showChat && !chatExpanded ? (
+            <SquadChatPanel
+              sessionLog={sessionLog}
+              connectionState={connectionState}
+              chatBusy={chatBusy}
+              expanded={false}
+              onToggleExpand={() => setChatExpanded(true)}
+              onSend={onSendSquadChat!}
+            />
+          ) : null}
         </div>
-        {showChat ? (
-          <SquadChatPanel sessionLog={sessionLog} connectionState={connectionState} chatBusy={chatBusy} onSend={onSendSquadChat!} />
+        {showChat && chatExpanded ? (
+          <SquadChatPanel
+            sessionLog={sessionLog}
+            connectionState={connectionState}
+            chatBusy={chatBusy}
+            expanded
+            onToggleExpand={() => setChatExpanded(false)}
+            onSend={onSendSquadChat!}
+          />
         ) : null}
       </div>
     );
@@ -94,58 +114,78 @@ export function TeamBoard({
   const doneItems = tasks.filter((task) => task.status === "done" || task.status === "failed");
 
   return (
-    <div className={`team-board-layout ${showChat ? "team-board-layout-chat" : ""}`}>
-      <AgentRoster mood={mood} tasks={tasks} />
+    <div className={`team-board-root ${chatExpanded ? "team-board-chat-expanded" : ""}`}>
+      <div className={`team-board-layout ${showChat ? "team-board-layout-chat" : ""} ${chatExpanded ? "team-board-layout-hidden" : ""}`}>
+        <AgentRoster mood={mood} tasks={tasks} />
 
-      <div className="team-board-main">
-        <header className="team-board-toolbar">
-          <div>
-            <span className="team-board-eyebrow">Agent Squad</span>
-            <strong>Kanban board</strong>
-            <p>
-              {live.storeCount || tasks.length} tasks tracked · Done shows latest {DONE_PREVIEW}
-            </p>
+        <div className="team-board-main">
+          <header className="team-board-toolbar">
+            <div>
+              <span className="team-board-eyebrow">Agent Squad</span>
+              <strong>Kanban board</strong>
+              <p>
+                {live.storeCount || tasks.length} tasks tracked · Done shows latest {DONE_PREVIEW}
+              </p>
+            </div>
+            <div className="team-board-toolbar-right">
+              {live.lastSync ? <span className="team-board-sync">sync {live.lastSync}</span> : null}
+              {live.error ? <span className="team-board-error">{live.error}</span> : null}
+            </div>
+          </header>
+
+          <div className="kanban kanban-balanced">
+            {COLUMNS.map((column) => {
+              const items = tasks.filter((task) => column.key.includes(task.status));
+              const isDone = column.title === "Done";
+              const visible = isDone ? items.slice(0, DONE_PREVIEW) : items;
+              const hiddenDone = isDone ? Math.max(0, items.length - DONE_PREVIEW) : 0;
+
+              return (
+                <section className={`kanban-column ${column.className}`} key={column.title}>
+                  <header>
+                    <h3>{column.title}</h3>
+                    <span className={items.some((task) => task.status === "in_progress") && column.title === "In Progress" ? "kanban-live-pulse" : ""}>
+                      {items.length}
+                    </span>
+                  </header>
+                  <div className="kanban-cards">
+                    {visible.length === 0 ? <p className="kanban-column-empty">No tasks</p> : null}
+                    {visible.map((task) => (
+                      <TaskCard task={task} compact={isDone} key={task.id} />
+                    ))}
+                  </div>
+                  {isDone && hiddenDone > 0 ? (
+                    <button className="kanban-load-more" onClick={() => setDoneModalOpen(true)}>
+                      View all done ({items.length})
+                    </button>
+                  ) : null}
+                </section>
+              );
+            })}
           </div>
-          <div className="team-board-toolbar-right">
-            {live.lastSync ? <span className="team-board-sync">sync {live.lastSync}</span> : null}
-            {live.error ? <span className="team-board-error">{live.error}</span> : null}
-          </div>
-        </header>
-
-        <div className="kanban kanban-balanced">
-          {COLUMNS.map((column) => {
-            const items = tasks.filter((task) => column.key.includes(task.status));
-            const isDone = column.title === "Done";
-            const visible = isDone ? items.slice(0, DONE_PREVIEW) : items;
-            const hiddenDone = isDone ? Math.max(0, items.length - DONE_PREVIEW) : 0;
-
-            return (
-              <section className={`kanban-column ${column.className}`} key={column.title}>
-                <header>
-                  <h3>{column.title}</h3>
-                  <span className={items.some((task) => task.status === "in_progress") && column.title === "In Progress" ? "kanban-live-pulse" : ""}>
-                    {items.length}
-                  </span>
-                </header>
-                <div className="kanban-cards">
-                  {visible.length === 0 ? <p className="kanban-column-empty">No tasks</p> : null}
-                  {visible.map((task) => (
-                    <TaskCard task={task} compact={isDone} key={task.id} />
-                  ))}
-                </div>
-                {isDone && hiddenDone > 0 ? (
-                  <button className="kanban-load-more" onClick={() => setDoneModalOpen(true)}>
-                    View all done ({items.length})
-                  </button>
-                ) : null}
-              </section>
-            );
-          })}
         </div>
+
+        {showChat && !chatExpanded ? (
+          <SquadChatPanel
+            sessionLog={sessionLog}
+            connectionState={connectionState}
+            chatBusy={chatBusy}
+            expanded={false}
+            onToggleExpand={() => setChatExpanded(true)}
+            onSend={onSendSquadChat!}
+          />
+        ) : null}
       </div>
 
-      {showChat ? (
-        <SquadChatPanel sessionLog={sessionLog} connectionState={connectionState} chatBusy={chatBusy} onSend={onSendSquadChat!} />
+      {showChat && chatExpanded ? (
+        <SquadChatPanel
+          sessionLog={sessionLog}
+          connectionState={connectionState}
+          chatBusy={chatBusy}
+          expanded
+          onToggleExpand={() => setChatExpanded(false)}
+          onSend={onSendSquadChat!}
+        />
       ) : null}
 
       {doneModalOpen ? <DoneTasksModal tasks={doneItems} onClose={() => setDoneModalOpen(false)} /> : null}
