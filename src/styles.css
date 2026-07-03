@@ -1898,6 +1898,109 @@ td {
   }
 }
 
+/* --- Floating console (fullscreen HUD overlay) ------------------------- */
+
+.floating-console {
+  position: fixed;
+  z-index: 200;
+  left: 18px;
+  bottom: 18px;
+  display: grid;
+  gap: 0;
+  width: min(400px, calc(100vw - 36px));
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(6, 9, 8, 0.96);
+  border: 1px solid rgba(110, 242, 190, 0.3);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+  pointer-events: auto;
+}
+
+.floating-console .hud {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.hud-compact .hud-line p {
+  font-size: 11px;
+}
+
+.hud-compact .hud-state strong {
+  font-size: 12px;
+}
+
+.floating-console-actions {
+  display: grid;
+  gap: 8px;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+  transition:
+    max-height 0.22s ease,
+    opacity 0.18s ease,
+    margin-top 0.18s ease;
+}
+
+.floating-console:hover .floating-console-actions,
+.floating-console:focus-within .floating-console-actions,
+.floating-console-expanded .floating-console-actions {
+  max-height: 140px;
+  opacity: 1;
+  margin-top: 10px;
+}
+
+.floating-console-expanded .floating-console-actions {
+  max-height: 180px;
+}
+
+.floating-controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.floating-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.1);
+  color: #f6f7fb;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.floating-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.floating-btn-active {
+  border-color: rgba(110, 242, 190, 0.55);
+  background: rgba(110, 242, 190, 0.18);
+  color: #c2ffe6;
+}
+
+.floating-prompt {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.floating-prompt input {
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f6f7fb;
+}
+
 /* Agent visual states */
 .agent-dot-idle {
   background: #55606f;

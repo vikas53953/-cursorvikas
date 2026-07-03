@@ -31,7 +31,7 @@ export function Hud({ connectionState, mood, activity, lastHeard, floating = fal
   const stateLabel =
     connectionState === "connecting" ? "Connecting..." : offline ? "Voice off - press the mic" : STATE_LABEL[mood] || mood;
   const stateClass = offline ? "offline" : mood;
-  const hudClass = compact || floating ? "hud hud-floating hud-compact" : "hud";
+  const hudClass = floating ? "hud hud-floating hud-compact" : compact ? "hud hud-compact" : "hud";
 
   return (
     <div className={hudClass}>
