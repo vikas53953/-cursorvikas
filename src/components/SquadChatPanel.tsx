@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { AtSign, Hash, Loader2, Maximize2, Minimize2, Send, Sparkles, Users } from "lucide-react";
+import { AtSign, Hash, Loader2, Maximize2, Minimize2, Send, Slash, Sparkles, Users } from "lucide-react";
 import type { JarvisConnectionState, TranscriptEntry } from "../lib/realtime";
-import { filterMentionSuggestions, splitMentionText, type SquadMention } from "../lib/squadMentions";
+import { buildMemberMentions, filterMemberMentions, splitMentionText, type SquadMention } from "../lib/squadMentions";
+import { expandSlashCommand, filterSlashCommands, type SlashCommand } from "../lib/squadSlashCommands";
 import type { AgentOrg } from "../vite-env";
 
 export type SquadChatTarget = {
@@ -26,7 +27,8 @@ type ChatMessage = {
   at: string;
 };
 
-// Enterprise-style squad chat — Slack / Teams feel with @mentions and full-chat stage.
+type PickerState = { kind: "mention" | "slash"; query: string };
+
 export function SquadChatPanel({
   sessionLog,
   connectionState,
@@ -39,8 +41,8 @@ export function SquadChatPanel({
   const [targetId, setTargetId] = useState("jarvis");
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
-  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
-  const [mentionIndex, setMentionIndex] = useState(0);
+  const [picker, setPicker] = useState<PickerState | null>(null);
+  const [pickerIndex, setPickerIndex] = useState(0);
   const feedRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
 
@@ -67,6 +69,7 @@ export function SquadChatPanel({
 
   const targets = buildTargets(org);
   const target = targets.find((item) => item.id === targetId) || targets[0];
+  const members = useMemo(() => buildMemberMentions(targets, org), [targets, org]);
   const messages = useMemo(
     () =>
       sessionLog
@@ -83,7 +86,15 @@ export function SquadChatPanel({
   );
   const busy = sending || chatBusy;
   const voiceLive = connectionState === "connected";
-  const mentionSuggestions = mentionQuery !== null ? filterMentionSuggestions(mentionQuery) : [];
+
+  const mentionSuggestions = picker?.kind === "mention" ? filterMemberMentions(members, picker.query) : [];
+  const slashSuggestions = picker?.kind === "slash" ? filterSlashCommands(picker.query) : [];
+  const pickerItems = picker?.kind === "mention" ? mentionSuggestions : slashSuggestions;
+  const pickerOpen = picker !== null;
+
+  useEffect(() => {
+    if (pickerIndex >= pickerItems.length) setPickerIndex(0);
+  }, [pickerItems.length, pickerIndex]);
 
   useEffect(() => {
     feedRef.current?.scrollTo({ top: feedRef.current.scrollHeight, behavior: "smooth" });
@@ -93,15 +104,53 @@ export function SquadChatPanel({
     if (expanded) composerRef.current?.focus();
   }, [expanded, targetId]);
 
-  function updateMentionState(value: string, cursor: number) {
+  function updatePickerState(value: string, cursor: number) {
     const before = value.slice(0, cursor);
-    const match = before.match(/@([a-z0-9_-]*)$/i);
-    if (match) {
-      setMentionQuery(match[1].toLowerCase());
-      setMentionIndex(0);
-    } else {
-      setMentionQuery(null);
+    const slashMatch = before.match(/(?:^|\s)\/([a-z0-9_-]*)$/i);
+    if (slashMatch) {
+      setPicker({ kind: "slash", query: (slashMatch[1] || "").toLowerCase() });
+      setPickerIndex(0);
+      return;
     }
+    const mentionMatch = before.match(/@([a-z0-9_-]*)$/i);
+    if (mentionMatch) {
+      setPicker({ kind: "mention", query: (mentionMatch[1] || "").toLowerCase() });
+      setPickerIndex(0);
+      return;
+    }
+    setPicker(null);
+  }
+
+  function openMentionPicker() {
+    const field = composerRef.current;
+    const cursor = field?.selectionStart ?? draft.length;
+    const prefix = draft.length === 0 || draft.endsWith(" ") ? "@" : " @";
+    const next = `${draft.slice(0, cursor)}${prefix}${draft.slice(cursor)}`;
+    const nextCursor = cursor + prefix.length;
+    setDraft(next);
+    setPicker({ kind: "mention", query: "" });
+    setPickerIndex(0);
+    requestAnimationFrame(() => {
+      field?.focus();
+      field?.setSelectionRange(nextCursor, nextCursor);
+    });
+  }
+
+  function openSlashPicker() {
+    const field = composerRef.current;
+    const cursor = field?.selectionStart ?? draft.length;
+    const before = draft.slice(0, cursor);
+    const needsSpace = before.length > 0 && !before.endsWith(" ");
+    const insert = needsSpace ? " /" : "/";
+    const next = `${draft.slice(0, cursor)}${insert}${draft.slice(cursor)}`;
+    const nextCursor = cursor + insert.length;
+    setDraft(next);
+    setPicker({ kind: "slash", query: "" });
+    setPickerIndex(0);
+    requestAnimationFrame(() => {
+      field?.focus();
+      field?.setSelectionRange(nextCursor, nextCursor);
+    });
   }
 
   function insertMention(mention: SquadMention) {
@@ -113,7 +162,25 @@ export function SquadChatPanel({
     const replaced = before.replace(/@([a-z0-9_-]*)$/i, `@${mention.handle} `);
     const next = `${replaced}${after}`;
     setDraft(next);
-    setMentionQuery(null);
+    setPicker(null);
+    requestAnimationFrame(() => {
+      const pos = replaced.length;
+      field.focus();
+      field.setSelectionRange(pos, pos);
+      resizeComposer(field);
+    });
+  }
+
+  function insertSlashCommand(command: SlashCommand) {
+    const field = composerRef.current;
+    if (!field) return;
+    const cursor = field.selectionStart || draft.length;
+    const before = draft.slice(0, cursor);
+    const after = draft.slice(cursor);
+    const replaced = before.replace(/(^|\s)\/([a-z0-9_-]*)$/i, (_match, lead: string) => `${lead}/${command.name} `);
+    const next = `${replaced}${after}`;
+    setDraft(next);
+    setPicker(null);
     requestAnimationFrame(() => {
       const pos = replaced.length;
       field.focus();
@@ -126,9 +193,9 @@ export function SquadChatPanel({
     const trimmed = draft.trim();
     if (!trimmed || !target || busy) return;
     setSending(true);
-    setMentionQuery(null);
+    setPicker(null);
     try {
-      await onSend(target, trimmed);
+      await onSend(target, expandSlashCommand(trimmed));
       setDraft("");
       if (composerRef.current) composerRef.current.style.height = "auto";
     } finally {
@@ -142,27 +209,28 @@ export function SquadChatPanel({
   }
 
   function handleComposerKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
-    if (mentionSuggestions.length > 0) {
+    if (pickerOpen && pickerItems.length > 0) {
       if (event.key === "ArrowDown") {
         event.preventDefault();
-        setMentionIndex((value) => (value + 1) % mentionSuggestions.length);
+        setPickerIndex((value) => (value + 1) % pickerItems.length);
         return;
       }
       if (event.key === "ArrowUp") {
         event.preventDefault();
-        setMentionIndex((value) => (value - 1 + mentionSuggestions.length) % mentionSuggestions.length);
+        setPickerIndex((value) => (value - 1 + pickerItems.length) % pickerItems.length);
         return;
       }
-      if (event.key === "Tab" || (event.key === "Enter" && mentionQuery !== null)) {
+      if (event.key === "Tab" || event.key === "Enter") {
         event.preventDefault();
-        insertMention(mentionSuggestions[mentionIndex]);
+        if (picker?.kind === "mention") insertMention(mentionSuggestions[pickerIndex]);
+        else insertSlashCommand(slashSuggestions[pickerIndex]);
         return;
       }
-      if (event.key === "Escape") {
-        event.preventDefault();
-        setMentionQuery(null);
-        return;
-      }
+    }
+    if (pickerOpen && event.key === "Escape") {
+      event.preventDefault();
+      setPicker(null);
+      return;
     }
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
@@ -174,9 +242,7 @@ export function SquadChatPanel({
 
   return (
     <aside className={rootClass} aria-label="Network Agent Squad chat">
-      {expanded ? (
-        <ChannelSidebar targets={targets} activeId={targetId} onSelect={setTargetId} org={org} />
-      ) : null}
+      {expanded ? <ChannelSidebar targets={targets} /> : null}
 
       <div className="squad-chat-main">
         <header className={`squad-chat-topbar ${expanded ? "" : "squad-chat-topbar-rail"}`}>
@@ -188,12 +254,12 @@ export function SquadChatPanel({
               <div className="squad-chat-channel-meta">
                 <div className="squad-chat-channel-title-row">
                   <strong>{expanded ? "# network-ops" : target?.name || "NetJarvis"}</strong>
-                  <span className={`squad-chat-presence ${voiceLive ? "squad-chat-presence-live" : ""}`} title={voiceLive ? "Voice connected" : "Text chat"}>
+                  <span className={`squad-chat-presence ${voiceLive ? "squad-chat-presence-live" : ""}`}>
                     {voiceLive ? "Live" : "Text"}
                   </span>
                 </div>
                 <span className="squad-chat-channel-sub">
-                  {expanded ? `${targets.length} members · use @data @security @jarvis` : target?.id === "jarvis" ? "# network-ops" : `DM · ${target?.id || "agent"}`}
+                  {expanded ? `${targets.length} members` : target?.id === "jarvis" ? "# network-ops" : `DM · ${target?.id}`}
                 </span>
               </div>
             </div>
@@ -201,13 +267,12 @@ export function SquadChatPanel({
             {onToggleExpand ? (
               <button
                 type="button"
-                className={`squad-chat-expand-btn ${expanded ? "" : "squad-chat-expand-btn-labeled"}`}
+                className="squad-chat-expand-btn"
                 onClick={onToggleExpand}
-                aria-label={expanded ? "Exit full chat" : "Open full chat"}
-                title={expanded ? "Exit full chat (Esc)" : "Open full chat workspace"}
+                aria-label={expanded ? "Collapse chat" : "Expand chat workspace"}
+                title={expanded ? "Collapse (Esc)" : "Expand chat workspace"}
               >
                 {expanded ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
-                {!expanded ? <span>Full chat</span> : null}
               </button>
             ) : null}
           </div>
@@ -232,12 +297,6 @@ export function SquadChatPanel({
           )}
         </header>
 
-        {target && expanded ? (
-          <p className="squad-chat-scope" title={target.scope}>
-            Squad channel — mention specialists with @data, @firewall, @security, @incident, etc. Jarvis routes and delegates automatically.
-          </p>
-        ) : null}
-
         <div className="squad-chat-feed" ref={feedRef}>
           {messages.length === 0 ? (
             <div className={`squad-chat-welcome ${expanded ? "" : "squad-chat-welcome-rail"}`}>
@@ -249,18 +308,9 @@ export function SquadChatPanel({
               <strong>{expanded ? "Welcome to #network-ops" : "Start a conversation"}</strong>
               <p>
                 {expanded
-                  ? "Your NOC chatops channel. Run show commands, triage incidents, or hand off with @mentions — e.g. @data check spanning tree on sw2."
-                  : `Message ${target?.name || "NetJarvis"} here, or open Full chat for the workspace with @mentions and all ${targets.length} squad members.`}
+                  ? "Type @ to mention any squad member, or / for commands — same as Slack or Teams."
+                  : `Message ${target?.name || "NetJarvis"}. Type @ or / in the composer, or expand the chat workspace.`}
               </p>
-              {expanded ? (
-                <div className="squad-chat-mention-guide">
-                  <span>@jarvis</span>
-                  <span>@data</span>
-                  <span>@security</span>
-                  <span>@incident</span>
-                  <span>@change</span>
-                </div>
-              ) : null}
             </div>
           ) : (
             <>
@@ -283,20 +333,64 @@ export function SquadChatPanel({
 
         <footer className="squad-chat-compose">
           <div className="squad-chat-compose-toolbar">
-            <button
-              type="button"
-              className="squad-chat-tool-btn"
-              onClick={() => {
-                setDraft((value) => `${value}${value.endsWith(" ") || value.length === 0 ? "" : " "}@`);
-                composerRef.current?.focus();
-              }}
-              title="Mention a squad member (@data, @security, …)"
-            >
+            <button type="button" className="squad-chat-tool-btn" onClick={openMentionPicker} title="Mention someone (@)">
               <AtSign size={14} />
             </button>
-            <small className="squad-chat-mention-hint">@data · @security · @incident · @jarvis</small>
+            <button type="button" className="squad-chat-tool-btn" onClick={openSlashPicker} title="Run a command (/)">
+              <Slash size={14} />
+            </button>
           </div>
           <div className="squad-chat-compose-box">
+            {pickerOpen ? (
+              <ul className="squad-chat-picker-menu" role="listbox" aria-label={picker?.kind === "mention" ? "Mention squad member" : "Slash commands"}>
+                {pickerItems.length === 0 ? (
+                  <li className="squad-chat-picker-empty">
+                    {picker?.kind === "mention" ? "No matching members" : "No matching commands"}
+                  </li>
+                ) : picker?.kind === "mention" ? (
+                  mentionSuggestions.map((mention, index) => (
+                    <li key={mention.id}>
+                      <button
+                        type="button"
+                        className={index === pickerIndex ? "squad-chat-picker-option-active" : ""}
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          insertMention(mention);
+                        }}
+                      >
+                        <span className={`squad-chat-picker-avatar squad-chat-avatar-${mention.id === "jarvis" ? "jarvis" : "user"}`}>
+                          {mention.handle.slice(0, 2).toUpperCase()}
+                        </span>
+                        <span className="squad-chat-picker-copy">
+                          <strong>@{mention.handle}</strong>
+                          <span>{mention.label}</span>
+                        </span>
+                        <em>{mention.group}</em>
+                      </button>
+                    </li>
+                  ))
+                ) : (
+                  slashSuggestions.map((command, index) => (
+                    <li key={command.name}>
+                      <button
+                        type="button"
+                        className={index === pickerIndex ? "squad-chat-picker-option-active" : ""}
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          insertSlashCommand(command);
+                        }}
+                      >
+                        <span className="squad-chat-picker-slash">/</span>
+                        <span className="squad-chat-picker-copy">
+                          <strong>/{command.name}</strong>
+                          <span>{command.description}</span>
+                        </span>
+                      </button>
+                    </li>
+                  ))
+                )}
+              </ul>
+            ) : null}
             <textarea
               ref={composerRef}
               value={draft}
@@ -304,41 +398,26 @@ export function SquadChatPanel({
               onChange={(event) => {
                 setDraft(event.target.value);
                 resizeComposer(event.target);
-                updateMentionState(event.target.value, event.target.selectionStart || event.target.value.length);
+                updatePickerState(event.target.value, event.target.selectionStart || event.target.value.length);
               }}
               onKeyDown={handleComposerKeyDown}
-              onClick={(event) => updateMentionState(event.currentTarget.value, event.currentTarget.selectionStart || 0)}
-              placeholder={expanded ? "Message #network-ops — use @data, @security, @jarvis…" : `Message ${target?.name || "NetJarvis"}…`}
+              onClick={(event) => updatePickerState(event.currentTarget.value, event.currentTarget.selectionStart || 0)}
+              onKeyUp={(event) => updatePickerState(event.currentTarget.value, event.currentTarget.selectionStart || 0)}
+              placeholder={expanded ? "Message #network-ops" : `Message ${target?.name || "NetJarvis"}`}
               disabled={busy}
               aria-label="Message input"
             />
-            {mentionSuggestions.length > 0 ? (
-              <ul className="squad-chat-mention-menu" role="listbox">
-                {mentionSuggestions.map((mention, index) => (
-                  <li key={`${mention.id}-${mention.handle}`}>
-                    <button
-                      type="button"
-                      className={index === mentionIndex ? "squad-chat-mention-option-active" : ""}
-                      onMouseDown={(event) => {
-                        event.preventDefault();
-                        insertMention(mention);
-                      }}
-                    >
-                      <strong>@{mention.handle}</strong>
-                      <span>{mention.label}</span>
-                      <em>{mention.group}</em>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
             <div className="squad-chat-compose-bar">
               <small className="squad-chat-hint">
-                {expanded
-                  ? voiceLive
-                    ? "Voice live — @mention routes to specialists"
-                    : "Shift+Enter new line · @mention to delegate"
-                  : "Enter to send · Full chat button above"}
+                {pickerOpen
+                  ? picker?.kind === "mention"
+                    ? pickerItems.length > 0
+                      ? `${pickerItems.length} member${pickerItems.length === 1 ? "" : "s"} · ↑↓ select · Enter insert`
+                      : "No matches · keep typing or Esc"
+                    : pickerItems.length > 0
+                      ? `${pickerItems.length} command${pickerItems.length === 1 ? "" : "s"} · ↑↓ select · Enter insert`
+                      : "No matches · keep typing or Esc"
+                  : "@ mention · / command · Enter send"}
               </small>
               <button
                 type="button"
@@ -346,7 +425,6 @@ export function SquadChatPanel({
                 onClick={() => void submit()}
                 disabled={busy || !draft.trim()}
                 aria-label="Send message"
-                title="Send (Enter)"
               >
                 {busy ? <Loader2 size={16} className="squad-chat-spinner" /> : <Send size={16} />}
               </button>
@@ -358,87 +436,30 @@ export function SquadChatPanel({
   );
 }
 
-function ChannelSidebar({
-  targets,
-  activeId,
-  onSelect,
-  org,
-}: {
-  targets: SquadChatTarget[];
-  activeId: string;
-  onSelect: (id: string) => void;
-  org: AgentOrg | null;
-}) {
+function ChannelSidebar({ targets }: { targets: SquadChatTarget[] }) {
   return (
     <nav className="squad-chat-sidebar" aria-label="Squad channels">
       <header className="squad-chat-sidebar-header">
         <span className="squad-chat-eyebrow">Agent Squad</span>
         <strong># network-ops</strong>
-        <p>{targets.length} members · type @ in chat</p>
+        <p>{targets.length} members · type @ to mention</p>
       </header>
 
       <section className="squad-chat-sidebar-section">
-        <h4>Channel</h4>
+        <h4>Channels</h4>
         <ul>
           <li>
-            <button type="button" className={`squad-chat-channel-btn ${activeId === "jarvis" ? "squad-chat-channel-btn-active" : ""}`} onClick={() => onSelect("jarvis")}>
+            <div className="squad-chat-channel-btn squad-chat-channel-btn-active" aria-current="page">
               <span className="squad-chat-avatar squad-chat-avatar-jarvis">NJ</span>
               <span className="squad-chat-channel-btn-text">
                 <strong># network-ops</strong>
-                <small>@jarvis · squad channel</small>
+                <small>Squad channel</small>
               </span>
-            </button>
+            </div>
           </li>
         </ul>
       </section>
-
-      <section className="squad-chat-sidebar-section">
-        <h4>Direct messages</h4>
-        <ul>
-          {targets
-            .filter((item) => item.id !== "jarvis")
-            .map((item) => (
-              <ChannelItem key={item.id} item={item} active={activeId === item.id} onSelect={onSelect} />
-            ))}
-        </ul>
-      </section>
-
-      {org?.groups?.map((group) => (
-        <section className="squad-chat-sidebar-section" key={group.id}>
-          <h4>{group.name}</h4>
-          <ul className="squad-chat-handle-list">
-            {group.agents.map((agent) => (
-              <li key={agent.id}>
-                <code>@{agent.id}</code>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
     </nav>
-  );
-}
-
-function ChannelItem({
-  item,
-  active,
-  onSelect,
-}: {
-  item: SquadChatTarget;
-  active: boolean;
-  onSelect: (id: string) => void;
-}) {
-  const initials = avatarInitials(item.name, item.id === "jarvis" ? "jarvis" : "user");
-  return (
-    <li>
-      <button type="button" className={`squad-chat-channel-btn ${active ? "squad-chat-channel-btn-active" : ""}`} onClick={() => onSelect(item.id)}>
-        <span className={`squad-chat-avatar squad-chat-avatar-${initials.tone}`}>{initials.label}</span>
-        <span className="squad-chat-channel-btn-text">
-          <strong>{item.name}</strong>
-          <small>@{item.id}</small>
-        </span>
-      </button>
-    </li>
   );
 }
 

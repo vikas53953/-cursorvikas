@@ -3523,64 +3523,10 @@ td {
   font-size: 12px;
 }
 
-.squad-chat-open-full {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 10px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid rgba(110, 242, 190, 0.28);
-  background: rgba(110, 242, 190, 0.1);
-  color: #b8f5d8;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.squad-chat-open-full:hover {
-  background: rgba(110, 242, 190, 0.18);
-}
-
-.squad-chat-mention-guide {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  justify-content: center;
-  margin-top: 12px;
-}
-
-.squad-chat-mention-guide span,
-.squad-chat-handle-list code {
-  padding: 3px 8px;
-  border-radius: 999px;
-  background: rgba(110, 242, 190, 0.12);
-  border: 1px solid rgba(110, 242, 190, 0.22);
-  color: #9ef0c8;
-  font-size: 11px;
-  font-family: inherit;
-}
-
-.squad-chat-handle-list {
-  margin: 0;
-  padding: 0 8px;
-  list-style: none;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.squad-chat-sidebar-header p {
-  margin: 4px 0 0;
-  color: #6d7685;
-  font-size: 10px;
-}
-
 .squad-chat-compose-toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   margin-bottom: 6px;
 }
 
@@ -3601,13 +3547,13 @@ td {
   color: #f0f3fa;
 }
 
-.squad-chat-mention-hint {
+.squad-chat-sidebar-header p {
+  margin: 4px 0 0;
   color: #6d7685;
   font-size: 10px;
 }
 
-
-.squad-chat-mention-menu {
+.squad-chat-picker-menu {
   position: absolute;
   left: 8px;
   right: 8px;
@@ -3620,15 +3566,15 @@ td {
   background: #121820;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
   z-index: 5;
-  max-height: 200px;
+  max-height: 260px;
   overflow: auto;
 }
 
-.squad-chat-mention-menu button {
+.squad-chat-picker-menu button {
   width: 100%;
   display: grid;
   grid-template-columns: auto 1fr auto;
-  gap: 8px;
+  gap: 10px;
   align-items: center;
   padding: 8px 10px;
   border: 0;
@@ -3639,25 +3585,64 @@ td {
   cursor: pointer;
 }
 
-.squad-chat-mention-menu button:hover,
-.squad-chat-mention-option-active {
+.squad-chat-picker-menu button:hover,
+.squad-chat-picker-option-active {
   background: rgba(110, 242, 190, 0.12) !important;
 }
 
-.squad-chat-mention-menu strong {
-  color: #9ef0c8;
+.squad-chat-picker-avatar {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.squad-chat-picker-slash {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: rgba(125, 162, 255, 0.15);
+  color: #b8ccff;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.squad-chat-picker-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.squad-chat-picker-copy strong {
+  color: #e8edf7;
   font-size: 12px;
 }
 
-.squad-chat-mention-menu span {
+.squad-chat-picker-copy span {
   font-size: 11px;
-  color: #dbe4f4;
+  color: #8b93a5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.squad-chat-mention-menu em {
+.squad-chat-picker-menu em {
   font-size: 10px;
   color: #6d7685;
   font-style: normal;
+  white-space: nowrap;
+}
+
+.squad-chat-picker-empty {
+  padding: 10px 12px;
+  color: #8b93a5;
+  font-size: 12px;
+  text-align: center;
 }
 
 .squad-chat-mention {
@@ -3748,27 +3733,6 @@ td {
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
   flex-shrink: 0;
-}
-
-.squad-chat-expand-btn-labeled {
-  width: auto;
-  min-width: 32px;
-  height: 32px;
-  padding: 0 10px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border-color: rgba(110, 242, 190, 0.28);
-  background: rgba(110, 242, 190, 0.1);
-  color: #b8f5d8;
-  font-size: 11px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.squad-chat-expand-btn-labeled:hover {
-  background: rgba(110, 242, 190, 0.18);
-  color: #dcfff0;
 }
 
 .squad-chat-expand-btn:hover {
@@ -4089,6 +4053,7 @@ td {
   border-top: 1px solid rgba(255, 255, 255, 0.07);
   background: #0a0e13;
   min-width: 0;
+  overflow: visible;
 }
 
 .squad-chat-stage .squad-chat-compose {
@@ -4100,7 +4065,7 @@ td {
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.03);
-  overflow: hidden;
+  overflow: visible;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 

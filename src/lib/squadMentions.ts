@@ -1,24 +1,11 @@
+import type { AgentOrg } from "../vite-env";
+
 export type SquadMention = {
   id: string;
   handle: string;
   label: string;
   group?: string;
 };
-
-// Slack/Teams-style @handles for the Agent Squad channel.
-export const SQUAD_MENTIONS: SquadMention[] = [
-  { id: "jarvis", handle: "jarvis", label: "NetJarvis", group: "Lead" },
-  { id: "data", handle: "data", label: "Data Network Agent", group: "Data Team" },
-  { id: "firewall", handle: "firewall", label: "Firewall Agent", group: "Security Team" },
-  { id: "fw", handle: "fw", label: "Firewall Agent", group: "Security Team" },
-  { id: "proxy", handle: "proxy", label: "Proxy Agent", group: "Security Team" },
-  { id: "loadbalancer", handle: "loadbalancer", label: "Load Balancer Agent", group: "Security Team" },
-  { id: "lb", handle: "lb", label: "Load Balancer Agent", group: "Security Team" },
-  { id: "security", handle: "security", label: "Security Team", group: "Security Team" },
-  { id: "change", handle: "change", label: "Change Management Agent", group: "Incident Management" },
-  { id: "incident", handle: "incident", label: "Incident Management Agent", group: "Incident Management" },
-  { id: "problem", handle: "problem", label: "Problem Management Agent", group: "Incident Management" },
-];
 
 const HANDLE_TO_TEAM: Record<string, string> = {
   jarvis: "jarvis",
@@ -35,6 +22,37 @@ const HANDLE_TO_TEAM: Record<string, string> = {
 };
 
 const MENTION_PATTERN = /@([a-z][a-z0-9_-]*)/gi;
+
+export function buildMemberMentions(
+  targets: Array<{ id: string; name: string; scope?: string }>,
+  org: AgentOrg | null,
+): SquadMention[] {
+  const groupName = (id: string) => {
+    if (id === "jarvis") return "Lead";
+    for (const group of org?.groups || []) {
+      if (group.agents.some((agent) => agent.id === id)) return group.name;
+    }
+    return "Squad";
+  };
+
+  return targets.map((target) => ({
+    id: target.id,
+    handle: target.id,
+    label: target.name,
+    group: groupName(target.id),
+  }));
+}
+
+export function filterMemberMentions(members: SquadMention[], query: string): SquadMention[] {
+  const needle = query.toLowerCase();
+  return members.filter(
+    (member) =>
+      !needle ||
+      member.handle.startsWith(needle) ||
+      member.label.toLowerCase().includes(needle) ||
+      member.group?.toLowerCase().includes(needle),
+  );
+}
 
 export function parseMentionHandles(text: string): string[] {
   const found = new Set<string>();
@@ -64,16 +82,6 @@ export function buildMentionPrefix(text: string): string {
     return `[Squad channel mentions: ${labels}. Delegate to or respond as: ${teamList}.] `;
   }
   return `[Squad channel mention: ${labels}.] `;
-}
-
-export function filterMentionSuggestions(query: string): SquadMention[] {
-  const needle = query.toLowerCase();
-  const seen = new Set<string>();
-  return SQUAD_MENTIONS.filter((mention) => {
-    if (seen.has(mention.id)) return false;
-    seen.add(mention.id);
-    return mention.handle.startsWith(needle) || mention.label.toLowerCase().includes(needle);
-  }).slice(0, 8);
 }
 
 export function splitMentionText(text: string): Array<{ type: "text" | "mention"; value: string; handle?: string }> {
