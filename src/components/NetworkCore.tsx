@@ -5,7 +5,7 @@ type NetworkCoreProps = {
   mood: JarvisMood;
   mouthShape: MouthShape;
   compact?: boolean;
-  compactSize?: "md" | "sm";
+  compactSize?: "md" | "sm" | "xs";
 };
 
 // Satellite node positions around the core (a small topology, like a NOC map).
@@ -34,7 +34,13 @@ const WAVE_FACTORS = [0.25, 0.45, 0.65, 0.85, 1, 0.9, 0.7, 0.9, 1, 0.85, 0.65, 0
 // driven by the realtime audio meter.
 export function NetworkCore({ mood, mouthShape, compact = false, compactSize = "md" }: NetworkCoreProps) {
   const energy = Math.min(1, mouthShape.open * 1.25 + mouthShape.teeth * 0.3 + mouthShape.width * 0.15);
-  const sizeClass = compact ? (compactSize === "sm" ? "netcore-compact-sm" : "netcore-compact") : "";
+  const sizeClass = compact
+    ? compactSize === "xs"
+      ? "netcore-compact-xs"
+      : compactSize === "sm"
+        ? "netcore-compact-sm"
+        : "netcore-compact"
+    : "";
 
   return (
     <div

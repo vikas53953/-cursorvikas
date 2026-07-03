@@ -76,6 +76,8 @@ export class JarvisRealtimeClient {
   private pc: RTCPeerConnection | null = null;
   private dc: RTCDataChannel | null = null;
   private micStream: MediaStream | null = null;
+  private remoteAudio: HTMLAudioElement | null = null;
+  private disposed = false;
   private callbacks: RealtimeCallbacks;
   private currentAssistantText = "";
   private toolSpecs: JarvisToolSpec[] = [];
@@ -92,47 +94,85 @@ export class JarvisRealtimeClient {
 
   async connect(): Promise<void> {
     if (this.pc) return;
+    this.disposed = false;
     this.callbacks.onConnectionState("connecting");
     this.callbacks.onMood("thinking");
     this.callbacks.onStatus("Minting a Realtime client secret.");
     logEvent("rt.connect.start");
 
+    let pc: RTCPeerConnection | null = null;
+    let dc: RTCDataChannel | null = null;
+    let micStream: MediaStream | null = null;
+    let remoteAudio: HTMLAudioElement | null = null;
+
+    const abortIfDisposed = (): boolean => {
+      if (!this.disposed) return false;
+      micStream?.getTracks().forEach((track) => {
+        track.enabled = false;
+        track.stop();
+      });
+      pc?.getSenders().forEach((sender) => {
+        if (sender.track) {
+          sender.track.enabled = false;
+          sender.track.stop();
+        }
+      });
+      remoteAudio?.pause();
+      dc?.close();
+      pc?.close();
+      return true;
+    };
+
     try {
       this.toolSpecs = await window.jarvis.getToolSpecs();
+      if (abortIfDisposed()) return;
+
       const token = await window.jarvis.createRealtimeToken();
+      if (abortIfDisposed()) return;
       logEvent("rt.connect.token_ok", { expiresAt: token.expiresAt });
-      const pc = new RTCPeerConnection();
-      const audio = document.createElement("audio");
-      audio.autoplay = true;
+
+      pc = new RTCPeerConnection();
+      remoteAudio = document.createElement("audio");
+      remoteAudio.autoplay = true;
+      this.remoteAudio = remoteAudio;
 
       pc.ontrack = (event) => {
-        audio.srcObject = event.streams[0];
+        if (this.disposed || !remoteAudio) return;
+        remoteAudio.srcObject = event.streams[0];
         this.startOutputMeter(event.streams[0]);
       };
 
-      this.micStream = await navigator.mediaDevices.getUserMedia({
+      micStream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
         },
       });
-      pc.addTrack(this.micStream.getAudioTracks()[0], this.micStream);
+      if (abortIfDisposed()) return;
 
-      const dc = pc.createDataChannel("oai-events");
-      dc.addEventListener("open", () => {
+      this.micStream = micStream;
+      pc.addTrack(micStream.getAudioTracks()[0], micStream);
+
+      dc = pc.createDataChannel("oai-events");
+      const onMessage = (event: MessageEvent) => {
+        void this.handleServerEvent(event.data);
+      };
+      const onOpen = () => {
+        if (this.disposed) return;
         this.callbacks.onConnectionState("connected");
         this.callbacks.onMood("idle");
         this.callbacks.onStatus("NetJarvis is live. Ask how your network is doing.");
         logEvent("rt.connect.data_channel_open");
         this.startProactiveWatcher();
-      });
-      dc.addEventListener("message", (event) => {
-        void this.handleServerEvent(event.data);
-      });
+      };
+      dc.addEventListener("open", onOpen);
+      dc.addEventListener("message", onMessage);
 
       const offer = await pc.createOffer();
+      if (abortIfDisposed()) return;
       await pc.setLocalDescription(offer);
+      if (abortIfDisposed()) return;
 
       const sdpResponse = await fetch(realtimeUrl, {
         method: "POST",
@@ -142,6 +182,7 @@ export class JarvisRealtimeClient {
           "Content-Type": "application/sdp",
         },
       });
+      if (abortIfDisposed()) return;
 
       if (!sdpResponse.ok) {
         throw new Error(`Realtime WebRTC call failed: ${sdpResponse.status} ${await sdpResponse.text()}`);
@@ -151,11 +192,13 @@ export class JarvisRealtimeClient {
         type: "answer",
         sdp: await sdpResponse.text(),
       });
+      if (abortIfDisposed()) return;
 
       this.pc = pc;
       this.dc = dc;
       logEvent("rt.connect.webrtc_ok");
     } catch (error) {
+      if (this.disposed) return;
       const message = error instanceof Error ? error.message : String(error);
       logEvent("rt.connect.error", { error: message });
       this.callbacks.onConnectionState("error");
@@ -166,22 +209,58 @@ export class JarvisRealtimeClient {
   }
 
   disconnect(): void {
+    this.disposed = true;
+    logEvent("rt.disconnect");
     this.stopProactiveWatcher();
-    this.dc?.close();
-    this.pc?.close();
-    this.micStream?.getTracks().forEach((track) => track.stop());
     this.stopOutputMeter();
+
+    if (this.micStream) {
+      this.micStream.getTracks().forEach((track) => {
+        track.enabled = false;
+        track.stop();
+      });
+    }
+
+    if (this.pc) {
+      this.pc.getSenders().forEach((sender) => {
+        if (sender.track) {
+          sender.track.enabled = false;
+          sender.track.stop();
+        }
+      });
+    }
+
+    if (this.remoteAudio) {
+      this.remoteAudio.pause();
+      this.remoteAudio.srcObject = null;
+      if (this.remoteAudio.parentNode) {
+        this.remoteAudio.parentNode.removeChild(this.remoteAudio);
+      }
+      this.remoteAudio = null;
+    }
+
+    if (this.dc) {
+      this.dc.onopen = null;
+      this.dc.onmessage = null;
+      this.dc.close();
+    }
+    this.pc?.close();
     this.dc = null;
     this.pc = null;
     this.micStream = null;
     this.currentAssistantText = "";
+    this.toolRunning = false;
     this.callbacks.onConnectionState("idle");
     this.callbacks.onMood("idle");
     this.callbacks.onMouthShape(silentMouthShape());
   }
 
+  isActive(): boolean {
+    return !this.disposed && this.pc !== null && this.dc?.readyState === "open";
+  }
+
   sendText(text: string): void {
-    if (!this.dc || this.dc.readyState !== "open") {
+    if (this.disposed || !this.dc || this.dc.readyState !== "open") {
       this.callbacks.onStatus("Connect NetJarvis before sending a text prompt.");
       return;
     }
@@ -199,6 +278,7 @@ export class JarvisRealtimeClient {
   }
 
   private async handleServerEvent(raw: string): Promise<void> {
+    if (this.disposed) return;
     const event = safeParseEvent(raw);
     if (!event.type) return;
 

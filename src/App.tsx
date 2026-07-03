@@ -42,6 +42,12 @@ export default function App() {
   const isConnected = connectionState === "connected";
 
   async function connect() {
+    if (connectionState === "connecting") return;
+    if (connectionState === "connected" && clientRef.current?.isActive()) return;
+
+    clientRef.current?.disconnect();
+    clientRef.current = null;
+
     const client = new JarvisRealtimeClient({
       onConnectionState: setConnectionState,
       onMood: setMood,
@@ -111,13 +117,23 @@ export default function App() {
       },
     });
     clientRef.current = client;
-    await client.connect();
+    try {
+      await client.connect();
+    } catch {
+      clientRef.current = null;
+    }
   }
 
   function disconnect() {
-    clientRef.current?.disconnect();
+    const client = clientRef.current;
     clientRef.current = null;
-    setTranscript((items) => [newEntry("system", "Disconnected."), ...items].slice(0, 80));
+    client?.disconnect();
+    setConnectionState("idle");
+    setMood("idle");
+    setMouthShape({ open: 0, width: 0.18, round: 0, teeth: 0 });
+    setLastHeard("");
+    setHudActivity({ kind: "idle", text: "" });
+    setTranscript((items) => [newEntry("system", "Voice disconnected."), ...items].slice(0, 80));
   }
 
   function sendTextPrompt() {
@@ -139,7 +155,8 @@ export default function App() {
     }
 
     if (connectionState !== "connected") {
-      await connect();
+      setTranscript((items) => [newEntry("system", "Connect voice first (hover bottom-center in fullscreen, or use the mic on the left)."), ...items].slice(0, 80));
+      return;
     }
     clientRef.current?.sendText(payload);
     setLastHeard(trimmed);
