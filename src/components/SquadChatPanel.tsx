@@ -116,39 +116,25 @@ export function SquadChatPanel({
       ) : null}
 
       <div className="squad-chat-main">
-        <header className="squad-chat-topbar">
-          <div className="squad-chat-channel">
-            <span className="squad-chat-channel-icon" aria-hidden="true">
-              {target?.id === "jarvis" ? <Sparkles size={14} /> : <Hash size={14} />}
-            </span>
-            <div className="squad-chat-channel-meta">
-              <strong>{target?.name || "NetJarvis"}</strong>
-              <span className="squad-chat-channel-sub">
-                {target?.id === "jarvis" ? "# network-ops · squad lead" : `Direct message · ${target?.id || "agent"}`}
+        <header className={`squad-chat-topbar ${expanded ? "" : "squad-chat-topbar-rail"}`}>
+          <div className="squad-chat-topbar-primary">
+            <div className="squad-chat-channel">
+              <span className="squad-chat-channel-icon" aria-hidden="true">
+                {target?.id === "jarvis" ? <Sparkles size={14} /> : <Hash size={14} />}
               </span>
+              <div className="squad-chat-channel-meta">
+                <div className="squad-chat-channel-title-row">
+                  <strong>{target?.name || "NetJarvis"}</strong>
+                  <span className={`squad-chat-presence ${voiceLive ? "squad-chat-presence-live" : ""}`} title={voiceLive ? "Voice connected" : "Text chat"}>
+                    {voiceLive ? "Live" : "Text"}
+                  </span>
+                </div>
+                <span className="squad-chat-channel-sub">
+                  {target?.id === "jarvis" ? "# network-ops" : `DM · ${target?.id || "agent"}`}
+                </span>
+              </div>
             </div>
-            <span className={`squad-chat-presence ${voiceLive ? "squad-chat-presence-live" : ""}`} title={voiceLive ? "Voice connected" : "Text chat"}>
-              {voiceLive ? "Live" : "Text"}
-            </span>
-          </div>
 
-          <div className="squad-chat-topbar-actions">
-            {!expanded ? (
-              <label className="squad-chat-select-wrap squad-chat-select-compact">
-                <span>Chat with</span>
-                <select value={targetId} onChange={(event) => setTargetId(event.target.value)}>
-                  {targets.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : (
-              <span className="squad-chat-members">
-                <Users size={13} /> {targets.length} members
-              </span>
-            )}
             {onToggleExpand ? (
               <button
                 type="button"
@@ -161,9 +147,28 @@ export function SquadChatPanel({
               </button>
             ) : null}
           </div>
+
+          {!expanded ? (
+            <label className="squad-chat-rail-picker">
+              <span>Chat with</span>
+              <select value={targetId} onChange={(event) => setTargetId(event.target.value)}>
+                {targets.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <div className="squad-chat-topbar-actions">
+              <span className="squad-chat-members">
+                <Users size={13} /> {targets.length} members
+              </span>
+            </div>
+          )}
         </header>
 
-        {target && !expanded ? (
+        {target && expanded ? (
           <p className="squad-chat-scope" title={target.scope}>
             {target.id === "jarvis" ? "Squad lead — routes to the right specialist" : target.scope || target.name}
           </p>
@@ -171,15 +176,23 @@ export function SquadChatPanel({
 
         <div className="squad-chat-feed" ref={feedRef}>
           {messages.length === 0 ? (
-            <div className="squad-chat-welcome">
-              <div className="squad-chat-welcome-icon" aria-hidden="true">
-                <Hash size={22} />
-              </div>
-              <strong>Welcome to Network Agent Squad</strong>
+            <div className={`squad-chat-welcome ${expanded ? "" : "squad-chat-welcome-rail"}`}>
+              {expanded ? (
+                <div className="squad-chat-welcome-icon" aria-hidden="true">
+                  <Hash size={22} />
+                </div>
+              ) : null}
+              <strong>{expanded ? "Welcome to Network Agent Squad" : "Start a conversation"}</strong>
               <p>
-                This is your NOC operations channel. Message {target?.name || "NetJarvis"} about the network — run show commands,
-                delegate to specialists, or triage incidents. Voice is optional.
+                {expanded
+                  ? `This is your NOC operations channel. Message ${target?.name || "NetJarvis"} about the network — run show commands, delegate to specialists, or triage incidents. Voice is optional.`
+                  : `Message ${target?.name || "NetJarvis"} about the network. Use the expand button above for the full chat workspace.`}
               </p>
+              {!expanded ? (
+                <button type="button" className="squad-chat-open-full" onClick={onToggleExpand}>
+                  <Maximize2 size={14} /> Open full chat
+                </button>
+              ) : null}
             </div>
           ) : (
             <>
@@ -222,7 +235,11 @@ export function SquadChatPanel({
             />
             <div className="squad-chat-compose-bar">
               <small className="squad-chat-hint">
-                {voiceLive ? "Voice live — text and speech share this session" : "Shift+Enter for new line · Enter to send"}
+                {expanded
+                  ? voiceLive
+                    ? "Voice live — text and speech share this session"
+                    : "Shift+Enter for new line · Enter to send"
+                  : "Enter to send"}
               </small>
               <button
                 type="button"

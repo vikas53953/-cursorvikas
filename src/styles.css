@@ -3066,7 +3066,7 @@ td {
 }
 
 .team-board-layout-chat {
-  grid-template-columns: minmax(190px, 220px) minmax(0, 1fr) minmax(220px, 260px);
+  grid-template-columns: minmax(170px, 200px) minmax(0, 1fr) minmax(320px, 400px);
 }
 
 .agent-roster-board,
@@ -3325,6 +3325,8 @@ td {
 }
 
 .squad-chat {
+  width: 100%;
+  min-width: 0;
   min-height: 0;
   border-radius: 12px;
   background: #0d1117;
@@ -3334,9 +3336,16 @@ td {
 
 .squad-chat-rail {
   display: grid;
-  grid-template-rows: auto auto 1fr auto;
+  grid-template-rows: auto 1fr auto;
   gap: 0;
+  height: calc(100vh - 140px);
   max-height: calc(100vh - 140px);
+}
+
+.squad-chat-rail .squad-chat-main {
+  grid-template-rows: auto 1fr auto;
+  height: 100%;
+  min-height: 0;
 }
 
 .squad-chat-stage {
@@ -3452,6 +3461,26 @@ td {
   padding: 12px 14px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
   background: rgba(255, 255, 255, 0.02);
+  min-width: 0;
+}
+
+.squad-chat-topbar-rail {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+.squad-chat-topbar-primary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.squad-chat-topbar-rail .squad-chat-topbar-primary {
+  width: 100%;
 }
 
 .squad-chat-channel {
@@ -3459,6 +3488,59 @@ td {
   align-items: center;
   gap: 10px;
   min-width: 0;
+  flex: 1;
+}
+
+.squad-chat-channel-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.squad-chat-channel-title-row strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.squad-chat-rail-picker {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  font-size: 10px;
+  color: #8b93a5;
+}
+
+.squad-chat-rail-picker select {
+  width: 100%;
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: #dbe4f4;
+  font-size: 12px;
+}
+
+.squad-chat-open-full {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(110, 242, 190, 0.28);
+  background: rgba(110, 242, 190, 0.1);
+  color: #b8f5d8;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.squad-chat-open-full:hover {
+  background: rgba(110, 242, 190, 0.18);
 }
 
 .squad-chat-channel-icon {
@@ -3584,11 +3666,12 @@ td {
 
 .squad-chat-feed {
   min-height: 0;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 16px 14px 12px;
+  padding: 12px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent 80px),
     #0d1117;
@@ -3603,6 +3686,22 @@ td {
   max-width: 420px;
   text-align: center;
   padding: 28px 20px;
+}
+
+.squad-chat-welcome-rail {
+  margin: 0;
+  max-width: none;
+  text-align: left;
+  padding: 14px 4px 8px;
+}
+
+.squad-chat-welcome-rail strong {
+  font-size: 14px;
+}
+
+.squad-chat-welcome-rail p {
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .squad-chat-welcome-icon {
@@ -3651,11 +3750,17 @@ td {
 
 .squad-chat-row {
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr);
-  gap: 10px;
-  padding: 4px 6px;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 8px;
+  padding: 3px 4px;
   border-radius: 8px;
   transition: background 0.12s ease;
+  min-width: 0;
+}
+
+.squad-chat-rail .squad-chat-row {
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 6px;
 }
 
 .squad-chat-row:hover {
@@ -3669,9 +3774,15 @@ td {
 
 .squad-chat-avatar,
 .squad-chat-avatar-spacer {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   flex-shrink: 0;
+}
+
+.squad-chat-rail .squad-chat-avatar,
+.squad-chat-rail .squad-chat-avatar-spacer {
+  width: 28px;
+  height: 28px;
 }
 
 .squad-chat-row-expanded .squad-chat-avatar,
@@ -3683,8 +3794,8 @@ td {
 .squad-chat-avatar {
   display: grid;
   place-items: center;
-  border-radius: 10px;
-  font-size: 11px;
+  border-radius: 8px;
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.02em;
 }
@@ -3748,14 +3859,19 @@ td {
 .squad-chat-bubble p {
   margin: 0;
   color: #d7dde8;
-  font-size: 13px;
-  line-height: 1.55;
+  font-size: 12px;
+  line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .squad-chat-stage .squad-chat-bubble p {
   font-size: 14px;
+}
+
+.squad-chat-rail .squad-chat-row-meta strong {
+  font-size: 12px;
 }
 
 .squad-chat-bubble-user p {
@@ -3818,9 +3934,10 @@ td {
 }
 
 .squad-chat-compose {
-  padding: 10px 14px 12px;
+  padding: 8px 12px 10px;
   border-top: 1px solid rgba(255, 255, 255, 0.07);
   background: #0a0e13;
+  min-width: 0;
 }
 
 .squad-chat-stage .squad-chat-compose {
@@ -3842,16 +3959,17 @@ td {
 
 .squad-chat-compose-box textarea {
   width: 100%;
-  min-height: 42px;
+  min-height: 38px;
   max-height: 160px;
-  padding: 12px 14px 6px;
+  padding: 10px 12px 4px;
   border: 0;
   background: transparent;
   color: #f0f3fa;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.45;
   resize: none;
   font-family: inherit;
+  box-sizing: border-box;
 }
 
 .squad-chat-stage .squad-chat-compose-box textarea {
@@ -3901,8 +4019,10 @@ td {
     grid-template-columns: 1fr;
   }
 
-  .squad-chat-rail {
-    max-height: 420px;
+  .team-board-layout-chat .squad-chat-rail {
+    height: auto;
+    max-height: 480px;
+    min-height: 360px;
   }
 
   .squad-chat-stage {
