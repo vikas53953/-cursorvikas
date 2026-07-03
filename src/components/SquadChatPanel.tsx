@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Send, Sparkles } from "lucide-react";
+import { Loader2, Send, Sparkles } from "lucide-react";
 import type { JarvisConnectionState, TranscriptEntry } from "../lib/realtime";
 import type { AgentOrg } from "../vite-env";
 
@@ -12,11 +12,12 @@ export type SquadChatTarget = {
 type SquadChatPanelProps = {
   sessionLog: TranscriptEntry[];
   connectionState: JarvisConnectionState;
+  chatBusy?: boolean;
   onSend: (target: SquadChatTarget, message: string) => void | Promise<void>;
 };
 
-// Text chat with Jarvis or any squad specialist — same realtime session as voice.
-export function SquadChatPanel({ sessionLog, connectionState, onSend }: SquadChatPanelProps) {
+// Text chat with Jarvis or any squad specialist — works with or without voice.
+export function SquadChatPanel({ sessionLog, connectionState, chatBusy = false, onSend }: SquadChatPanelProps) {
   const [org, setOrg] = useState<AgentOrg | null>(null);
   const [targetId, setTargetId] = useState("jarvis");
   const [draft, setDraft] = useState("");
@@ -38,14 +39,15 @@ export function SquadChatPanel({ sessionLog, connectionState, onSend }: SquadCha
   const targets = buildTargets(org);
   const target = targets.find((item) => item.id === targetId) || targets[0];
   const messages = sessionLog.filter((entry) => entry.role === "user" || entry.role === "jarvis").slice(0, 40).reverse();
+  const busy = sending || chatBusy;
 
   useEffect(() => {
     feedRef.current?.scrollTo({ top: feedRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages.length, sessionLog]);
+  }, [messages.length, sessionLog, chatBusy]);
 
   async function submit() {
     const trimmed = draft.trim();
-    if (!trimmed || !target || sending) return;
+    if (!trimmed || !target || busy) return;
     setSending(true);
     try {
       await onSend(target, trimmed);
@@ -55,7 +57,7 @@ export function SquadChatPanel({ sessionLog, connectionState, onSend }: SquadCha
     }
   }
 
-  const offline = connectionState !== "connected";
+  const voiceLive = connectionState === "connected";
 
   return (
     <aside className="squad-chat">
@@ -84,7 +86,9 @@ export function SquadChatPanel({ sessionLog, connectionState, onSend }: SquadCha
 
       <div className="squad-chat-feed" ref={feedRef}>
         {messages.length === 0 ? (
-          <p className="squad-chat-empty">Type a message to {target?.name || "NetJarvis"}. Same engine as voice — tools and delegation run behind the scenes.</p>
+          <p className="squad-chat-empty">
+            Type a message to {target?.name || "NetJarvis"}. Text chat works here — voice is optional.
+          </p>
         ) : (
           messages.map((entry) => (
             <article className={`squad-chat-msg squad-chat-msg-${entry.role}`} key={entry.id}>
@@ -96,10 +100,21 @@ export function SquadChatPanel({ sessionLog, connectionState, onSend }: SquadCha
             </article>
           ))
         )}
+        {busy ? (
+          <article className="squad-chat-msg squad-chat-msg-jarvis squad-chat-msg-pending">
+            <header>
+              <strong>NetJarvis</strong>
+              <Loader2 size={12} className="squad-chat-spinner" />
+            </header>
+            <p>Working on your request…</p>
+          </article>
+        ) : null}
       </div>
 
       <footer className="squad-chat-compose">
-        {offline ? <small className="squad-chat-hint">Connect voice once (left mic) — then text chat works here too.</small> : null}
+        <small className="squad-chat-hint">
+          {voiceLive ? "Voice is live — text and speech share the same session." : "Text-only mode — tools and delegation still run behind the scenes."}
+        </small>
         <div className="squad-chat-input-row">
           <input
             value={draft}
@@ -111,10 +126,10 @@ export function SquadChatPanel({ sessionLog, connectionState, onSend }: SquadCha
               }
             }}
             placeholder={`Message ${target?.name || "NetJarvis"}...`}
-            disabled={sending}
+            disabled={busy}
           />
-          <button onClick={() => void submit()} disabled={sending || !draft.trim()} aria-label="Send message" title="Send">
-            <Send size={15} />
+          <button onClick={() => void submit()} disabled={busy || !draft.trim()} aria-label="Send message" title="Send">
+            {busy ? <Loader2 size={15} className="squad-chat-spinner" /> : <Send size={15} />}
           </button>
         </div>
         {target?.id === "jarvis" ? (

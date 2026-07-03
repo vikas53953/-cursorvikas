@@ -1534,7 +1534,20 @@ td {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
-  align-items: start;
+  align-items: stretch;
+}
+
+.kanban-balanced .kanban-column {
+  min-height: 280px;
+  max-height: 420px;
+  grid-template-rows: auto 1fr auto;
+}
+
+.kanban-balanced .kanban-cards {
+  overflow: auto;
+  min-height: 0;
+  max-height: 320px;
+  padding-right: 2px;
 }
 
 .kanban-column {
@@ -1587,6 +1600,24 @@ td {
 .kanban-cards {
   display: grid;
   gap: 8px;
+}
+
+.kanban-card-compact {
+  padding: 8px;
+  gap: 4px;
+}
+
+.kanban-card-compact .kanban-title {
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.kanban-card-compact .kanban-meta {
+  font-size: 10px;
+}
+
+.kanban-card-compact > footer {
+  margin-top: 2px;
 }
 
 .kanban-card {
@@ -2741,6 +2772,105 @@ td {
   animation: kanban-working 1.5s infinite ease-in-out;
 }
 
+.kanban-load-more {
+  width: 100%;
+  margin-top: 2px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(74, 222, 128, 0.2);
+  background: rgba(74, 222, 128, 0.06);
+  color: #9ef0c8;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+.kanban-load-more:hover {
+  background: rgba(74, 222, 128, 0.12);
+  border-color: rgba(74, 222, 128, 0.35);
+}
+
+.done-tasks-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 320;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.done-tasks-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(2, 6, 5, 0.72);
+  backdrop-filter: blur(4px);
+  cursor: pointer;
+}
+
+.done-tasks-modal {
+  position: relative;
+  z-index: 1;
+  width: min(720px, calc(100vw - 48px));
+  max-height: min(80vh, 720px);
+  display: grid;
+  grid-template-rows: auto 1fr;
+  border-radius: 14px;
+  border: 1px solid rgba(110, 242, 190, 0.18);
+  background: linear-gradient(180deg, rgba(12, 18, 16, 0.98), rgba(8, 12, 11, 0.96));
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.done-tasks-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.done-tasks-header strong {
+  display: block;
+  color: #e8edf7;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.done-tasks-header p {
+  margin: 4px 0 0;
+  color: #8b93a5;
+  font-size: 11px;
+}
+
+.done-tasks-close {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: #aeb7c8;
+  cursor: pointer;
+}
+
+.done-tasks-close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e8edf7;
+}
+
+.done-tasks-list {
+  overflow: auto;
+  display: grid;
+  gap: 8px;
+  padding: 14px 18px 18px;
+}
+
 .kanban-column-empty {
   margin: 0;
   padding: 12px;
@@ -3065,7 +3195,20 @@ td {
 
 .team-board-toolbar strong {
   display: block;
-  font-size: 13px;
+  color: #e8edf7;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.team-board-eyebrow {
+  display: block;
+  color: #6ef2be;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 2px;
 }
 
 .team-board-toolbar p {
@@ -3081,11 +3224,6 @@ td {
 
 .team-board-empty {
   min-height: 280px;
-}
-
-.kanban-load-more {
-  margin: 0 8px 8px;
-  width: calc(100% - 16px);
 }
 
 /* --- Artifacts library ------------------------------------------------ */
@@ -3290,6 +3428,20 @@ td {
 .squad-chat-msg-jarvis {
   border-color: rgba(110, 242, 190, 0.18);
   background: rgba(110, 242, 190, 0.06);
+}
+
+.squad-chat-msg-pending {
+  opacity: 0.85;
+}
+
+.squad-chat-spinner {
+  animation: squad-chat-spin 0.9s linear infinite;
+}
+
+@keyframes squad-chat-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .squad-chat-compose {

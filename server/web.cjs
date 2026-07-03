@@ -89,6 +89,21 @@ async function handleApi(request, response, url) {
     }
   }
 
+  if (request.method === "POST" && url.pathname === "/api/chat/message") {
+    const raw = await readBody(request);
+    let body = {};
+    try {
+      body = JSON.parse(raw || "{}");
+    } catch {
+      return sendJson(response, 400, { ok: false, error: "Invalid JSON body" });
+    }
+    const result = await tools.sendChatMessage({
+      target: body.target,
+      message: body.message,
+    });
+    return sendJson(response, 200, result);
+  }
+
   if (request.method === "POST" && url.pathname === "/api/realtime/token") {
     try {
       const token = await createRealtimeToken({ instructions: tools.instructions, toolSpecs: tools.toolSpecs });

@@ -17,7 +17,7 @@ const prometheus = require("./sources/prometheus.cjs");
 const snmp = require("./sources/snmp.cjs");
 const { createScheduler } = require("./scheduler.cjs");
 const { createAlertWatcher } = require("./alert-watcher.cjs");
-const { createAgents } = require("./agents.cjs");
+const { createAgents, chatCompletion, compactToolResult } = require("./agents.cjs");
 const logger = require("./logger.cjs");
 
 const sim = source.sim;
@@ -1225,10 +1225,82 @@ function createTools({ readDb, updateDb }) {
     alertWatcher.start();
   }
 
+  async function sendChatMessage({ target = "jarvis", message } = {}) {
+    const trimmed = String(message || "").trim();
+    if (!trimmed) return { ok: false, error: "Message is empty" };
+
+    let payload = trimmed;
+    const teamKey = String(target || "jarvis").toLowerCase();
+    if (teamKey !== "jarvis") {
+      const spec = agents.TEAMS[teamKey];
+      if (!spec) return { ok: false, error: `Unknown squad target: ${target}` };
+      payload = `[Squad text chat — engineer is messaging ${spec.name} (${teamKey} team). Respond in that specialist scope; use delegate_task or tools as you would for voice.] ${trimmed}`;
+    }
+
+    const jarvisTools = toolSpecs.map((spec) => ({
+      type: "function",
+      function: { name: spec.name, description: spec.description, parameters: spec.parameters },
+    }));
+
+    const messages = [
+      {
+        role: "system",
+        content: `${JARVIS_INSTRUCTIONS}
+
+# Squad text chat mode
+The engineer is using the Agent Squad text channel (not voice). Reply in clear markdown-friendly prose. Use tools when needed; every tool call appears on the Team Board. Be concise but complete.`,
+      },
+      { role: "user", content: payload },
+    ];
+
+    const artifacts = [];
+    const started = Date.now();
+    logger.log("chat.start", { target: teamKey, chars: trimmed.length });
+
+    try {
+      for (let round = 0; round < 8; round += 1) {
+        const modelMessage = await chatCompletion(messages, jarvisTools);
+        messages.push(modelMessage);
+
+        const toolCalls = Array.isArray(modelMessage.tool_calls) ? modelMessage.tool_calls : [];
+        if (toolCalls.length === 0) {
+          const text = String(modelMessage.content || "").trim() || "Done.";
+          logger.log("chat.done", { target: teamKey, ms: Date.now() - started, rounds: round + 1 });
+          return { ok: true, text, artifacts };
+        }
+
+        for (const call of toolCalls) {
+          let args = {};
+          try {
+            args = JSON.parse(call.function?.arguments || "{}");
+          } catch {
+            args = {};
+          }
+          const name = call.function?.name || "";
+          logger.log("chat.tool", { target: teamKey, tool: name, args });
+          const result = await execute(name, args);
+          if (result.artifact) artifacts.push(result.artifact);
+          messages.push({ role: "tool", tool_call_id: call.id, content: compactToolResult(result) });
+        }
+      }
+
+      return {
+        ok: true,
+        text: "Reached the tool-call limit before finishing. Check the Team Board and Observability tab for partial results.",
+        artifacts,
+      };
+    } catch (error) {
+      const errText = error instanceof Error ? error.message : String(error);
+      logger.log("chat.error", { target: teamKey, error: errText, ms: Date.now() - started });
+      return { ok: false, error: errText };
+    }
+  }
+
   return {
     toolSpecs,
     instructions: JARVIS_INSTRUCTIONS,
     execute,
+    sendChatMessage,
     getSnapshot: source.getSnapshot,
     listTasks: agents.listTasks,
     getOrg: agents.getOrg,

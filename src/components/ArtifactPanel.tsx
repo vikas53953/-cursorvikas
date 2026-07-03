@@ -23,6 +23,7 @@ type ArtifactPanelProps = {
   taskRefreshToken: number;
   observabilityEvents: ObservabilityEvent[];
   connectionState: JarvisConnectionState;
+  chatBusy?: boolean;
   onSendSquadChat: (target: SquadChatTarget, message: string) => void | Promise<void>;
 };
 
@@ -66,7 +67,7 @@ mermaid.initialize({
   securityLevel: "strict",
 });
 
-export function ArtifactPanel({ artifact, tab, onTabChange, visible, fullscreen, onToggleVisible, onToggleFullscreen, sessionLog, mood, taskRefreshToken, observabilityEvents, connectionState, onSendSquadChat }: ArtifactPanelProps) {
+export function ArtifactPanel({ artifact, tab, onTabChange, visible, fullscreen, onToggleVisible, onToggleFullscreen, sessionLog, mood, taskRefreshToken, observabilityEvents, connectionState, chatBusy = false, onSendSquadChat }: ArtifactPanelProps) {
   const [mermaidState, setMermaidState] = useState<MermaidState>({ svg: "", error: null, source: "" });
   const rawId = useId();
   const mermaidId = useMemo(() => `mermaid-${rawId.replace(/[^a-zA-Z0-9_-]/g, "")}`, [rawId]);
@@ -165,6 +166,7 @@ export function ArtifactPanel({ artifact, tab, onTabChange, visible, fullscreen,
             refreshToken={taskRefreshToken}
             sessionLog={sessionLog}
             connectionState={connectionState}
+            chatBusy={chatBusy}
             onSendSquadChat={onSendSquadChat}
           />
         ) : tab === "artifacts" ? (

@@ -118,6 +118,14 @@ ipcMain.handle("realtime:create-token", async () => {
   return createRealtimeToken({ instructions: tools.instructions, toolSpecs: tools.toolSpecs });
 });
 
+ipcMain.handle("chat:send", async (_event, payload) => {
+  const body = asObject(payload);
+  return tools.sendChatMessage({
+    target: body.target,
+    message: body.message,
+  });
+});
+
 // ---------------------------------------------------------------------------
 // App lifecycle
 // ---------------------------------------------------------------------------

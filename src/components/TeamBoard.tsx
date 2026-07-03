@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { X } from "lucide-react";
 import { AgentRoster } from "./AgentRoster";
 import { SquadChatPanel, type SquadChatTarget } from "./SquadChatPanel";
 import { useTeamTasks } from "../hooks/useTeamTasks";
@@ -22,8 +23,7 @@ const TEAM_BADGE: Record<string, string> = {
   problem: "PRB",
 };
 
-const DONE_INITIAL = 7;
-const DONE_PAGE = 10;
+const DONE_PREVIEW = 3;
 
 type TeamBoardProps = {
   staticTasks?: TeamTask[];
@@ -32,6 +32,7 @@ type TeamBoardProps = {
   refreshToken?: number;
   sessionLog?: TranscriptEntry[];
   connectionState?: JarvisConnectionState;
+  chatBusy?: boolean;
   onSendSquadChat?: (target: SquadChatTarget, message: string) => void | Promise<void>;
 };
 
@@ -42,11 +43,12 @@ export function TeamBoard({
   refreshToken = 0,
   sessionLog = [],
   connectionState = "idle",
+  chatBusy = false,
   onSendSquadChat,
 }: TeamBoardProps) {
   const live = useTeamTasks(active && !staticTasks, refreshToken);
   const tasks = staticTasks || live.tasks;
-  const [doneVisible, setDoneVisible] = useState(DONE_INITIAL);
+  const [doneModalOpen, setDoneModalOpen] = useState(false);
   const showChat = !staticTasks && Boolean(onSendSquadChat);
 
   if (!staticTasks && tasks.length === 0 && !live.error) {
@@ -56,8 +58,9 @@ export function TeamBoard({
         <div className="team-board-main">
           <header className="team-board-toolbar">
             <div>
+              <span className="team-board-eyebrow">Agent Squad</span>
               <strong>Kanban board</strong>
-              <p>Syncing live tasks...</p>
+              <p>Syncing live tasks…</p>
             </div>
             {live.lastSync ? <span className="team-board-sync">sync {live.lastSync}</span> : null}
           </header>
@@ -65,7 +68,9 @@ export function TeamBoard({
             <p>Waiting for Jarvis activity. When you delegate or run a tool, cards appear in Queued → In Progress → Done.</p>
           </div>
         </div>
-        {showChat ? <SquadChatPanel sessionLog={sessionLog} connectionState={connectionState} onSend={onSendSquadChat!} /> : null}
+        {showChat ? (
+          <SquadChatPanel sessionLog={sessionLog} connectionState={connectionState} chatBusy={chatBusy} onSend={onSendSquadChat!} />
+        ) : null}
       </div>
     );
   }
@@ -86,6 +91,8 @@ export function TeamBoard({
     );
   }
 
+  const doneItems = tasks.filter((task) => task.status === "done" || task.status === "failed");
+
   return (
     <div className={`team-board-layout ${showChat ? "team-board-layout-chat" : ""}`}>
       <AgentRoster mood={mood} tasks={tasks} />
@@ -93,9 +100,10 @@ export function TeamBoard({
       <div className="team-board-main">
         <header className="team-board-toolbar">
           <div>
+            <span className="team-board-eyebrow">Agent Squad</span>
             <strong>Kanban board</strong>
             <p>
-              {live.storeCount || tasks.length} tasks in store (cap {live.storeCap || 500}) · Done shows latest {DONE_INITIAL} by default
+              {live.storeCount || tasks.length} tasks tracked · Done shows latest {DONE_PREVIEW}
             </p>
           </div>
           <div className="team-board-toolbar-right">
@@ -104,11 +112,13 @@ export function TeamBoard({
           </div>
         </header>
 
-        <div className="kanban">
+        <div className="kanban kanban-balanced">
           {COLUMNS.map((column) => {
             const items = tasks.filter((task) => column.key.includes(task.status));
             const isDone = column.title === "Done";
-            const visible = isDone ? items.slice(0, doneVisible) : items;
+            const visible = isDone ? items.slice(0, DONE_PREVIEW) : items;
+            const hiddenDone = isDone ? Math.max(0, items.length - DONE_PREVIEW) : 0;
+
             return (
               <section className={`kanban-column ${column.className}`} key={column.title}>
                 <header>
@@ -118,14 +128,14 @@ export function TeamBoard({
                   </span>
                 </header>
                 <div className="kanban-cards">
-                  {visible.length === 0 ? <p className="kanban-column-empty">—</p> : null}
+                  {visible.length === 0 ? <p className="kanban-column-empty">No tasks</p> : null}
                   {visible.map((task) => (
-                    <TaskCard task={task} key={task.id} />
+                    <TaskCard task={task} compact={isDone} key={task.id} />
                   ))}
                 </div>
-                {isDone && doneVisible < items.length ? (
-                  <button className="noc-load-more kanban-load-more" onClick={() => setDoneVisible((count) => count + DONE_PAGE)}>
-                    Load more ({items.length - doneVisible} older in Done)
+                {isDone && hiddenDone > 0 ? (
+                  <button className="kanban-load-more" onClick={() => setDoneModalOpen(true)}>
+                    View all done ({items.length})
                   </button>
                 ) : null}
               </section>
@@ -134,12 +144,42 @@ export function TeamBoard({
         </div>
       </div>
 
-      {showChat ? <SquadChatPanel sessionLog={sessionLog} connectionState={connectionState} onSend={onSendSquadChat!} /> : null}
+      {showChat ? (
+        <SquadChatPanel sessionLog={sessionLog} connectionState={connectionState} chatBusy={chatBusy} onSend={onSendSquadChat!} />
+      ) : null}
+
+      {doneModalOpen ? <DoneTasksModal tasks={doneItems} onClose={() => setDoneModalOpen(false)} /> : null}
     </div>
   );
 }
 
-function TaskCard({ task }: { task: TeamTask }) {
+function DoneTasksModal({ tasks, onClose }: { tasks: TeamTask[]; onClose: () => void }) {
+  return (
+    <div className="done-tasks-overlay" role="dialog" aria-modal="true" aria-label="Completed tasks">
+      <button className="done-tasks-backdrop" onClick={onClose} aria-label="Close completed tasks" />
+      <section className="done-tasks-modal">
+        <header className="done-tasks-header">
+          <div>
+            <span className="team-board-eyebrow">Agent Squad</span>
+            <strong>Completed tasks</strong>
+            <p>{tasks.length} done or failed — newest first</p>
+          </div>
+          <button className="done-tasks-close" onClick={onClose} aria-label="Close">
+            <X size={16} />
+          </button>
+        </header>
+        <div className="done-tasks-list">
+          {tasks.length === 0 ? <p className="kanban-column-empty">No completed tasks yet.</p> : null}
+          {tasks.map((task) => (
+            <TaskCard task={task} key={task.id} />
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function TaskCard({ task, compact = false }: { task: TeamTask; compact?: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const failed = task.status === "failed";
   const steps = task.steps || [];
@@ -171,7 +211,7 @@ function TaskCard({ task }: { task: TeamTask }) {
   }
 
   return (
-    <article className={`kanban-card kanban-card-${task.status}`}>
+    <article className={`kanban-card kanban-card-${task.status} ${compact ? "kanban-card-compact" : ""}`}>
       <header>
         <span className="kanban-team">{TEAM_BADGE[task.team] || task.team.toUpperCase()}</span>
         <small>{task.id}</small>
@@ -182,7 +222,7 @@ function TaskCard({ task }: { task: TeamTask }) {
         {task.teamName}
         {task.tool ? ` · ${task.tool}` : ""}
       </p>
-      {task.status === "in_progress" && steps.length > 0 ? <p className="kanban-step">{steps[steps.length - 1].text}</p> : null}
+      {!compact && task.status === "in_progress" && steps.length > 0 ? <p className="kanban-step">{steps[steps.length - 1].text}</p> : null}
       {failed ? <p className="kanban-error">{task.error}</p> : null}
       {expanded ? (
         <div className="kanban-detail">

@@ -376,4 +376,4 @@ function createAgents({ executeTool, toolSpecs }) {
   return { ORG, TEAMS, TOOL_ROUTING, delegate, listTasks, recordJarvisActivity, getOrg, getActiveMap, createTaskRecord, appendStep, setStatus };
 }
 
-module.exports = { createAgents, TEAMS, ORG, TOOL_ROUTING };
+module.exports = { createAgents, TEAMS, ORG, TOOL_ROUTING, chatCompletion, compactToolResult };

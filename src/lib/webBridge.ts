@@ -55,6 +55,8 @@ export function installWebBridge(): void {
 
   window.jarvis = {
     createRealtimeToken: () => postJson<{ value: string; expiresAt: number | null }>("/api/realtime/token", {}),
+    sendChatMessage: (payload: { target?: string; message: string }) =>
+      postJson<{ ok: boolean; text?: string; error?: string; artifacts?: import("../vite-env").JarvisArtifact[] }>("/api/chat/message", payload),
     executeTool: (toolCall: JarvisToolCall) => postJson<JarvisToolResult>("/api/tools/execute", toolCall),
     getToolSpecs: () => getJson<JarvisToolSpec[]>("/api/tools/list"),
     getDashboard: (options?: { force?: boolean }) => getJson<DashboardSnapshot>(`/api/dashboard${options?.force ? "?force=1" : ""}`),

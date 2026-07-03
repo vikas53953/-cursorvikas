@@ -37,6 +37,7 @@ export default function App() {
   const [textPrompt, setTextPrompt] = useState("");
   const [taskRefreshToken, setTaskRefreshToken] = useState(0);
   const [observabilityEvents, setObservabilityEvents] = useState<ObservabilityEvent[]>([]);
+  const [chatBusy, setChatBusy] = useState(false);
   const clientRef = useRef<JarvisRealtimeClient | null>(null);
 
   const isConnected = connectionState === "connected";
@@ -147,21 +148,73 @@ export default function App() {
 
   async function sendSquadChat(target: { id: string; name: string; scope?: string }, message: string) {
     const trimmed = message.trim();
-    if (!trimmed) return;
+    if (!trimmed || chatBusy) return;
 
-    let payload = trimmed;
-    if (target.id !== "jarvis") {
-      payload = `[Squad text chat — engineer is messaging ${target.name} (${target.id} team). Respond in that specialist scope; use delegate_task or tools as you would for voice.] ${trimmed}`;
-    }
-
-    if (connectionState !== "connected") {
-      setTranscript((items) => [newEntry("system", "Connect voice first (hover bottom-center in fullscreen, or use the mic on the left)."), ...items].slice(0, 80));
-      return;
-    }
-    clientRef.current?.sendText(payload);
-    setLastHeard(trimmed);
+    setTranscript((items) => [newEntry("user", trimmed), ...items].slice(0, 80));
+    setObservabilityEvents((items) =>
+      pushObservabilityEvent(items, {
+        role: "user",
+        narrative: trimmed,
+        status: "done",
+      }),
+    );
     setPanelVisible(true);
     setPanelTab("team");
+
+    if (connectionState === "connected" && clientRef.current?.isActive()) {
+      let payload = trimmed;
+      if (target.id !== "jarvis") {
+        payload = `[Squad text chat — engineer is messaging ${target.name} (${target.id} team). Respond in that specialist scope; use delegate_task or tools as you would for voice.] ${trimmed}`;
+      }
+      clientRef.current.sendText(payload);
+      setLastHeard(trimmed);
+      return;
+    }
+
+    setChatBusy(true);
+    setMood("thinking");
+    try {
+      const result = await window.jarvis.sendChatMessage({ target: target.id, message: trimmed });
+      if (result.ok === false) {
+        const err = result.error || "Text chat failed";
+        setTranscript((items) => [newEntry("system", err), ...items].slice(0, 80));
+        setMood("error");
+        return;
+      }
+
+      const reply = result.text?.trim() || "Done.";
+      setTranscript((items) => [newEntry("jarvis", reply), ...items].slice(0, 80));
+      setObservabilityEvents((items) =>
+        pushObservabilityEvent(items, {
+          role: "jarvis",
+          narrative: reply,
+          status: "done",
+        }),
+      );
+      setTaskRefreshToken((value) => value + 1);
+
+      const lastArtifact = result.artifacts?.[result.artifacts.length - 1];
+      if (lastArtifact) {
+        setArtifact(lastArtifact);
+        setObservabilityEvents((items) =>
+          pushObservabilityEvent(items, {
+            role: "artifact",
+            narrative: lastArtifact.title,
+            technical: lastArtifact.content.slice(0, 4000),
+            status: "done",
+          }),
+        );
+        setPanelTab("observability");
+        if (lastArtifact.fullscreen) setPanelFullscreen(true);
+      }
+    } catch (error) {
+      const err = error instanceof Error ? error.message : String(error);
+      setTranscript((items) => [newEntry("system", err), ...items].slice(0, 80));
+      setMood("error");
+    } finally {
+      setChatBusy(false);
+      if (connectionState !== "connected") setMood("idle");
+    }
   }
 
   return (
@@ -274,6 +327,7 @@ export default function App() {
         taskRefreshToken={taskRefreshToken}
         observabilityEvents={observabilityEvents}
         connectionState={connectionState}
+        chatBusy={chatBusy}
         onSendSquadChat={sendSquadChat}
       />
 
