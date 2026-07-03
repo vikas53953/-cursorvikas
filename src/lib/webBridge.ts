@@ -1,4 +1,5 @@
-import type { AgentOrg, ArtifactRecord, DashboardSnapshot, JarvisToolCall, JarvisToolResult, JarvisToolSpec, ProactiveEvent, TaskListResponse } from "../vite-env";
+import type { AgentOrg, ArtifactRecord, DashboardSnapshot, JarvisToolCall, JarvisToolResult, JarvisToolSpec, ProactiveEvent, TaskListResponse, TeamTask } from "../vite-env";
+import { normalizeTasksResponse } from "./tasks";
 
 // When the app runs in a plain browser (web mode) there is no Electron
 // preload, so window.jarvis is missing. This shim provides the same surface
@@ -57,13 +58,14 @@ export function installWebBridge(): void {
     executeTool: (toolCall: JarvisToolCall) => postJson<JarvisToolResult>("/api/tools/execute", toolCall),
     getToolSpecs: () => getJson<JarvisToolSpec[]>("/api/tools/list"),
     getDashboard: (options?: { force?: boolean }) => getJson<DashboardSnapshot>(`/api/dashboard${options?.force ? "?force=1" : ""}`),
-    getTasks: (options?: { limit?: number; offset?: number; status?: string }) => {
+    getTasks: async (options?: { limit?: number; offset?: number; status?: string }) => {
       const params = new URLSearchParams();
       if (options?.limit) params.set("limit", String(options.limit));
       if (options?.offset) params.set("offset", String(options.offset));
       if (options?.status) params.set("status", options.status);
       const query = params.toString();
-      return getJson<TaskListResponse>(`/api/tasks${query ? `?${query}` : ""}`);
+      const data = await getJson<TaskListResponse | TeamTask[]>(`/api/tasks${query ? `?${query}` : ""}`);
+      return normalizeTasksResponse(data);
     },
     getOrg: () => getJson<AgentOrg>("/api/org"),
     listArtifacts: (limit?: number) => getJson<ArtifactRecord[]>(`/api/artifacts${limit ? `?limit=${limit}` : ""}`),

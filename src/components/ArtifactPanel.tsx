@@ -6,7 +6,7 @@ import { ArtifactsPanel } from "./ArtifactsPanel";
 import type { TranscriptEntry } from "../lib/realtime";
 import type { JarvisArtifact, TeamTask } from "../vite-env";
 
-export type RightPanelTab = "dashboard" | "team" | "reports" | "artifacts";
+export type RightPanelTab = "dashboard" | "team" | "observability" | "artifacts";
 
 type ArtifactPanelProps = {
   artifact: JarvisArtifact | null;
@@ -17,6 +17,8 @@ type ArtifactPanelProps = {
   onToggleVisible: () => void;
   onToggleFullscreen: () => void;
   sessionLog: TranscriptEntry[];
+  mood: import("../lib/realtime").JarvisMood;
+  taskRefreshToken: number;
 };
 
 type MermaidState = {
@@ -59,7 +61,7 @@ mermaid.initialize({
   securityLevel: "strict",
 });
 
-export function ArtifactPanel({ artifact, tab, onTabChange, visible, fullscreen, onToggleVisible, onToggleFullscreen, sessionLog }: ArtifactPanelProps) {
+export function ArtifactPanel({ artifact, tab, onTabChange, visible, fullscreen, onToggleVisible, onToggleFullscreen, sessionLog, mood, taskRefreshToken }: ArtifactPanelProps) {
   const [mermaidState, setMermaidState] = useState<MermaidState>({ svg: "", error: null, source: "" });
   const rawId = useId();
   const mermaidId = useMemo(() => `mermaid-${rawId.replace(/[^a-zA-Z0-9_-]/g, "")}`, [rawId]);
@@ -106,14 +108,14 @@ export function ArtifactPanel({ artifact, tab, onTabChange, visible, fullscreen,
   const titleByTab: Record<RightPanelTab, string> = {
     dashboard: fullscreen ? "NOC Dashboard" : "Dashboard",
     team: "Team Board",
-    reports: artifact?.title || "Live Report",
+    observability: artifact?.title || "Live Observability",
     artifacts: "Artifacts",
   };
 
   const tabs: Array<{ key: RightPanelTab; label: string }> = [
     { key: "dashboard", label: "Dashboard" },
     { key: "team", label: "Team Board" },
-    { key: "reports", label: "Reports" },
+    { key: "observability", label: "Observability" },
     { key: "artifacts", label: "Artifacts" },
   ];
 
@@ -138,7 +140,7 @@ export function ArtifactPanel({ artifact, tab, onTabChange, visible, fullscreen,
               </button>
             ))}
           </div>
-          {tab === "reports" && artifact ? <ArtifactActions artifact={artifact} /> : null}
+          {tab === "observability" && artifact ? <ArtifactActions artifact={artifact} /> : null}
           {tab === "dashboard" ? (
             <button onClick={onToggleFullscreen} title={fullscreen ? "Exit full NOC dashboard" : "Open full NOC dashboard"}>
               {fullscreen ? "Window" : "Full NOC"}
@@ -153,14 +155,16 @@ export function ArtifactPanel({ artifact, tab, onTabChange, visible, fullscreen,
         {tab === "dashboard" ? (
           <OpsDashboard sessionLog={sessionLog} expanded={fullscreen} />
         ) : tab === "team" ? (
-          <TeamBoard />
+          <TeamBoard mood={mood} active={tab === "team"} refreshToken={taskRefreshToken} />
         ) : tab === "artifacts" ? (
           <ArtifactsPanel />
-        ) : artifact ? (
-          renderArtifact(artifact, mermaidState)
-        ) : (
-          <EmptyReport />
-        )}
+        ) : tab === "observability" ? (
+          artifact ? (
+            renderArtifact(artifact, mermaidState)
+          ) : (
+            <EmptyObservability />
+          )
+        ) : null}
       </div>
     </aside>
   );
@@ -254,10 +258,10 @@ function tableToCsv(rows: Array<Record<string, unknown>>): string {
   return [keys.map(escape).join(","), ...rows.map((row) => keys.map((key) => escape(row[key])).join(","))].join("\r\n");
 }
 
-function EmptyReport() {
+function EmptyObservability() {
   return (
     <div className="empty-artifact">
-      <p>Live reports from NetJarvis appear here as you ask questions. Switch to Artifacts to download anything saved earlier.</p>
+      <p>Live observability stream — output from your current Jarvis session appears here as you speak. Saved downloads are under Artifacts.</p>
     </div>
   );
 }

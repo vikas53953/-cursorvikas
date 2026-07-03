@@ -69,7 +69,8 @@ ipcMain.handle("tools:execute", async (_event, toolCall) => {
 
 ipcMain.handle("tasks:list", async (_event, options) => {
   try {
-    return await tools.listTasks(options || {});
+    const result = await tools.listTasks(options || {});
+    return result;
   } catch {
     return { tasks: [], total: 0, limit: 0, offset: 0, storeCap: 500, storeCount: 0 };
   }

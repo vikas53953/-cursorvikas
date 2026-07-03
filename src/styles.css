@@ -121,8 +121,9 @@ button:disabled {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #4ade80;
-  box-shadow: 0 0 8px rgba(74, 222, 128, 0.5);
+  background: #55606f;
+  box-shadow: none;
+  flex-shrink: 0;
 }
 
 .agent-node-jarvis.agent-mood-working .agent-dot,
@@ -1860,12 +1861,22 @@ td {
 
 .floating-console {
   position: fixed;
-  z-index: 40;
+  z-index: 120;
   left: 18px;
   bottom: 18px;
   display: grid;
   gap: 8px;
-  width: min(400px, calc(100vw - 36px));
+  width: min(420px, calc(100vw - 36px));
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(6, 9, 8, 0.96);
+  border: 1px solid rgba(110, 242, 190, 0.35);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.65);
+  pointer-events: auto;
+}
+
+.floating-console .hud {
+  width: 100%;
 }
 
 .floating-controls {
@@ -1874,32 +1885,34 @@ td {
   flex-wrap: wrap;
 }
 
-.floating-controls .simple-button {
+.floating-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 36px;
-  padding: 0 12px;
+  min-height: 38px;
+  padding: 0 14px;
   border-radius: 8px;
-  background: rgba(8, 11, 10, 0.94);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #e7edf7;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.1);
+  color: #f6f7fb;
   font-size: 12px;
+  font-weight: 600;
 }
 
-.floating-controls .simple-button.active {
-  border-color: rgba(110, 242, 190, 0.45);
-  background: rgba(110, 242, 190, 0.12);
+.floating-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.floating-btn-active {
+  border-color: rgba(110, 242, 190, 0.55);
+  background: rgba(110, 242, 190, 0.18);
+  color: #c2ffe6;
 }
 
 .floating-prompt {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 8px;
-  padding: 8px;
-  border-radius: 10px;
-  background: rgba(8, 11, 10, 0.94);
-  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .floating-prompt input {
@@ -1909,6 +1922,114 @@ td {
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.04);
   color: #f6f7fb;
+}
+
+/* Agent visual states */
+.agent-dot-idle {
+  background: #55606f;
+  box-shadow: none;
+}
+
+.agent-dot-active {
+  background: #7da2ff;
+  box-shadow: 0 0 10px rgba(125, 162, 255, 0.7);
+  animation: agent-pulse 1.2s ease-in-out infinite;
+}
+
+.agent-dot-handoff-target {
+  background: #ffd166;
+  box-shadow: 0 0 12px rgba(255, 209, 102, 0.8);
+  animation: agent-pulse 0.9s ease-in-out infinite;
+}
+
+.agent-dot-jarvis.agent-dot-idle {
+  background: #55606f;
+}
+
+.agent-dot-jarvis.agent-dot-listening {
+  background: #55d9ff;
+  box-shadow: 0 0 10px rgba(85, 217, 255, 0.8);
+}
+
+.agent-dot-jarvis.agent-dot-thinking {
+  background: #ffd166;
+  box-shadow: 0 0 10px rgba(255, 209, 102, 0.8);
+}
+
+.agent-dot-jarvis.agent-dot-speaking {
+  background: #6ef2be;
+  box-shadow: 0 0 10px rgba(110, 242, 190, 0.8);
+}
+
+.agent-dot-jarvis.agent-dot-working {
+  background: #7da2ff;
+  box-shadow: 0 0 10px rgba(125, 162, 255, 0.8);
+  animation: agent-pulse 1s ease-in-out infinite;
+}
+
+.agent-state-idle .agent-name {
+  color: #8b93a5;
+}
+
+.agent-state-active,
+.agent-state-handoff-target {
+  background: rgba(125, 162, 255, 0.08);
+  border-radius: 6px;
+  padding: 4px 6px;
+}
+
+.agent-state-handoff-target {
+  background: rgba(255, 209, 102, 0.12);
+  border: 1px solid rgba(255, 209, 102, 0.25);
+}
+
+.agent-badge-handoff {
+  background: rgba(255, 209, 102, 0.25) !important;
+  color: #ffe4a3 !important;
+}
+
+.agent-handoff-status {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-style: normal;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.agent-handoff-in_progress {
+  background: rgba(125, 162, 255, 0.2);
+  color: #9fb4e8;
+}
+
+.agent-handoff-queued {
+  background: rgba(139, 147, 165, 0.2);
+  color: #c5ccda;
+}
+
+.team-board-sync {
+  color: #6ef2be;
+  font-size: 10px;
+}
+
+.team-board-toolbar-right {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.kanban-live-pulse {
+  animation: kanban-working 1.5s infinite ease-in-out;
+}
+
+.kanban-column-empty {
+  margin: 0;
+  padding: 12px;
+  color: #6d7685;
+  font-size: 11px;
+  text-align: center;
 }
 
 /* --- NOC dashboard --------------------------------------------------- */

@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { AgentRoster } from "./AgentRoster";
+import { useTeamTasks } from "../hooks/useTeamTasks";
+import type { JarvisMood } from "../lib/realtime";
 import type { TeamTask } from "../vite-env";
 
 const COLUMNS: Array<{ key: TeamTask["status"][]; title: string; className: string }> = [
@@ -23,37 +25,45 @@ const PAGE = 20;
 
 type TeamBoardProps = {
   staticTasks?: TeamTask[];
+  mood?: JarvisMood;
+  active?: boolean;
+  refreshToken?: number;
 };
 
-export function TeamBoard({ staticTasks }: TeamBoardProps) {
-  const [tasks, setTasks] = useState<TeamTask[]>(staticTasks || []);
-  const [storeCount, setStoreCount] = useState(0);
-  const [storeCap, setStoreCap] = useState(500);
+export function TeamBoard({ staticTasks, mood = "idle", active = true, refreshToken = 0 }: TeamBoardProps) {
+  const live = useTeamTasks(active && !staticTasks, refreshToken);
+  const tasks = staticTasks || live.tasks;
   const [doneVisible, setDoneVisible] = useState(PAGE);
-  const [error, setError] = useState<string | null>(null);
-  const timerRef = useRef<number>(0);
-  const isLive = !staticTasks;
 
-  const load = useCallback(async () => {
-    try {
-      const data = await window.jarvis.getTasks({ limit: 500 });
-      setTasks(data.tasks || []);
-      setStoreCount(data.storeCount || 0);
-      setStoreCap(data.storeCap || 500);
-      setError(null);
-    } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : String(loadError));
-    }
-  }, []);
+  if (!staticTasks && tasks.length === 0 && !live.error) {
+    return (
+      <div className="team-board-layout">
+        <AgentRoster mood={mood} tasks={[]} />
+        <div className="team-board-main">
+          <header className="team-board-toolbar">
+            <div>
+              <strong>Task board</strong>
+              <p>Syncing live tasks...</p>
+            </div>
+            {live.lastSync ? <span className="team-board-sync">sync {live.lastSync}</span> : null}
+          </header>
+          <div className="empty-artifact team-board-empty">
+            <p>Waiting for Jarvis activity. When you delegate or run a tool, cards appear in Queued → In Progress → Done.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  useEffect(() => {
-    if (!isLive) return;
-    void load();
-    timerRef.current = window.setInterval(() => void load(), 3000);
-    return () => window.clearInterval(timerRef.current);
-  }, [isLive, load]);
+  if (!staticTasks && tasks.length === 0 && live.error) {
+    return (
+      <div className="empty-artifact">
+        <p>Team board error: {live.error}</p>
+      </div>
+    );
+  }
 
-  if (!isLive && tasks.length === 0) {
+  if (staticTasks && tasks.length === 0) {
     return (
       <div className="empty-artifact">
         <p>No delegated tasks in this snapshot.</p>
@@ -61,54 +71,52 @@ export function TeamBoard({ staticTasks }: TeamBoardProps) {
     );
   }
 
-  const doneItems = tasks.filter((task) => task.status === "done" || task.status === "failed");
-
   return (
     <div className="team-board-layout">
-      <AgentRoster tasks={tasks} />
+      <AgentRoster mood={mood} tasks={tasks} />
 
       <div className="team-board-main">
         <header className="team-board-toolbar">
           <div>
             <strong>Task board</strong>
             <p>
-              {storeCount} tasks in store (cap {storeCap}) · showing latest per column
+              {live.storeCount || tasks.length} tasks in store (cap {live.storeCap || 500}) · live sync every 1s
             </p>
           </div>
-          {error ? <span className="team-board-error">{error}</span> : null}
+          <div className="team-board-toolbar-right">
+            {live.lastSync ? <span className="team-board-sync">sync {live.lastSync}</span> : null}
+            {live.error ? <span className="team-board-error">{live.error}</span> : null}
+          </div>
         </header>
 
-        {tasks.length === 0 ? (
-          <div className="empty-artifact team-board-empty">
-            <p>Every tool run and delegation appears here. Ask Jarvis to investigate — you will see Jarvis hand off to the agent on the left.</p>
-          </div>
-        ) : (
-          <div className="kanban">
-            {COLUMNS.map((column) => {
-              const items = tasks.filter((task) => column.key.includes(task.status));
-              const isDone = column.title === "Done";
-              const visible = isDone ? items.slice(0, doneVisible) : items;
-              return (
-                <section className={`kanban-column ${column.className}`} key={column.title}>
-                  <header>
-                    <h3>{column.title}</h3>
-                    <span>{items.length}</span>
-                  </header>
-                  <div className="kanban-cards">
-                    {visible.map((task) => (
-                      <TaskCard task={task} key={task.id} />
-                    ))}
-                  </div>
-                  {isDone && doneVisible < items.length ? (
-                    <button className="noc-load-more kanban-load-more" onClick={() => setDoneVisible((count) => count + PAGE)}>
-                      Load more ({items.length - doneVisible} in Done)
-                    </button>
-                  ) : null}
-                </section>
-              );
-            })}
-          </div>
-        )}
+        <div className="kanban">
+          {COLUMNS.map((column) => {
+            const items = tasks.filter((task) => column.key.includes(task.status));
+            const isDone = column.title === "Done";
+            const visible = isDone ? items.slice(0, doneVisible) : items;
+            return (
+              <section className={`kanban-column ${column.className}`} key={column.title}>
+                <header>
+                  <h3>{column.title}</h3>
+                  <span className={items.some((task) => task.status === "in_progress") && column.title === "In Progress" ? "kanban-live-pulse" : ""}>
+                    {items.length}
+                  </span>
+                </header>
+                <div className="kanban-cards">
+                  {visible.length === 0 ? <p className="kanban-column-empty">—</p> : null}
+                  {visible.map((task) => (
+                    <TaskCard task={task} key={task.id} />
+                  ))}
+                </div>
+                {isDone && doneVisible < items.length ? (
+                  <button className="noc-load-more kanban-load-more" onClick={() => setDoneVisible((count) => count + PAGE)}>
+                    Load more ({items.length - doneVisible} in Done)
+                  </button>
+                ) : null}
+              </section>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

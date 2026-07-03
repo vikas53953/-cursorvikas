@@ -18,7 +18,7 @@ type FloatingConsoleProps = {
   onExitFullscreen: () => void;
 };
 
-// HUD + voice controls visible while the ops panel is fullscreen.
+// HUD + voice controls pinned above fullscreen panel (z-index above artifact layer).
 export function FloatingConsole({
   connectionState,
   mood,
@@ -35,8 +35,8 @@ export function FloatingConsole({
   onExitFullscreen,
 }: FloatingConsoleProps) {
   return (
-    <div className="floating-console">
-      <Hud connectionState={connectionState} mood={mood} activity={activity} lastHeard={lastHeard} floating />
+    <div className="floating-console" role="toolbar" aria-label="Voice controls">
+      <Hud connectionState={connectionState} mood={mood} activity={activity} lastHeard={lastHeard} />
       {showTypeInput ? (
         <section className="floating-prompt">
           <input
@@ -55,7 +55,7 @@ export function FloatingConsole({
       ) : null}
       <section className="floating-controls">
         <button
-          className={isConnected ? "simple-button active" : "simple-button"}
+          className={isConnected ? "floating-btn floating-btn-active" : "floating-btn"}
           onClick={isConnected ? onDisconnect : onConnect}
           disabled={connectionState === "connecting"}
           title={isConnected ? "Stop voice" : "Connect voice"}
@@ -63,11 +63,11 @@ export function FloatingConsole({
           {isConnected ? <MicOff size={16} /> : <Mic size={16} />}
           <span>{isConnected ? "Stop" : "Voice"}</span>
         </button>
-        <button className={showTypeInput ? "simple-button active" : "simple-button"} onClick={onToggleTypeInput} title="Type to NetJarvis">
+        <button className={showTypeInput ? "floating-btn floating-btn-active" : "floating-btn"} onClick={onToggleTypeInput} title="Type to NetJarvis">
           <Keyboard size={16} />
           <span>Type</span>
         </button>
-        <button className="simple-button" onClick={onExitFullscreen} title="Exit fullscreen">
+        <button className="floating-btn" onClick={onExitFullscreen} title="Exit fullscreen">
           <Minimize2 size={16} />
           <span>Window</span>
         </button>

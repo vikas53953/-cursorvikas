@@ -23,6 +23,7 @@ export default function App() {
     newEntry("system", "NetJarvis is ready. Connect voice, then ask how your network is doing."),
   ]);
   const [textPrompt, setTextPrompt] = useState("");
+  const [taskRefreshToken, setTaskRefreshToken] = useState(0);
   const clientRef = useRef<JarvisRealtimeClient | null>(null);
 
   const isConnected = connectionState === "connected";
@@ -36,7 +37,7 @@ export default function App() {
       onArtifact: (nextArtifact) => {
         setArtifact(nextArtifact);
         setPanelVisible(true);
-        setPanelTab("reports");
+        setPanelTab("observability");
         if (nextArtifact.fullscreen) setPanelFullscreen(true);
       },
       onStatus: (message) => {
@@ -47,6 +48,16 @@ export default function App() {
           setLastHeard(activity.text);
         } else {
           setHudActivity({ kind: activity.kind, text: activity.text });
+          if (activity.kind === "tool_start") {
+            setTaskRefreshToken((value) => value + 1);
+            if (activity.text.toLowerCase().includes("delegate_task") || activity.text.toLowerCase().includes("delegate")) {
+              setPanelVisible(true);
+              setPanelTab("team");
+            }
+          }
+          if (activity.kind === "tool_done" || activity.kind === "tool_error") {
+            setTaskRefreshToken((value) => value + 1);
+          }
         }
       },
     });
@@ -175,9 +186,11 @@ export default function App() {
         onToggleVisible={() => setPanelVisible((value) => !value)}
         onToggleFullscreen={() => setPanelFullscreen((value) => !value)}
         sessionLog={transcript}
+        mood={mood}
+        taskRefreshToken={taskRefreshToken}
       />
 
-      {panelFullscreen && panelVisible ? (
+      {panelFullscreen ? (
         <FloatingConsole
           connectionState={connectionState}
           mood={mood}
