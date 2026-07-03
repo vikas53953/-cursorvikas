@@ -402,7 +402,15 @@ export class JarvisRealtimeClient {
           status: "done",
         });
       }
-      if (result.artifact) this.callbacks.onArtifact(result.artifact);
+      if (result.artifacts?.length) {
+        for (const artifact of result.artifacts) {
+          if (artifact?.kind === "code" || artifact?.kind === "table") {
+            this.callbacks.onArtifact(artifact);
+          }
+        }
+      } else if (result.artifact) {
+        this.callbacks.onArtifact(result.artifact);
+      }
       shouldCreateResponse = true;
       await this.returnToolOutput(callId, result);
     }

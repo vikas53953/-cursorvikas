@@ -106,6 +106,7 @@ export type JarvisToolCall = {
 export type JarvisToolResult = {
   ok: boolean;
   artifact?: JarvisArtifact;
+  artifacts?: JarvisArtifact[];
   message?: string;
   error?: string;
   [key: string]: unknown;

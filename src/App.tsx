@@ -75,7 +75,7 @@ export default function App() {
           pushObservabilityEvent(items, {
             role: "artifact",
             narrative: nextArtifact.title,
-            technical: nextArtifact.content.slice(0, 4000),
+            technical: artifactTechnicalText(nextArtifact),
             status: "done",
           }),
         );
@@ -171,16 +171,6 @@ export default function App() {
     );
     setPanelVisible(true);
     setPanelTab("team");
-
-    if (connectionState === "connected" && clientRef.current?.isActive()) {
-      let payload = `${mentionPrefix}${trimmed}`;
-      if (target.id !== "jarvis") {
-        payload = `[Squad text chat — engineer is messaging ${target.name} (${target.id} team). Respond in that specialist scope; use delegate_task or tools as you would for voice.] ${payload}`;
-      }
-      clientRef.current.sendText(payload);
-      setLastHeard(trimmed);
-      return;
-    }
 
     setChatBusy(true);
     try {

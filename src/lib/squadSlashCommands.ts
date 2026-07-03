@@ -11,7 +11,7 @@ export const SQUAD_SLASH_COMMANDS: SlashCommand[] = [
   { name: "alerts", description: "Active alerts and issues", template: "What active alerts and issues do we have right now?" },
   { name: "briefing", description: "On-demand shift briefing", template: "Run a shift briefing for me." },
   { name: "board", description: "Show the agent squad Kanban board", template: "Show me what the team is working on on the squad board." },
-  { name: "precheck", description: "Capture a pre-maintenance snapshot", template: "Run a precheck_capture with label pre-maintenance." },
+  { name: "precheck", description: "Run CLI pre-check on a device — /precheck sw1", template: "Run a CLI pre-check on" },
   { name: "show", description: "Run a show command — /show vlan brief on sw2", template: "Run show command:" },
   { name: "delegate", description: "Hand off to a specialist — /delegate @data check STP", template: "Delegate to specialist:" },
   { name: "vuln", description: "Check CVEs for device software versions", template: "Run a vulnerability check on our switch software versions." },
@@ -47,8 +47,8 @@ export function expandSlashCommand(text: string): string {
   }
   if (command.name === "precheck") {
     return args
-      ? `Run precheck_capture with label ${args}`
-      : "Run precheck_capture with label pre-maintenance.";
+      ? `Run a CLI pre-check on ${args}`
+      : "Run a CLI pre-check on which device? (e.g. sw1)";
   }
 
   return args ? `${command.template} ${args}` : command.template;

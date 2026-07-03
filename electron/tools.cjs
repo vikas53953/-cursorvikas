@@ -65,7 +65,8 @@ Every tool you run AND every delegation appears live on the Team Board and the a
 - Use multi_source_status to report Catalyst Center plus optional Prometheus/SNMP adapters.
 
 # Pre-checks and comparisons
-- "Run a pre-check" or "take a snapshot": call precheck_capture with a label like "pre-maintenance". It records device health, all interfaces, and error counters.
+- Device-specific pre-check ("pre-check on sw1", label "precheck-sw1", "@agent run precheck on sw2"): call run_show_command with the full standard show-command bundle on that device. Do NOT use precheck_capture for single-device CLI pre-checks.
+- Network-wide baseline snapshot (whole-network before maintenance): precheck_capture with a label like "pre-maintenance". It records API-level device health, interfaces, and error counters across all devices.
 - "Post-check", "compare", "did anything change": call precheck_capture (label "post-...") then precheck_compare. Report the diff plainly: what changed, what did not.
 
 # Exports and files
@@ -259,7 +260,7 @@ const toolSpecs = [
   {
     type: "function",
     name: "precheck_capture",
-    description: "Capture a labeled pre/post-check snapshot of the network: device health, every interface (status/admin/vlan/ip), and interface error counters. Use before and after changes or at shift boundaries.",
+    description: "Capture a labeled network-wide baseline snapshot (device health, interfaces, error counters across ALL devices). Use for whole-network before/after maintenance comparisons — NOT for single-device CLI pre-checks (use run_show_command for those).",
     parameters: {
       type: "object",
       properties: {
@@ -448,13 +449,32 @@ const PRECHECK_COMMANDS = [
   "show ip route",
 ];
 
+function extractDeviceFromText(text) {
+  const lower = String(text || "").toLowerCase();
+  const onSw = lower.match(/\b(?:on|for|to)\s+(sw[1-9]\w*)\b/);
+  if (onSw) return onSw[1];
+  const bareSw = lower.match(/\b(sw[1-9]\w*)\b/);
+  if (bareSw) return bareSw[1];
+  const switchNum = lower.match(/\bswitch\s+(\d+)\b/);
+  if (switchNum) return `sw${switchNum[1]}`;
+  return null;
+}
+
+function extractDeviceFromPrecheckLabel(label) {
+  const text = String(label || "").toLowerCase();
+  const swMatch = text.match(/(?:^|[-_])(sw\d+)\b/);
+  if (swMatch) return swMatch[1];
+  const switchMatch = text.match(/switch[-_]?(\d+)/);
+  if (switchMatch) return `sw${switchMatch[1]}`;
+  return null;
+}
+
 function parsePrecheckFastPath(message, agentsApi) {
   const lower = String(message || "").toLowerCase();
-  const deviceMatch = lower.match(/\b(?:on|for|to)\s+(sw[1-9]\w*)\b/) || lower.match(/\b(sw[1-9]\w*)\b/);
-  const device = deviceMatch?.[1];
+  const device = extractDeviceFromText(message);
   if (!device) return null;
 
-  const isPrecheck = /pre[-\s]?post|pre[-\s]?check|precheck|\brun\s+on\b/.test(lower);
+  const isPrecheck = /pre[-\s]?post|pre[-\s]?check|precheck|\brun\s+(?:a\s+)?precheck\b|\brun\s+on\b/.test(lower);
   if (!isPrecheck) return null;
 
   const handles = [];
@@ -462,6 +482,10 @@ function parsePrecheckFastPath(message, agentsApi) {
     handles.push(match[1].toLowerCase());
   }
   const teamHandles = [...new Set(handles)].filter((handle) => handle !== "jarvis");
+
+  if (teamHandles.length === 0) {
+    return { team: "jarvis", device, commands: PRECHECK_COMMANDS };
+  }
   if (teamHandles.length !== 1) return null;
 
   const team = teamHandles[0];
@@ -991,6 +1015,28 @@ function createTools({ readDb, updateDb }) {
   // -------------------------------------------------------------------------
 
   async function precheckCapture(args) {
+    const label = String(args.label || "").trim();
+    const device = extractDeviceFromPrecheckLabel(label);
+    if (device) {
+      logger.log("precheck.device_cli", { device, label });
+      const cliResult = await runShowCommand({ device, commands: PRECHECK_COMMANDS });
+      if (cliResult.ok && cliResult.artifact) {
+        return {
+          ...cliResult,
+          label,
+          device,
+          redirected: "run_show_command",
+          message: `CLI pre-check completed on ${device}.`,
+          artifact: {
+            title: `CLI pre-check: ${device}`,
+            kind: "code",
+            content: cliResult.artifact.content,
+          },
+        };
+      }
+      return cliResult;
+    }
+
     const snapshot = await checks.captureSnapshot(args.label);
     const all = await checks.listSnapshots();
     return {
