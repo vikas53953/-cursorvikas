@@ -5,7 +5,7 @@ type AgentRosterProps = {
   mood?: "idle" | "listening" | "thinking" | "speaking" | "working" | "error";
 };
 
-// Hierarchical agent team shown on the left panel under NetJarvis.
+// Hierarchical agent team on the operations dashboard (right panel).
 export function AgentRoster({ mood = "idle" }: AgentRosterProps) {
   const [org, setOrg] = useState<AgentOrg | null>(null);
   const [tasks, setTasks] = useState<TeamTask[]>([]);
@@ -31,7 +31,7 @@ export function AgentRoster({ mood = "idle" }: AgentRosterProps) {
   const recent = tasks.slice(0, 4);
 
   return (
-    <section className="agent-roster">
+    <section className="agent-roster agent-roster-dashboard">
       <header className="agent-roster-jarvis">
         <div className={`agent-node agent-node-jarvis agent-mood-${mood}`}>
           <span className="agent-dot" />

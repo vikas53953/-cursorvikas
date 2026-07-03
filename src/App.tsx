@@ -1,7 +1,6 @@
 import { useRef, useState } from "react";
 import { Activity, History, Keyboard, Mic, MicOff, PanelRight, Send } from "lucide-react";
 import { ArtifactPanel, type RightPanelTab } from "./components/ArtifactPanel";
-import { AgentRoster } from "./components/AgentRoster";
 import { Hud, type HudActivity } from "./components/Hud";
 import { NetworkCore } from "./components/NetworkCore";
 import { JarvisRealtimeClient, newEntry, type JarvisConnectionState, type JarvisMood, type MouthShape, type TranscriptEntry } from "./lib/realtime";
@@ -74,7 +73,6 @@ export default function App() {
       <div className="window-drag-strip" aria-hidden="true" />
       <div className="window-drag-left-zone" aria-hidden="true" />
       <section className="companion-window">
-        <AgentRoster mood={mood} />
         <section className="face-stage">
           <NetworkCore mood={mood} mouthShape={mouthShape} />
         </section>

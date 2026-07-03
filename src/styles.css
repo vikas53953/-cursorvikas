@@ -64,7 +64,7 @@ button:disabled {
 .companion-window {
   position: relative;
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: 1fr auto;
   min-width: 0;
   overflow: hidden;
   border-right: 1px solid rgba(255, 255, 255, 0.12);
@@ -73,11 +73,32 @@ button:disabled {
 .agent-roster {
   display: grid;
   gap: 10px;
-  max-height: 220px;
-  padding: 14px 16px 8px;
-  overflow: auto;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.02);
+}
+
+.agent-roster-dashboard {
+  padding: 0;
+  max-height: none;
+  overflow: visible;
+  border-bottom: 0;
+  background: transparent;
+}
+
+.dash-agent-team .agent-roster-dashboard {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.dash-agent-team .agent-group ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 6px;
+}
+
+.dash-agent-team .agent-feed ul {
+  display: grid;
+  gap: 4px;
 }
 
 .agent-roster-jarvis .agent-node {
