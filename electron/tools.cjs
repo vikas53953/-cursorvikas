@@ -5,6 +5,7 @@
 
 const crypto = require("node:crypto");
 const source = require("./network-source.cjs");
+const nvd = require("./sources/nvd.cjs");
 const logger = require("./logger.cjs");
 
 const sim = source.sim;
@@ -35,9 +36,12 @@ Talk like a sharp NOC colleague, not a chatbot. Confident, concise, calm. Lead w
 
 # Tool behavior
 - Call tools directly when intent is clear; never invent numbers a tool can give you.
+- You have NO background work. Every tool returns its result before you speak. NEVER say "I'm still checking", "it's running on my side", or "I'll get back to you" - either call a tool now and answer from its result, or say plainly that you cannot get that data and why.
+- Security/vulnerability questions ("any vulnerabilities on these switches?", "any CVEs for this version?"): call vulnerability_check. It reads the devices' real software version and queries the NVD CVE database. Summarize the worst findings by severity and remind that exposure depends on enabled features.
 - After a tool runs, speak a short summary; the full detail renders in the Reports tab and the dashboard.
 - Acknowledging an alert changes state: summarize the alert and get a clear yes before calling acknowledge_alert with confirmed true.
 - run_show_command accepts only read-only "show" commands. Never attempt configuration changes.
+- If a tool returns ok false, tell the engineer what failed using the error text. Do not pretend it is still in progress.
 
 # Audio
 Let the engineer interrupt you. If audio is unclear, ask one short clarifying question instead of guessing.`;
@@ -195,6 +199,19 @@ const toolSpecs = [
   },
   {
     type: "function",
+    name: "vulnerability_check",
+    description: "Check for known vulnerabilities (CVEs) affecting the network's software. Reads the devices' real software type/version from inventory and queries the NVD CVE database for recent published CVEs. Use for any 'vulnerabilities / CVEs / security advisories on these switches' question. No API key needed.",
+    parameters: {
+      type: "object",
+      properties: {
+        keyword: { type: "string", description: "Optional override search keyword, e.g. 'Cisco IOS XE 17.12'. Defaults to the software the devices actually run." },
+        windowDays: { type: "number", minimum: 7, maximum: 119, description: "How far back to search (days, max 119). Default 119." },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    type: "function",
     name: "artifact_show",
     description: "Show structured content in the Reports panel. Use for ad-hoc notes, markdown summaries, code/config snippets, or tables you compose yourself.",
     parameters: {
@@ -293,6 +310,8 @@ function createTools({ readDb, updateDb }) {
           return await trafficReport(args);
         case "drop_report":
           return await dropReport(args);
+        case "vulnerability_check":
+          return await vulnerabilityCheck(args);
         case "artifact_show":
           return { ok: true, artifact: args };
         case "show_menu":
@@ -626,6 +645,55 @@ function createTools({ readDb, updateDb }) {
   }
 
   // -------------------------------------------------------------------------
+  // Vulnerabilities
+  // -------------------------------------------------------------------------
+
+  async function vulnerabilityCheck(args) {
+    const rows = await source.getInventoryRows();
+    const softwareSet = [...new Set(rows.map((row) => row.software).filter(Boolean))];
+    const platformSet = [...new Set(rows.map((row) => row.platform).filter(Boolean))];
+
+    // "IOS-XE 17.12.1prd9" -> "Cisco IOS XE"; version reported separately so
+    // the NVD keyword stays broad enough to match advisories.
+    const primary = softwareSet[0] || "Cisco IOS XE";
+    const softwareFamily = primary.replace(/-/g, " ").replace(/\s+[\d.].*$/, "").trim();
+    const keyword = String(args.keyword || "").trim() || `Cisco ${softwareFamily}`.replace(/^Cisco Cisco/i, "Cisco");
+
+    const windowDays = Number(args.windowDays) >= 7 ? Number(args.windowDays) : 119;
+    const result = await nvd.searchCves(keyword, { windowDays, limit: 12 });
+
+    const counts = {};
+    for (const cve of result.cves) counts[cve.severity || "UNRATED"] = (counts[cve.severity || "UNRATED"] || 0) + 1;
+
+    const lines = [];
+    lines.push(`# Vulnerability Check - ${keyword}`);
+    lines.push("");
+    lines.push(`Devices run: ${softwareSet.join(", ") || "unknown"} on ${platformSet.join(", ") || "unknown platforms"}.`);
+    lines.push(`NVD reports **${result.totalInWindow}** published CVEs matching "${keyword}" in the last ${result.windowDays} days. Top ${result.cves.length} by severity:`);
+    lines.push("");
+    for (const cve of result.cves) {
+      lines.push(`## ${cve.id} - ${cve.severity || "UNRATED"}${cve.score != null ? ` (${cve.score})` : ""}`);
+      lines.push(`- Published: ${cve.published}`);
+      lines.push(`- [NVD entry](${cve.url})`);
+      lines.push("");
+      lines.push(cve.description.slice(0, 400));
+      lines.push("");
+    }
+    lines.push("---");
+    lines.push("Note: NVD keyword matches are broad. Whether a CVE actually applies depends on the exact release train and which features are enabled. Cross-check the Cisco Security Advisories portal for fixed-in versions.");
+
+    return {
+      ok: true,
+      keyword,
+      software: softwareSet,
+      totalInWindow: result.totalInWindow,
+      severityCounts: counts,
+      topCves: result.cves.map((cve) => ({ id: cve.id, severity: cve.severity, score: cve.score, published: cve.published })),
+      artifact: { title: `Vulnerabilities: ${keyword}`, kind: "markdown", content: lines.join("\n") },
+    };
+  }
+
+  // -------------------------------------------------------------------------
   // Menu / search / notes
   // -------------------------------------------------------------------------
 
@@ -854,6 +922,11 @@ Current source: **${mode === "live" ? "LIVE" : "SIMULATED"}** - ${sourceLabel}
 - "Any drops or errors on the interfaces?"
 - "Show interface counters on sw2."
 - "Show me the last 20 log lines on sw1."
+
+## Security
+
+- "Any vulnerabilities on these switches?"
+- "Any recent CVEs for this IOS-XE version?"
 
 ## Big picture
 

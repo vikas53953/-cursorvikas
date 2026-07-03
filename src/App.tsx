@@ -1,13 +1,16 @@
 import { useRef, useState } from "react";
 import { Activity, History, Keyboard, Mic, MicOff, PanelRight, Send } from "lucide-react";
 import { ArtifactPanel, type RightPanelTab } from "./components/ArtifactPanel";
-import { JarvisFace } from "./components/JarvisFace";
+import { Hud, type HudActivity } from "./components/Hud";
+import { NetworkCore } from "./components/NetworkCore";
 import { JarvisRealtimeClient, newEntry, type JarvisConnectionState, type JarvisMood, type MouthShape, type TranscriptEntry } from "./lib/realtime";
 import type { JarvisArtifact } from "./vite-env";
 
 export default function App() {
   const [connectionState, setConnectionState] = useState<JarvisConnectionState>("idle");
   const [mood, setMood] = useState<JarvisMood>("idle");
+  const [hudActivity, setHudActivity] = useState<HudActivity>({ kind: "idle", text: "" });
+  const [lastHeard, setLastHeard] = useState("");
   const [artifact, setArtifact] = useState<JarvisArtifact | null>(null);
   const [panelTab, setPanelTab] = useState<RightPanelTab>("dashboard");
   const [panelVisible, setPanelVisible] = useState(true);
@@ -38,6 +41,13 @@ export default function App() {
       onStatus: (message) => {
         setTranscript((items) => [newEntry("system", message), ...items].slice(0, 80));
       },
+      onActivity: (activity) => {
+        if (activity.kind === "heard") {
+          setLastHeard(activity.text);
+        } else {
+          setHudActivity({ kind: activity.kind, text: activity.text });
+        }
+      },
     });
     clientRef.current = client;
     await client.connect();
@@ -53,6 +63,7 @@ export default function App() {
     const trimmed = textPrompt.trim();
     if (!trimmed) return;
     clientRef.current?.sendText(trimmed);
+    setLastHeard(trimmed);
     setTextPrompt("");
     setShowTypeInput(false);
   }
@@ -63,10 +74,11 @@ export default function App() {
       <div className="window-drag-left-zone" aria-hidden="true" />
       <section className="companion-window">
         <section className="face-stage">
-          <JarvisFace mood={mood} mouthShape={mouthShape} />
+          <NetworkCore mood={mood} mouthShape={mouthShape} />
         </section>
 
         <footer className="bottom-console">
+          <Hud connectionState={connectionState} mood={mood} activity={hudActivity} lastHeard={lastHeard} />
           {showTypeInput ? (
             <section className="prompt-box">
               <input
@@ -162,6 +174,10 @@ export default function App() {
         onToggleVisible={() => setPanelVisible((value) => !value)}
         onToggleFullscreen={() => setPanelFullscreen((value) => !value)}
       />
+
+      {panelFullscreen && panelVisible ? (
+        <Hud connectionState={connectionState} mood={mood} activity={hudActivity} lastHeard={lastHeard} floating />
+      ) : null}
     </main>
   );
 }

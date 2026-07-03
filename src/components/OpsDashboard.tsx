@@ -10,6 +10,8 @@ export function OpsDashboard() {
   const [error, setError] = useState<string | null>(null);
   const timerRef = useRef<number>(0);
 
+  const retryRef = useRef<number>(0);
+
   const load = useCallback(async (force: boolean) => {
     setLoading(true);
     try {
@@ -21,7 +23,11 @@ export function OpsDashboard() {
         setError(data.liveError || data.staleError || null);
       }
     } catch (loadError) {
+      // Keep the last good snapshot on screen and retry soon; transient
+      // tunnel/proxy hiccups should self-heal without user action.
       setError(loadError instanceof Error ? loadError.message : String(loadError));
+      window.clearTimeout(retryRef.current);
+      retryRef.current = window.setTimeout(() => void load(force), 5000);
     } finally {
       setLoading(false);
     }
@@ -30,7 +36,10 @@ export function OpsDashboard() {
   useEffect(() => {
     void load(false);
     timerRef.current = window.setInterval(() => void load(false), REFRESH_MS);
-    return () => window.clearInterval(timerRef.current);
+    return () => {
+      window.clearInterval(timerRef.current);
+      window.clearTimeout(retryRef.current);
+    };
   }, [load]);
 
   if (!snapshot) {

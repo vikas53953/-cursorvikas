@@ -17,6 +17,11 @@ export type TranscriptEntry = {
   at: string;
 };
 
+export type JarvisActivity = {
+  kind: "tool_start" | "tool_done" | "tool_error" | "heard";
+  text: string;
+};
+
 export type RealtimeCallbacks = {
   onConnectionState: (state: JarvisConnectionState) => void;
   onMood: (mood: JarvisMood) => void;
@@ -24,6 +29,7 @@ export type RealtimeCallbacks = {
   onTranscript: (entry: TranscriptEntry) => void;
   onArtifact: (artifact: JarvisArtifact) => void;
   onStatus: (message: string) => void;
+  onActivity?: (activity: JarvisActivity) => void;
 };
 
 type ServerEvent = {
@@ -234,6 +240,7 @@ export class JarvisRealtimeClient {
       if (transcript) {
         logEvent("rt.user.speech", { transcript });
         this.callbacks.onTranscript(newEntry("user", transcript));
+        this.callbacks.onActivity?.({ kind: "heard", text: transcript.trim() });
       }
       return;
     }
@@ -277,10 +284,19 @@ export class JarvisRealtimeClient {
         continue;
       }
 
-      this.callbacks.onTranscript(newEntry("tool", `Running ${name}`));
+      const description = describeToolCall(name, parsedArgs);
+      this.callbacks.onTranscript(newEntry("tool", `Running ${description}`));
+      this.callbacks.onActivity?.({ kind: "tool_start", text: description });
       logEvent("rt.tool.call", { tool: name, args: parsedArgs });
+      const startedAt = Date.now();
       const result = await window.jarvis.executeTool({ name, arguments: parsedArgs } satisfies JarvisToolCall);
+      const seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
       logEvent("rt.tool.result", { tool: name, ok: result.ok !== false, error: result.error });
+      if (result.ok === false) {
+        this.callbacks.onActivity?.({ kind: "tool_error", text: `${name} failed: ${result.error || result.message || "unknown error"}` });
+      } else {
+        this.callbacks.onActivity?.({ kind: "tool_done", text: `${description} done in ${seconds}s` });
+      }
       if (result.artifact) this.callbacks.onArtifact(result.artifact);
       shouldCreateResponse = true;
       await this.returnToolOutput(callId, result);
@@ -396,6 +412,18 @@ function lerp(from: number, to: number, amount: number): number {
 
 function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));
+}
+
+function describeToolCall(name: string, args: Record<string, unknown>): string {
+  if (name === "run_show_command") {
+    const commands = Array.isArray(args.commands) ? args.commands.join(", ") : "";
+    const device = typeof args.device === "string" && args.device ? args.device : "all devices";
+    return `"${commands}" on ${device}`;
+  }
+  const summary = Object.entries(args)
+    .map(([key, value]) => `${key}=${typeof value === "string" ? value : JSON.stringify(value)}`)
+    .join(" ");
+  return summary ? `${name} (${summary.slice(0, 60)})` : name;
 }
 
 export function newEntry(role: TranscriptEntry["role"], text: string): TranscriptEntry {

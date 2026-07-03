@@ -38,6 +38,10 @@ Traffic, errors, logs:
 - "Show interface counters on sw2."
 - "Show me the last 20 log lines on sw1."
 
+Security:
+
+- "Any vulnerabilities on these switches?" — reads the devices' real software version and queries the NVD CVE database (no API key needed).
+
 Big picture:
 
 - "Show me the status board." (the right-hand dashboard shows this continuously)
@@ -47,7 +51,7 @@ Extras: Exa web search for vendor advisories and outage news, and local shift/ha
 
 ## The window
 
-- **Left:** the NetJarvis face — connect voice, talk, interrupt, or type.
+- **Left:** the NetJarvis network-core avatar — a status ring and topology graph that shows state at a glance (cyan pulse = listening, amber rotation = thinking, waveform = speaking, packets in flight = running tools, red = error). Below it, a HUD shows the exact state, what Jarvis heard, and which command is running right now. A floating mini-HUD keeps this visible even when the panel is fullscreen.
 - **Right:** the operations panel with two tabs:
   - **Dashboard** — always-on view of the network: LIVE/SIM source badge, health score, device tiles with CPU/memory/health, link status, active issues, and recent events. Auto-refreshes every 30 seconds.
   - **Reports** — artifacts produced by Jarvis: overviews, tables, raw CLI output, mermaid topology diagrams, and notes. Opens automatically when a tool produces something.

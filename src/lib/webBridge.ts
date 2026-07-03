@@ -6,41 +6,57 @@ import type { DashboardSnapshot, JarvisToolCall, JarvisToolResult, JarvisToolSpe
 export function installWebBridge(): void {
   if (typeof window === "undefined" || window.jarvis) return;
 
+  // Tunnels/proxies occasionally return HTML error pages; parse defensively
+  // so a bad response surfaces as a readable error instead of a JSON crash.
+  async function parseJson<T>(url: string, response: Response): Promise<T> {
+    const raw = await response.text();
+    try {
+      const data = JSON.parse(raw) as T & { error?: string };
+      if (!response.ok) {
+        throw new Error((data as { error?: string })?.error || `${url} failed with status ${response.status}`);
+      }
+      return data;
+    } catch (error) {
+      if (error instanceof SyntaxError) {
+        void logSafe({ type: "web.parse_error", url, status: response.status, body: raw.slice(0, 200) });
+        throw new Error(`The server (or tunnel) returned a non-JSON response for ${url} (status ${response.status}). Retrying usually fixes this.`);
+      }
+      throw error;
+    }
+  }
+
   async function postJson<T>(url: string, body: unknown): Promise<T> {
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body ?? {}),
     });
-    const data = (await response.json()) as T & { error?: string };
-    if (!response.ok) {
-      throw new Error(data?.error || `${url} failed with status ${response.status}`);
+    return parseJson<T>(url, response);
+  }
+
+  async function getJson<T>(url: string): Promise<T> {
+    const response = await fetch(url);
+    return parseJson<T>(url, response);
+  }
+
+  async function logSafe(event: Record<string, unknown>): Promise<void> {
+    try {
+      await fetch("/api/log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(event),
+        keepalive: true,
+      });
+    } catch {
+      // Logging must never break the app.
     }
-    return data;
   }
 
   window.jarvis = {
     createRealtimeToken: () => postJson<{ value: string; expiresAt: number | null }>("/api/realtime/token", {}),
     executeTool: (toolCall: JarvisToolCall) => postJson<JarvisToolResult>("/api/tools/execute", toolCall),
-    getToolSpecs: async () => {
-      const response = await fetch("/api/tools/list");
-      return (await response.json()) as JarvisToolSpec[];
-    },
-    getDashboard: async (options?: { force?: boolean }) => {
-      const response = await fetch(`/api/dashboard${options?.force ? "?force=1" : ""}`);
-      return (await response.json()) as DashboardSnapshot;
-    },
-    logEvent: async (event: Record<string, unknown>) => {
-      try {
-        await fetch("/api/log", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(event),
-          keepalive: true,
-        });
-      } catch {
-        // Logging must never break the app.
-      }
-    },
+    getToolSpecs: () => getJson<JarvisToolSpec[]>("/api/tools/list"),
+    getDashboard: (options?: { force?: boolean }) => getJson<DashboardSnapshot>(`/api/dashboard${options?.force ? "?force=1" : ""}`),
+    logEvent: logSafe,
   };
 }

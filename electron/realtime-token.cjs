@@ -31,6 +31,11 @@ async function createRealtimeToken({ instructions, toolSpecs }) {
         tools: toolSpecs,
         audio: {
           input: {
+            // Transcribe the engineer's speech so the HUD and debug logs show
+            // exactly what NetJarvis heard.
+            transcription: {
+              model: "whisper-1",
+            },
             turn_detection: {
               type: "semantic_vad",
               eagerness: "medium",
