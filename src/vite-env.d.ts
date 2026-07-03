@@ -108,6 +108,7 @@ declare global {
       executeTool: (toolCall: JarvisToolCall) => Promise<JarvisToolResult>;
       getToolSpecs: () => Promise<JarvisToolSpec[]>;
       getDashboard: (options?: { force?: boolean }) => Promise<DashboardSnapshot>;
+      logEvent: (event: Record<string, unknown>) => Promise<void>;
     };
   }
 }

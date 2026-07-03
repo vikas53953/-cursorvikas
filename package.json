@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "concurrently -k \"vite --host 127.0.0.1\" \"wait-on tcp:5173 && VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
     "start": "electron .",
+    "web": "node server/web.cjs",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit"
   },

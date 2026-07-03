@@ -5,6 +5,7 @@
 
 const crypto = require("node:crypto");
 const source = require("./network-source.cjs");
+const logger = require("./logger.cjs");
 
 const sim = source.sim;
 
@@ -247,6 +248,21 @@ const toolSpecs = [
 
 function createTools({ readDb, updateDb }) {
   async function execute(name, args) {
+    const started = Date.now();
+    const result = await executeInner(name, args);
+    logger.log("tool.execute", {
+      tool: name,
+      args,
+      ms: Date.now() - started,
+      ok: result.ok !== false,
+      error: result.error,
+      artifactKind: result.artifact?.kind,
+      artifactTitle: result.artifact?.title,
+    });
+    return result;
+  }
+
+  async function executeInner(name, args) {
     try {
       switch (name) {
         case "network_overview":

@@ -78,8 +78,17 @@ git clone <this repo>
 cd netjarvis
 npm install
 cp .env.example .env.local
-npm run dev
+npm run dev          # Electron desktop app
 ```
+
+Or run it as a plain web app in any browser (no Electron needed):
+
+```bash
+npm run build
+npm run web          # serves http://localhost:8080
+```
+
+Web mode serves the same UI and exposes the same tools over an HTTP API; realtime voice audio still flows directly between the browser and OpenAI over WebRTC (the server only mints the short-lived client secret). Use HTTPS or localhost so the browser allows microphone access.
 
 Edit `.env.local` before starting voice features:
 
@@ -88,6 +97,17 @@ OPENAI_API_KEY=your_openai_api_key_here
 ```
 
 The dashboard and all network tools work without any keys — only voice needs `OPENAI_API_KEY`, and only web search needs `EXA_API_KEY`.
+
+## Debug logs (evidence trail)
+
+Everything of interest is written as structured JSONL to `data/logs/netjarvis-YYYY-MM-DD.jsonl`:
+
+- every tool call with arguments, duration, and result status (`tool.execute`)
+- every Catalyst Center API request with status, latency, and size (`catc.http`)
+- realtime voice session events forwarded from the client: connects, speech transcripts, model replies, tool calls, and errors (`client.rt.*`)
+- realtime token mints and web requests
+
+In web mode, `GET /api/logs/recent?limit=200` returns the latest entries. Secrets are redacted before anything is written.
 
 ## Pointing at other networks
 

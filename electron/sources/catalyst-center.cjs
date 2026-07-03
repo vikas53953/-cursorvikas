@@ -11,6 +11,7 @@
 
 const https = require("node:https");
 const { URL } = require("node:url");
+const logger = require("../logger.cjs");
 
 const config = {
   baseUrl: process.env.CATC_BASE_URL || "https://sandboxdnac.cisco.com",
@@ -21,6 +22,7 @@ const config = {
 let cachedToken = null; // { value, mintedAt }
 
 function httpRequest(method, path, { headers = {}, body = null, timeoutMs = 15000 } = {}) {
+  const started = Date.now();
   return new Promise((resolve, reject) => {
     const url = new URL(path, config.baseUrl);
     const payload = body ? JSON.stringify(body) : null;
@@ -50,6 +52,13 @@ function httpRequest(method, path, { headers = {}, body = null, timeoutMs = 1500
           } catch {
             json = null;
           }
+          logger.log("catc.http", {
+            method,
+            path: url.pathname,
+            status: response.statusCode || 0,
+            ms: Date.now() - started,
+            bytes: raw.length,
+          });
           resolve({ status: response.statusCode || 0, json, raw });
         });
       },
@@ -57,7 +66,10 @@ function httpRequest(method, path, { headers = {}, body = null, timeoutMs = 1500
     request.on("timeout", () => {
       request.destroy(new Error(`Catalyst Center request timed out after ${timeoutMs}ms: ${method} ${path}`));
     });
-    request.on("error", reject);
+    request.on("error", (error) => {
+      logger.log("catc.http.error", { method, path: url.pathname, ms: Date.now() - started, error: String(error && error.message) });
+      reject(error);
+    });
     if (payload) request.write(payload);
     request.end();
   });

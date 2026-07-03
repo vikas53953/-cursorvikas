@@ -53,6 +53,15 @@ type ResponseOutputItem = {
 
 const realtimeUrl = "https://api.openai.com/v1/realtime/calls";
 
+// Fire-and-forget structured logging to the debug log (data/logs/*.jsonl).
+function logEvent(type: string, data: Record<string, unknown> = {}): void {
+  try {
+    void window.jarvis.logEvent({ type, ...data });
+  } catch {
+    // Logging must never break the app.
+  }
+}
+
 export class JarvisRealtimeClient {
   private pc: RTCPeerConnection | null = null;
   private dc: RTCDataChannel | null = null;
@@ -74,10 +83,12 @@ export class JarvisRealtimeClient {
     this.callbacks.onConnectionState("connecting");
     this.callbacks.onMood("thinking");
     this.callbacks.onStatus("Minting a Realtime client secret.");
+    logEvent("rt.connect.start");
 
     try {
       this.toolSpecs = await window.jarvis.getToolSpecs();
       const token = await window.jarvis.createRealtimeToken();
+      logEvent("rt.connect.token_ok", { expiresAt: token.expiresAt });
       const pc = new RTCPeerConnection();
       const audio = document.createElement("audio");
       audio.autoplay = true;
@@ -101,6 +112,7 @@ export class JarvisRealtimeClient {
         this.callbacks.onConnectionState("connected");
         this.callbacks.onMood("idle");
         this.callbacks.onStatus("NetJarvis is live. Ask how your network is doing.");
+        logEvent("rt.connect.data_channel_open");
       });
       dc.addEventListener("message", (event) => {
         void this.handleServerEvent(event.data);
@@ -129,10 +141,13 @@ export class JarvisRealtimeClient {
 
       this.pc = pc;
       this.dc = dc;
+      logEvent("rt.connect.webrtc_ok");
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logEvent("rt.connect.error", { error: message });
       this.callbacks.onConnectionState("error");
       this.callbacks.onMood("error");
-      this.callbacks.onStatus(error instanceof Error ? error.message : String(error));
+      this.callbacks.onStatus(message);
       this.disconnect();
     }
   }
@@ -156,6 +171,7 @@ export class JarvisRealtimeClient {
       this.callbacks.onStatus("Connect NetJarvis before sending a text prompt.");
       return;
     }
+    logEvent("rt.user.text", { text });
     this.callbacks.onTranscript(newEntry("user", text));
     this.sendEvent({
       type: "conversation.item.create",
@@ -172,7 +188,13 @@ export class JarvisRealtimeClient {
     const event = safeParseEvent(raw);
     if (!event.type) return;
 
+    // Capture the realtime event stream (skip high-frequency audio deltas).
+    if (!event.type.includes("delta") && !event.type.startsWith("output_audio_buffer")) {
+      logEvent("rt.event", { eventType: event.type });
+    }
+
     if (event.type === "error") {
+      logEvent("rt.error", { error: event.error?.message || "unknown", raw: raw.slice(0, 500) });
       this.callbacks.onMood("error");
       this.callbacks.onStatus(event.error?.message || "Realtime API returned an error.");
       return;
@@ -209,14 +231,20 @@ export class JarvisRealtimeClient {
 
     if (event.type === "conversation.item.input_audio_transcription.completed") {
       const transcript = event.transcript || collectItemText(event.item);
-      if (transcript) this.callbacks.onTranscript(newEntry("user", transcript));
+      if (transcript) {
+        logEvent("rt.user.speech", { transcript });
+        this.callbacks.onTranscript(newEntry("user", transcript));
+      }
       return;
     }
 
     if (event.type === "response.done") {
       const output = event.response?.output || [];
       const spoken = this.currentAssistantText || output.map(collectOutputText).filter(Boolean).join("\n");
-      if (spoken) this.callbacks.onTranscript(newEntry("jarvis", spoken));
+      if (spoken) {
+        logEvent("rt.jarvis.speech", { text: spoken });
+        this.callbacks.onTranscript(newEntry("jarvis", spoken));
+      }
       this.currentAssistantText = "";
 
       const functionCalls = output.filter((item) => item.type === "function_call" && item.name && item.call_id);
@@ -250,7 +278,9 @@ export class JarvisRealtimeClient {
       }
 
       this.callbacks.onTranscript(newEntry("tool", `Running ${name}`));
+      logEvent("rt.tool.call", { tool: name, args: parsedArgs });
       const result = await window.jarvis.executeTool({ name, arguments: parsedArgs } satisfies JarvisToolCall);
+      logEvent("rt.tool.result", { tool: name, ok: result.ok !== false, error: result.error });
       if (result.artifact) this.callbacks.onArtifact(result.artifact);
       shouldCreateResponse = true;
       await this.returnToolOutput(callId, result);
