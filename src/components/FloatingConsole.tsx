@@ -21,7 +21,7 @@ const STATE_LABEL: Record<string, string> = {
   error: "Error",
 };
 
-// Fullscreen voice dock — ambient status ribbon + pulsing talk orb (no boxed HUD).
+// Fullscreen voice dock — orb + status ribbon aligned on one centerline.
 export function FloatingConsole({
   connectionState,
   mood,
@@ -37,42 +37,49 @@ export function FloatingConsole({
   const stateClass = connectionState === "connecting" ? "connecting" : offline ? "offline" : mood;
 
   return (
-    <div className={`voice-dock voice-dock-${stateClass} ${isConnected ? "voice-dock-live" : ""}`} role="toolbar" aria-label="NetJarvis voice dock">
+    <div
+      className={`voice-dock voice-dock-${stateClass} ${isConnected ? "voice-dock-live" : ""}`}
+      role="toolbar"
+      aria-label="NetJarvis voice dock"
+    >
       <div className="voice-dock-glow" aria-hidden="true" />
-      <button
-        type="button"
-        className={`voice-dock-orb ${isConnected ? "voice-dock-orb-active" : ""}`}
-        onClick={isConnected ? onDisconnect : onConnect}
-        disabled={connectionState === "connecting"}
-        title={isConnected ? "Stop voice" : "Start voice"}
-        aria-label={isConnected ? "Stop voice" : "Start voice"}
-      >
-        <span className="voice-dock-orb-ring" aria-hidden="true" />
-        <span className="voice-dock-orb-ring voice-dock-orb-ring-2" aria-hidden="true" />
-        <span className="voice-dock-orb-core" aria-hidden="true" />
-        {isConnected ? <MicOff size={20} strokeWidth={2.2} /> : <Mic size={20} strokeWidth={2.2} />}
-        <span className="voice-dock-orb-caption">{isConnected ? "Stop" : "Talk"}</span>
-      </button>
-
-      <div className="voice-dock-panel">
-        <div className="voice-dock-status">
-          <span className="voice-dock-pulse" />
-          <strong>{stateLabel}</strong>
-          {isConnected ? <em className="voice-dock-live-tag">LIVE</em> : null}
+      <div className="voice-dock-row">
+        <div className="voice-dock-orb-wrap">
+          <button
+            type="button"
+            className={`voice-dock-orb ${isConnected ? "voice-dock-orb-live" : ""}`}
+            onClick={isConnected ? onDisconnect : onConnect}
+            disabled={connectionState === "connecting"}
+            title={isConnected ? "Stop voice" : "Start voice"}
+            aria-label={isConnected ? "Stop voice" : "Start voice"}
+          >
+            <span className="voice-dock-orb-ring" aria-hidden="true" />
+            <span className="voice-dock-orb-ring voice-dock-orb-ring-2" aria-hidden="true" />
+            <span className="voice-dock-orb-core" aria-hidden="true" />
+            {isConnected ? <MicOff size={20} strokeWidth={2.2} /> : <Mic size={20} strokeWidth={2.2} />}
+          </button>
         </div>
-        {lastHeard ? (
-          <p className="voice-dock-heard" title={lastHeard}>
-            <span>Heard</span> &ldquo;{lastHeard}&rdquo;
-          </p>
-        ) : (
-          <p className="voice-dock-idle-copy">Hover the orb to talk with NetJarvis</p>
-        )}
-        {activity.kind !== "idle" ? (
-          <p className={`voice-dock-activity voice-dock-activity-${activity.kind}`} title={activity.text}>
-            <span>{activity.kind === "tool_start" ? "Running" : activity.kind === "tool_error" ? "Failed" : "Done"}</span>
-            {activity.text}
-          </p>
-        ) : null}
+
+        <div className="voice-dock-panel">
+          <div className="voice-dock-status">
+            <span className="voice-dock-pulse" aria-hidden="true" />
+            <strong>{stateLabel}</strong>
+            {isConnected ? <em className="voice-dock-live-tag">ON AIR</em> : null}
+          </div>
+          {lastHeard ? (
+            <p className="voice-dock-heard" title={lastHeard}>
+              <span>Heard</span> &ldquo;{lastHeard}&rdquo;
+            </p>
+          ) : (
+            <p className="voice-dock-idle-copy">Hover the orb to talk with NetJarvis</p>
+          )}
+          {activity.kind !== "idle" ? (
+            <p className={`voice-dock-activity voice-dock-activity-${activity.kind}`} title={activity.text}>
+              <span>{activity.kind === "tool_start" ? "Running" : activity.kind === "tool_error" ? "Failed" : "Done"}</span>
+              {activity.text}
+            </p>
+          ) : null}
+        </div>
       </div>
     </div>
   );
