@@ -264,6 +264,7 @@ export default function App() {
         <FloatingConsole
           connectionState={connectionState}
           mood={mood}
+          mouthShape={mouthShape}
           activity={hudActivity}
           lastHeard={lastHeard}
           isConnected={isConnected}
