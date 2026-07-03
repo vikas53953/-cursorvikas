@@ -5,6 +5,7 @@ import { artifactEmailBody, artifactPlainText, downloadArtifact } from "../lib/a
 import { artifactNarrativeText, artifactTechnicalText } from "../lib/observability";
 import type { TranscriptEntry } from "../lib/realtime";
 import type { JarvisArtifact } from "../vite-env";
+import { CliOutputView } from "./CliOutput";
 
 export type ObservabilityEvent = {
   id: string;
@@ -71,7 +72,7 @@ export function ObservabilityPanel({ events, artifact, sessionLog }: Observabili
                 <small>{hasSession ? "CLI output" : "Technical"}</small>
                 <CopyChip text={cliText} label="technical output" />
               </div>
-              <pre>{cliText}</pre>
+              <CliOutputView text={cliText} />
             </div>
             <div className="observability-narrative">
               <div className="obs-block-head">

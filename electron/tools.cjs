@@ -802,12 +802,15 @@ function createTools({ readDb, updateDb }) {
       };
     }
     const result = await source.runLiveShowCommands(args.device, commands);
+    const device = String(args.device || "device");
+    const title =
+      commands.length === 1 ? `${device} · ${commands[0]}` : commands.length <= 3 ? `${device} · ${commands.join(" / ")}` : `Pre-check: ${device}`;
     return {
       ok: true,
       mode,
       scope: result.scope,
       outputs: trimOutputs(result.outputs),
-      artifact: { title: `CLI: ${commands.join(" / ")}`, kind: "code", content: formatCliOutputs(result.outputs) },
+      artifact: { title, kind: "code", content: formatCliOutputs(result.outputs) },
     };
   }
 

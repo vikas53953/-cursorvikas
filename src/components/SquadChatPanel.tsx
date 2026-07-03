@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type
 import { ChevronLeft, ChevronRight, Copy, Hash, Loader2, Maximize2, Minimize2, Plus, Send, Sparkles, Trash2, Users, X } from "lucide-react";
 import type { JarvisConnectionState, TranscriptEntry } from "../lib/realtime";
 import { splitArtifactOutput } from "../lib/observability";
+import { CliOutputView } from "./CliOutput";
 import { Markdown } from "./Markdown";
 import { buildMemberMentions, filterMemberMentions, registerMemberHandles, splitMentionText, type SquadMention } from "../lib/squadMentions";
 import { expandSlashCommand, filterSlashCommands, type SlashCommand } from "../lib/squadSlashCommands";
@@ -816,8 +817,10 @@ function ChatOutputAttachment({ artifact, technical }: { artifact: JarvisArtifac
                 <pre>{splitArtifactOutput(artifact).narrative}</pre>
               </div>
             ) : null}
-            <strong>{hasSession ? "CLI output" : "Technical output"}</strong>
-            <pre className="squad-chat-attachment-body">{techText}</pre>
+            <div className="squad-chat-attachment-cli">
+              <strong>{hasSession ? "CLI output" : "Output"}</strong>
+              <CliOutputView text={techText} />
+            </div>
             <button type="button" className="squad-chat-attachment-toggle" onClick={() => setShowTechnical(false)}>
               Hide technical output
             </button>

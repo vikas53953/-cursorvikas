@@ -170,7 +170,7 @@ export default function App() {
       }),
     );
     setPanelVisible(true);
-    setPanelTab("team");
+    if (panelTab !== "team") setPanelTab("team");
 
     setChatBusy(true);
     try {
@@ -203,8 +203,6 @@ export default function App() {
           }
           return next;
         });
-        setPanelVisible(true);
-        setPanelTab("observability");
       }
 
       const reply = sanitizeSquadChatReply(result.text?.trim() || "Done.");
@@ -216,8 +214,6 @@ export default function App() {
         jarvisEntry.artifact = primary;
         jarvisEntry.technical = artifactTechnicalText(primary);
         setArtifact(primary);
-        setPanelVisible(true);
-        setPanelTab("observability");
         setObservabilityEvents((items) =>
           pushObservabilityEvent(items, {
             role: "artifact",

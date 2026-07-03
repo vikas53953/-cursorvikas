@@ -3809,14 +3809,112 @@ td {
 .squad-chat-attachment-body {
   margin: 0;
   padding: 8px 10px;
-  font-size: 11px;
-  line-height: 1.45;
+  font-size: 10px;
+  line-height: 1.4;
   color: #aeb7c8;
   white-space: pre-wrap;
   word-break: break-word;
-  max-height: 200px;
+  max-height: 180px;
   overflow: auto;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.squad-chat-attachment-cli {
+  padding: 6px 8px 8px;
+}
+
+.squad-chat-attachment-cli > strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #6d7685;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cli-output {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cli-output-block {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+}
+
+.cli-output-block-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.cli-output-host {
+  color: #6ef2be;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.cli-output-command {
+  color: #9aa3b5;
+  font-size: 10px;
+}
+
+.cli-output-table-wrap {
+  max-height: 160px;
+  overflow: auto;
+}
+
+.cli-output-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+}
+
+.cli-output-table th,
+.cli-output-table td {
+  padding: 4px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.cli-output-table th {
+  position: sticky;
+  top: 0;
+  background: rgba(15, 18, 24, 0.95);
+  color: #6d7685;
+  font-weight: 600;
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.cli-output-table td {
+  color: #c5ccda;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.cli-output-lines,
+.cli-output-fallback {
+  margin: 0;
+  padding: 6px 8px;
+  max-height: 140px;
+  overflow: auto;
+  color: #aeb7c8;
+  font-size: 10px;
+  line-height: 1.4;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .squad-chat-attachment-toggle {
