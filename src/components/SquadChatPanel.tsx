@@ -705,7 +705,7 @@ function ChatMessageRow({
 
   async function copyMessage() {
     const parts = [entry.text.trim()];
-    for (const artifact of dedupeArtifacts(entry.artifacts || (entry.artifact ? [entry.artifact] : []))) {
+    for (const artifact of technicalArtifacts(entry.artifacts || (entry.artifact ? [entry.artifact] : []))) {
       const tech = splitArtifactOutput(artifact).technical;
       if (tech) parts.push("", `${artifact.title}`, "```", tech, "```");
     }
@@ -756,7 +756,7 @@ function ChatMessageRow({
 }
 
 function ChatOutputAttachments({ artifacts, technical }: { artifacts: JarvisArtifact[]; technical?: string }) {
-  const unique = dedupeArtifacts(artifacts);
+  const unique = technicalArtifacts(artifacts);
   if (unique.length === 0) return null;
   return (
     <>
@@ -831,6 +831,10 @@ function dedupeArtifacts(artifacts: JarvisArtifact[]): JarvisArtifact[] {
   return result;
 }
 
+function technicalArtifacts(artifacts: JarvisArtifact[]): JarvisArtifact[] {
+  return dedupeArtifacts(artifacts).filter((artifact) => artifact.kind === "code" || artifact.kind === "table");
+}
+
 function MessageText({ text }: { text: string }) {
   const parts = splitMentionText(text);
   return (
@@ -856,7 +860,6 @@ function TypingIndicator({ targetName, expanded }: { targetName: string; expande
       <div className="squad-chat-row-body">
         <header className="squad-chat-row-meta">
           <strong>{targetName}</strong>
-          <Loader2 size={12} className="squad-chat-spinner" />
         </header>
         <div className="squad-chat-bubble squad-chat-bubble-agent squad-chat-bubble-typing">
           <span className="squad-chat-typing-dots" aria-hidden="true">

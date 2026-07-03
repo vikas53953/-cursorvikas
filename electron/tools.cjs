@@ -424,6 +424,58 @@ const toolSpecs = [
   },
 ];
 
+function collectTechnicalArtifacts(result, bucket) {
+  if (Array.isArray(result.artifacts)) {
+    for (const artifact of result.artifacts) {
+      if (artifact?.kind === "code" || artifact?.kind === "table") bucket.push(artifact);
+    }
+  } else if (result.artifact && (result.artifact.kind === "code" || result.artifact.kind === "table")) {
+    bucket.push(result.artifact);
+  }
+}
+
+const PRECHECK_COMMANDS = [
+  "show version",
+  "show interfaces status",
+  "show interfaces counters errors",
+  "show ip interface brief",
+  "show vlan brief",
+  "show spanning-tree summary",
+  "show mac address-table",
+  "show cdp neighbors detail",
+  "show lldp neighbors detail",
+  "show ip arp",
+  "show ip route",
+];
+
+function parsePrecheckFastPath(message, agentsApi) {
+  const lower = String(message || "").toLowerCase();
+  const deviceMatch = lower.match(/\b(?:on|for|to)\s+(sw[1-9]\w*)\b/) || lower.match(/\b(sw[1-9]\w*)\b/);
+  const device = deviceMatch?.[1];
+  if (!device) return null;
+
+  const isPrecheck = /pre[-\s]?post|pre[-\s]?check|precheck|\brun\s+on\b/.test(lower);
+  if (!isPrecheck) return null;
+
+  const handles = [];
+  for (const match of message.matchAll(/@([a-z][a-z0-9_-]*)/gi)) {
+    handles.push(match[1].toLowerCase());
+  }
+  const teamHandles = [...new Set(handles)].filter((handle) => handle !== "jarvis");
+  if (teamHandles.length !== 1) return null;
+
+  const team = teamHandles[0];
+  const spec = agentsApi.resolveTeam(team);
+  if (!spec) return null;
+
+  const scope = String(spec.scope || "").toLowerCase();
+  const isPrecheckAgent =
+    spec.custom || team === "change" || /pre|post|check/.test(team) || /pre|post|check/.test(scope);
+  if (!isPrecheckAgent) return null;
+
+  return { team, device, commands: PRECHECK_COMMANDS };
+}
+
 function createTools({ readDb, updateDb }) {
   const agents = createAgents({
     executeTool: (name, args, context) => execute(name, args, context),
@@ -905,16 +957,14 @@ function createTools({ readDb, updateDb }) {
 
   async function delegateTask(args) {
     const outcome = await agents.delegate(args.team, args.task);
+    const cliArtifacts = outcome.cliArtifacts || [];
     return {
       ok: true,
       taskId: outcome.taskId,
       team: outcome.teamName,
       report: outcome.result,
-      artifact: {
-        title: `${outcome.teamName}: ${String(args.task).slice(0, 60)}`,
-        kind: "markdown",
-        content: `# ${outcome.teamName} report\n\nTask: ${args.task}\n\n---\n\n${outcome.result}`,
-      },
+      artifacts: cliArtifacts,
+      artifact: cliArtifacts[0],
     };
   }
 
@@ -1230,6 +1280,38 @@ function createTools({ readDb, updateDb }) {
     const trimmed = String(message || "").trim();
     if (!trimmed) return { ok: false, error: "Message is empty" };
 
+    const fastPath = parsePrecheckFastPath(trimmed, agents);
+    if (fastPath) {
+      const started = Date.now();
+      logger.log("chat.fastpath", { team: fastPath.team, device: fastPath.device, commands: fastPath.commands.length });
+      const cliResult = await execute("run_show_command", { device: fastPath.device, commands: fastPath.commands });
+      const artifacts = [];
+      collectTechnicalArtifacts(cliResult, artifacts);
+
+      const spec = agents.resolveTeam(fastPath.team);
+      const summaryMessages = [
+        {
+          role: "system",
+          content: `${JARVIS_INSTRUCTIONS}
+
+# Squad text chat mode — pre-check fast path
+You already ran the read-only CLI pre-check on ${fastPath.device}. Summarize the output for the engineer in Slack style.
+- Structure: one-line **Summary** first, then **Details** (bullets/tables with real numbers from the CLI).
+- The raw CLI output is shown separately below your message — do NOT paste raw CLI dumps.
+- FORBIDDEN: "Next steps", "Notes and next steps", "Recommended actions", or suggesting follow-up commands.
+- Only add **⚠ Flag:** when something is genuinely wrong.`,
+        },
+        {
+          role: "user",
+          content: `@${fastPath.team} pre-check on ${fastPath.device} (${spec?.name || fastPath.team}):\n\n${cliResult.artifact?.content || cliResult.error || "No CLI output."}`,
+        },
+      ];
+      const summaryMessage = await chatCompletion(summaryMessages, []);
+      const text = sanitizeSquadChatReply(String(summaryMessage.content || "").trim() || "Pre-check complete.");
+      logger.log("chat.done", { target: fastPath.team, ms: Date.now() - started, fastPath: true });
+      return { ok: true, text, artifacts };
+    }
+
     let payload = trimmed;
     const teamKey = String(target || "jarvis").toLowerCase();
     if (teamKey !== "jarvis") {
@@ -1265,6 +1347,7 @@ The engineer is using the Agent Squad #network-ops channel (not voice). @mention
 - The raw CLI output is shown separately below your message — your reply is ONLY the human summary. Do not paste raw CLI dumps. Do not tell the engineer to open Reports or Observability.
 - FORBIDDEN: do not write "Next steps", "Notes and next steps", "Recommended actions", "pick one", or suggest follow-up commands unless the engineer explicitly asked what to do next.
 - Only add a single **⚠ Flag:** line when something is genuinely wrong (e.g. admin-down VLAN, errors, security risk). Otherwise end after Details.
+- When delegating pre-check or multi-command CLI work, tell the specialist to batch ALL show commands into ONE run_show_command call. Do not delegate twice for the same request.
 - Use tools when needed; every tool call appears on the Team Board.`,
       },
       { role: "user", content: payload },
@@ -1296,7 +1379,7 @@ The engineer is using the Agent Squad #network-ops channel (not voice). @mention
           const name = call.function?.name || "";
           logger.log("chat.tool", { target: teamKey, tool: name, args });
           const result = await execute(name, args);
-          if (result.artifact) artifacts.push(result.artifact);
+          collectTechnicalArtifacts(result, artifacts);
           messages.push({ role: "tool", tool_call_id: call.id, content: compactToolResult(result) });
         }
       }

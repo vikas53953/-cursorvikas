@@ -183,7 +183,6 @@ export default function App() {
     }
 
     setChatBusy(true);
-    setMood("thinking");
     try {
       const result = await window.jarvis.sendChatMessage({ target: target.id, message: `${mentionPrefix}${trimmed}` });
       if (result.ok === false) {
@@ -194,11 +193,11 @@ export default function App() {
       }
 
       const reply = sanitizeSquadChatReply(result.text?.trim() || "Done.");
-      const artifacts = result.artifacts || [];
+      const artifacts = (result.artifacts || []).filter((item) => item.kind === "code" || item.kind === "table");
       const jarvisEntry: TranscriptEntry = { ...newEntry("jarvis", reply) };
       if (artifacts.length > 0) {
         jarvisEntry.artifacts = artifacts;
-        const primary = artifacts.find((item) => item.kind === "code") || artifacts[artifacts.length - 1];
+        const primary = artifacts.find((item) => item.kind === "code") || artifacts[0];
         jarvisEntry.artifact = primary;
         jarvisEntry.technical = artifactTechnicalText(primary);
         setArtifact(primary);

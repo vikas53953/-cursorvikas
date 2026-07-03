@@ -134,6 +134,7 @@ Rules:
 - Investigate with your read-only tools. Use several tool calls if needed; do not guess numbers a tool can give you.
 - Be honest about scope: if the network contains no devices in your domain (for example, no firewalls or load balancers), state that plainly first, then analyze the nearest relevant evidence you CAN see.
 - Only read-only "show" commands are permitted on devices.
+- For pre-check or multi-command CLI work: batch ALL show commands into ONE run_show_command call (device + commands array). Never spread show commands across multiple tool rounds.
 - Present a clean, professional report the way a network engineer would in Slack: lead with a one-line **Summary**, then **Details** (bullets/tables with real numbers).
 - FORBIDDEN: "Next steps", "Notes and next steps", "Recommended actions", or suggesting follow-up commands unless explicitly asked.
 - Only add **⚠ Flag:** when something is genuinely wrong. Otherwise end after Details. Keep it under 300 words.`;
@@ -348,14 +349,18 @@ function createAgents({ executeTool, toolSpecs }) {
       { role: "system", content: specialistPrompt(team) },
       { role: "user", content: taskText },
     ];
+    const cliArtifacts = [];
 
-    for (let round = 0; round < 6; round += 1) {
+    for (let round = 0; round < 10; round += 1) {
       const message = await chatCompletion(messages, specialistTools);
       messages.push(message);
 
       const toolCalls = Array.isArray(message.tool_calls) ? message.tool_calls : [];
       if (toolCalls.length === 0) {
-        return message.content || "The specialist returned no content.";
+        return {
+          text: message.content || "The specialist returned no content.",
+          cliArtifacts,
+        };
       }
 
       for (const call of toolCalls) {
@@ -369,10 +374,16 @@ function createAgents({ executeTool, toolSpecs }) {
         await appendStep(taskId, `ran ${name} ${JSON.stringify(args)}`);
         logger.log("agent.tool", { taskId, team, tool: name, args });
         const result = await executeTool(name, args, { skipActivity: true });
+        if (result?.artifact?.kind === "code" || result?.artifact?.kind === "table") {
+          cliArtifacts.push(result.artifact);
+        }
         messages.push({ role: "tool", tool_call_id: call.id, content: compactToolResult(result) });
       }
     }
-    return "Reached the tool-call limit before completing the investigation. Partial evidence was collected; re-delegate with a narrower task.";
+    return {
+      text: "Reached the tool-call limit before completing the investigation. Partial evidence was collected; re-delegate with a narrower task.",
+      cliArtifacts,
+    };
   }
 
   async function delegate(team, taskText) {
@@ -396,10 +407,12 @@ function createAgents({ executeTool, toolSpecs }) {
     await appendStep(task.id, `handed off by NetJarvis to ${spec.name}`);
 
     try {
-      const result = await runSpecialist(task.id, teamKey, String(taskText));
-      await setStatus(task.id, "done", { finishedAt: new Date().toISOString(), result });
-      logger.log("agent.done", { taskId: task.id, team: teamKey });
-      return { taskId: task.id, team: teamKey, teamName: spec.name, result };
+      const outcome = await runSpecialist(task.id, teamKey, String(taskText));
+      const resultText = typeof outcome === "string" ? outcome : outcome.text;
+      const cliArtifacts = typeof outcome === "string" ? [] : outcome.cliArtifacts || [];
+      await setStatus(task.id, "done", { finishedAt: new Date().toISOString(), result: resultText });
+      logger.log("agent.done", { taskId: task.id, team: teamKey, cliArtifacts: cliArtifacts.length });
+      return { taskId: task.id, team: teamKey, teamName: spec.name, result: resultText, cliArtifacts };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       await setStatus(task.id, "failed", { finishedAt: new Date().toISOString(), error: message });
