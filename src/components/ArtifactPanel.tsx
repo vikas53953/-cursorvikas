@@ -109,14 +109,14 @@ export function ArtifactPanel({ artifact, tab, onTabChange, visible, fullscreen,
 
   const titleByTab: Record<RightPanelTab, string> = {
     dashboard: fullscreen ? "NOC Dashboard" : "Dashboard",
-    team: "Team Board",
-    observability: "Live Observability",
+    team: "Agent Squad",
+    observability: "Observability",
     artifacts: "Artifacts",
   };
 
   const tabs: Array<{ key: RightPanelTab; label: string }> = [
     { key: "dashboard", label: "Dashboard" },
-    { key: "team", label: "Team Board" },
+    { key: "team", label: "Agent Squad" },
     { key: "observability", label: "Observability" },
     { key: "artifacts", label: "Artifacts" },
   ];
@@ -142,7 +142,6 @@ export function ArtifactPanel({ artifact, tab, onTabChange, visible, fullscreen,
               </button>
             ))}
           </div>
-          {tab === "observability" && artifact ? <ArtifactActions artifact={artifact} /> : null}
           {tab === "dashboard" ? (
             <button onClick={onToggleFullscreen} title={fullscreen ? "Exit full NOC dashboard" : "Open full NOC dashboard"}>
               {fullscreen ? "Window" : "Full NOC"}
@@ -166,94 +165,6 @@ export function ArtifactPanel({ artifact, tab, onTabChange, visible, fullscreen,
       </div>
     </aside>
   );
-}
-
-// Copy / copy-as-email / download controls for the current report.
-function ArtifactActions({ artifact }: { artifact: JarvisArtifact }) {
-  const [copied, setCopied] = useState<"" | "copy" | "email">("");
-
-  function plainText(): string {
-    if (artifact.kind === "table") {
-      const rows = parseRows(artifact.content);
-      if (rows) return tableToCsv(Array.isArray(rows) ? rows : [rows]);
-    }
-    return artifact.content;
-  }
-
-  async function copyContent() {
-    await navigator.clipboard.writeText(plainText());
-    setCopied("copy");
-    window.setTimeout(() => setCopied(""), 1500);
-  }
-
-  async function copyEmail() {
-    const body = [
-      `Subject: [NOC] ${artifact.title}`,
-      "",
-      `Hi team,`,
-      "",
-      `Sharing the latest from NetJarvis - ${artifact.title} (generated ${new Date().toLocaleString()}):`,
-      "",
-      plainText(),
-      "",
-      "Regards,",
-      "Network Operations",
-      "-- Sent from NetJarvis",
-    ].join("\n");
-    await navigator.clipboard.writeText(body);
-    setCopied("email");
-    window.setTimeout(() => setCopied(""), 1500);
-  }
-
-  function download() {
-    if (artifact.downloadUrl) {
-      const anchor = document.createElement("a");
-      anchor.href = artifact.downloadUrl;
-      anchor.download = artifact.downloadName || "";
-      anchor.click();
-      return;
-    }
-    const isTable = artifact.kind === "table";
-    const content = isTable ? plainText() : artifact.content;
-    const name =
-      artifact.downloadName || `${artifact.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40)}.${isTable ? "csv" : artifact.kind === "code" ? "txt" : "md"}`;
-    const blob = new Blob([content], { type: isTable ? "text/csv" : "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = name;
-    anchor.click();
-    window.setTimeout(() => URL.revokeObjectURL(url), 4000);
-  }
-
-  return (
-    <div className="artifact-tools">
-      <button onClick={() => void copyContent()} title="Copy report content">
-        {copied === "copy" ? "Copied!" : "Copy"}
-      </button>
-      <button onClick={() => void copyEmail()} title="Copy formatted as an email">
-        {copied === "email" ? "Copied!" : "Copy email"}
-      </button>
-      <button onClick={download} title={artifact.kind === "table" ? "Download as CSV (opens in Excel)" : "Download as file"}>
-        {artifact.kind === "table" ? "Download CSV" : "Download"}
-      </button>
-    </div>
-  );
-}
-
-function tableToCsv(rows: Array<Record<string, unknown>>): string {
-  if (rows.length === 0) return "";
-  const keys = Array.from(
-    rows.reduce<Set<string>>((set, row) => {
-      Object.keys(row).forEach((key) => set.add(key));
-      return set;
-    }, new Set()),
-  );
-  const escape = (value: unknown) => {
-    const text = value === null || value === undefined ? "" : typeof value === "object" ? JSON.stringify(value) : String(value);
-    return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-  };
-  return [keys.map(escape).join(","), ...rows.map((row) => keys.map((key) => escape(row[key])).join(","))].join("\r\n");
 }
 
 

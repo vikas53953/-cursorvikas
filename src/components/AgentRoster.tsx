@@ -1,4 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ComponentType } from "react";
+import {
+  AlertTriangle,
+  Bot,
+  GitBranch,
+  Globe,
+  Layers,
+  Network,
+  Search,
+  Shield,
+  Sparkles,
+} from "lucide-react";
 import { CollapsibleSection } from "./CollapsibleSection";
 import type { JarvisMood } from "../lib/realtime";
 import type { AgentOrg, TeamTask } from "../vite-env";
@@ -10,7 +21,18 @@ type AgentRosterProps = {
 
 type AgentVisualState = "idle" | "active" | "handoff-target";
 
-// Network Agent Squad — Jarvis leads specialists on the Team Board left rail.
+const AGENT_ICONS: Record<string, ComponentType<{ size?: number; className?: string }>> = {
+  jarvis: Sparkles,
+  data: Network,
+  firewall: Shield,
+  proxy: Globe,
+  loadbalancer: Layers,
+  change: GitBranch,
+  incident: AlertTriangle,
+  problem: Search,
+};
+
+// Network Agent Squad — Jarvis leads specialists on the Agent Squad left rail.
 export function AgentRoster({ mood = "idle", tasks = [] }: AgentRosterProps) {
   const [org, setOrg] = useState<AgentOrg | null>(null);
   const timerRef = useRef<number>(0);
@@ -31,13 +53,19 @@ export function AgentRoster({ mood = "idle", tasks = [] }: AgentRosterProps) {
 
   const handoff = findHandoff(tasks);
   const recent = tasks.slice(0, 8);
+  const JarvisIcon = AGENT_ICONS.jarvis;
 
   return (
     <aside className="agent-squad">
       <header className="agent-squad-header">
         <span className="agent-squad-eyebrow">Network Agent Squad</span>
-        <div className={`agent-node agent-node-jarvis agent-jarvis-${mood} ${handoff ? "agent-node-handoff-source" : ""}`}>
-          <span className={`agent-dot agent-dot-jarvis agent-dot-${mood}`} />
+        <div
+          className={`agent-node agent-node-jarvis agent-jarvis-${mood} ${handoff ? "agent-node-handoff-source" : ""}`}
+          title="Squad lead — coordinates voice requests and delegates to specialists"
+        >
+          <span className={`agent-icon-wrap agent-icon-jarvis agent-dot-${mood}`}>
+            <JarvisIcon size={14} />
+          </span>
           <div>
             <strong>{org?.jarvis?.name || "NetJarvis"}</strong>
             <small>Squad Lead · {jarvisStateLabel(mood)}</small>
@@ -62,9 +90,17 @@ export function AgentRoster({ mood = "idle", tasks = [] }: AgentRosterProps) {
           <ul>
             {group.agents.map((agent) => {
               const visual = agentVisualState(agent.id, tasks, handoff);
+              const Icon = AGENT_ICONS[agent.id] || Bot;
+              const description = agent.scope || agent.name;
               return (
-                <li key={agent.id} className={`agent-node-li agent-state-${visual}`}>
-                  <span className={`agent-dot agent-dot-${visual}`} />
+                <li
+                  key={agent.id}
+                  className={`agent-node-li agent-state-${visual}`}
+                  title={description}
+                >
+                  <span className={`agent-icon-wrap agent-icon-${visual}`}>
+                    <Icon size={13} />
+                  </span>
                   <span className="agent-name">{agent.name}</span>
                   {visual === "active" ? <em className="agent-active-badge">working</em> : null}
                   {visual === "handoff-target" ? <em className="agent-active-badge agent-badge-handoff">handoff</em> : null}
