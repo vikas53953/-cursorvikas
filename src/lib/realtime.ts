@@ -16,6 +16,8 @@ export type TranscriptEntry = {
   role: "user" | "jarvis" | "system" | "tool";
   text: string;
   at: string;
+  artifact?: JarvisArtifact;
+  technical?: string;
 };
 
 export type JarvisActivity = {

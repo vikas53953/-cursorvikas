@@ -6,6 +6,7 @@ import { Hud, type HudActivity } from "./components/Hud";
 import { NetworkCore } from "./components/NetworkCore";
 import type { ObservabilityEvent } from "./components/ObservabilityPanel";
 import { JarvisRealtimeClient, newEntry, type JarvisConnectionState, type JarvisMood, type MouthShape, type TranscriptEntry } from "./lib/realtime";
+import { artifactTechnicalText } from "./lib/observability";
 import { buildMentionPrefix } from "./lib/squadMentions";
 import type { JarvisArtifact } from "./vite-env";
 
@@ -40,6 +41,7 @@ export default function App() {
   const [observabilityEvents, setObservabilityEvents] = useState<ObservabilityEvent[]>([]);
   const [chatBusy, setChatBusy] = useState(false);
   const clientRef = useRef<JarvisRealtimeClient | null>(null);
+  const squadChatExpandedRef = useRef(false);
 
   const isConnected = connectionState === "connected";
 
@@ -77,8 +79,10 @@ export default function App() {
           }),
         );
         setPanelVisible(true);
-        setPanelTab("observability");
-        if (nextArtifact.fullscreen) setPanelFullscreen(true);
+        if (!squadChatExpandedRef.current) {
+          setPanelTab("observability");
+          if (nextArtifact.fullscreen) setPanelFullscreen(true);
+        }
       },
       onStatus: (message) => {
         setTranscript((items) => [newEntry("system", message), ...items].slice(0, 80));
@@ -107,9 +111,12 @@ export default function App() {
           if (activity.kind === "tool_start") {
             setTaskRefreshToken((value) => value + 1);
             setPanelVisible(true);
-            setPanelTab("observability");
-            if (activity.text.toLowerCase().includes("delegate_task") || activity.text.toLowerCase().includes("delegate")) {
-              setPanelTab("team");
+            if (!squadChatExpandedRef.current) {
+              if (activity.text.toLowerCase().includes("delegate_task") || activity.text.toLowerCase().includes("delegate")) {
+                setPanelTab("team");
+              } else {
+                setPanelTab("observability");
+              }
             }
           }
           if (activity.kind === "tool_done" || activity.kind === "tool_error") {
@@ -186,7 +193,22 @@ export default function App() {
       }
 
       const reply = result.text?.trim() || "Done.";
-      setTranscript((items) => [newEntry("jarvis", reply), ...items].slice(0, 80));
+      const lastArtifact = result.artifacts?.[result.artifacts.length - 1];
+      const jarvisEntry: TranscriptEntry = { ...newEntry("jarvis", reply) };
+      if (lastArtifact) {
+        jarvisEntry.artifact = lastArtifact;
+        jarvisEntry.technical = artifactTechnicalText(lastArtifact);
+        setArtifact(lastArtifact);
+        setObservabilityEvents((items) =>
+          pushObservabilityEvent(items, {
+            role: "artifact",
+            narrative: lastArtifact.title,
+            technical: jarvisEntry.technical,
+            status: "done",
+          }),
+        );
+      }
+      setTranscript((items) => [jarvisEntry, ...items].slice(0, 80));
       setObservabilityEvents((items) =>
         pushObservabilityEvent(items, {
           role: "jarvis",
@@ -195,21 +217,6 @@ export default function App() {
         }),
       );
       setTaskRefreshToken((value) => value + 1);
-
-      const lastArtifact = result.artifacts?.[result.artifacts.length - 1];
-      if (lastArtifact) {
-        setArtifact(lastArtifact);
-        setObservabilityEvents((items) =>
-          pushObservabilityEvent(items, {
-            role: "artifact",
-            narrative: lastArtifact.title,
-            technical: lastArtifact.content.slice(0, 4000),
-            status: "done",
-          }),
-        );
-        setPanelTab("observability");
-        if (lastArtifact.fullscreen) setPanelFullscreen(true);
-      }
     } catch (error) {
       const err = error instanceof Error ? error.message : String(error);
       setTranscript((items) => [newEntry("system", err), ...items].slice(0, 80));
@@ -332,6 +339,9 @@ export default function App() {
         connectionState={connectionState}
         chatBusy={chatBusy}
         onSendSquadChat={sendSquadChat}
+        onChatExpandedChange={(expanded) => {
+          squadChatExpandedRef.current = expanded;
+        }}
       />
 
       {panelFullscreen ? (

@@ -34,6 +34,7 @@ type TeamBoardProps = {
   connectionState?: JarvisConnectionState;
   chatBusy?: boolean;
   onSendSquadChat?: (target: SquadChatTarget, message: string) => void | Promise<void>;
+  onChatExpandedChange?: (expanded: boolean) => void;
 };
 
 export function TeamBoard({
@@ -45,12 +46,18 @@ export function TeamBoard({
   connectionState = "idle",
   chatBusy = false,
   onSendSquadChat,
+  onChatExpandedChange,
 }: TeamBoardProps) {
   const live = useTeamTasks(active && !staticTasks, refreshToken);
   const tasks = staticTasks || live.tasks;
   const [doneModalOpen, setDoneModalOpen] = useState(false);
   const [chatExpanded, setChatExpanded] = useState(false);
   const showChat = !staticTasks && Boolean(onSendSquadChat);
+
+  function setExpanded(next: boolean) {
+    setChatExpanded(next);
+    onChatExpandedChange?.(next);
+  }
 
   if (!staticTasks && tasks.length === 0 && !live.error) {
     return (
@@ -76,7 +83,7 @@ export function TeamBoard({
               connectionState={connectionState}
               chatBusy={chatBusy}
               expanded={false}
-              onToggleExpand={() => setChatExpanded(true)}
+              onToggleExpand={() => setExpanded(true)}
               onSend={onSendSquadChat!}
             />
           ) : null}
@@ -87,7 +94,7 @@ export function TeamBoard({
             connectionState={connectionState}
             chatBusy={chatBusy}
             expanded
-            onToggleExpand={() => setChatExpanded(false)}
+            onToggleExpand={() => setExpanded(false)}
             onSend={onSendSquadChat!}
           />
         ) : null}
@@ -171,7 +178,7 @@ export function TeamBoard({
             connectionState={connectionState}
             chatBusy={chatBusy}
             expanded={false}
-            onToggleExpand={() => setChatExpanded(true)}
+            onToggleExpand={() => setExpanded(true)}
             onSend={onSendSquadChat!}
           />
         ) : null}
@@ -183,7 +190,7 @@ export function TeamBoard({
           connectionState={connectionState}
           chatBusy={chatBusy}
           expanded
-          onToggleExpand={() => setChatExpanded(false)}
+          onToggleExpand={() => setExpanded(false)}
           onSend={onSendSquadChat!}
         />
       ) : null}

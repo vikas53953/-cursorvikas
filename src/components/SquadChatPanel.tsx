@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { AtSign, Hash, Loader2, Maximize2, Minimize2, Send, Slash, Sparkles, Users } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
+import { ChevronLeft, ChevronRight, Copy, Hash, Loader2, Maximize2, Minimize2, Send, Sparkles, Users } from "lucide-react";
 import type { JarvisConnectionState, TranscriptEntry } from "../lib/realtime";
+import { artifactPreviewText, artifactTechnicalText } from "../lib/observability";
 import { buildMemberMentions, filterMemberMentions, splitMentionText, type SquadMention } from "../lib/squadMentions";
 import { expandSlashCommand, filterSlashCommands, type SlashCommand } from "../lib/squadSlashCommands";
-import type { AgentOrg } from "../vite-env";
+import type { AgentOrg, JarvisArtifact } from "../vite-env";
 
 export type SquadChatTarget = {
   id: string;
@@ -25,6 +26,8 @@ type ChatMessage = {
   role: "user" | "jarvis";
   text: string;
   at: string;
+  artifact?: JarvisArtifact;
+  technical?: string;
 };
 
 type PickerState = { kind: "mention" | "slash"; query: string };
@@ -43,6 +46,7 @@ export function SquadChatPanel({
   const [sending, setSending] = useState(false);
   const [picker, setPicker] = useState<PickerState | null>(null);
   const [pickerIndex, setPickerIndex] = useState(0);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const feedRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
 
@@ -81,6 +85,8 @@ export function SquadChatPanel({
           role: entry.role as "user" | "jarvis",
           text: entry.text,
           at: entry.at,
+          artifact: entry.artifact,
+          technical: entry.technical,
         })),
     [sessionLog],
   );
@@ -119,38 +125,6 @@ export function SquadChatPanel({
       return;
     }
     setPicker(null);
-  }
-
-  function openMentionPicker() {
-    const field = composerRef.current;
-    const cursor = field?.selectionStart ?? draft.length;
-    const prefix = draft.length === 0 || draft.endsWith(" ") ? "@" : " @";
-    const next = `${draft.slice(0, cursor)}${prefix}${draft.slice(cursor)}`;
-    const nextCursor = cursor + prefix.length;
-    setDraft(next);
-    setPicker({ kind: "mention", query: "" });
-    setPickerIndex(0);
-    requestAnimationFrame(() => {
-      field?.focus();
-      field?.setSelectionRange(nextCursor, nextCursor);
-    });
-  }
-
-  function openSlashPicker() {
-    const field = composerRef.current;
-    const cursor = field?.selectionStart ?? draft.length;
-    const before = draft.slice(0, cursor);
-    const needsSpace = before.length > 0 && !before.endsWith(" ");
-    const insert = needsSpace ? " /" : "/";
-    const next = `${draft.slice(0, cursor)}${insert}${draft.slice(cursor)}`;
-    const nextCursor = cursor + insert.length;
-    setDraft(next);
-    setPicker({ kind: "slash", query: "" });
-    setPickerIndex(0);
-    requestAnimationFrame(() => {
-      field?.focus();
-      field?.setSelectionRange(nextCursor, nextCursor);
-    });
   }
 
   function insertMention(mention: SquadMention) {
@@ -192,12 +166,13 @@ export function SquadChatPanel({
   async function submit() {
     const trimmed = draft.trim();
     if (!trimmed || !target || busy) return;
-    setSending(true);
+    const payload = expandSlashCommand(trimmed);
+    setDraft("");
     setPicker(null);
+    if (composerRef.current) composerRef.current.style.height = "auto";
+    setSending(true);
     try {
-      await onSend(target, expandSlashCommand(trimmed));
-      setDraft("");
-      if (composerRef.current) composerRef.current.style.height = "auto";
+      await onSend(target, payload);
     } finally {
       setSending(false);
     }
@@ -238,11 +213,30 @@ export function SquadChatPanel({
     }
   }
 
-  const rootClass = ["squad-chat", expanded ? "squad-chat-stage" : "squad-chat-rail"].filter(Boolean).join(" ");
+  const rootClass = [
+    "squad-chat",
+    expanded ? "squad-chat-stage" : "squad-chat-rail",
+    expanded && !sidebarOpen ? "squad-chat-sidebar-hidden" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <aside className={rootClass} aria-label="Network Agent Squad chat">
-      {expanded ? <ChannelSidebar targets={targets} /> : null}
+      {expanded && sidebarOpen ? <ChannelSidebar targets={targets} /> : null}
+      {expanded ? (
+        <div className="squad-chat-sidebar-edge">
+          <button
+            type="button"
+            className="squad-chat-sidebar-toggle"
+            onClick={() => setSidebarOpen((value) => !value)}
+            aria-label={sidebarOpen ? "Hide channel sidebar" : "Show channel sidebar"}
+            title={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
+          >
+            {sidebarOpen ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
+          </button>
+        </div>
+      ) : null}
 
       <div className="squad-chat-main">
         <header className={`squad-chat-topbar ${expanded ? "" : "squad-chat-topbar-rail"}`}>
@@ -332,14 +326,6 @@ export function SquadChatPanel({
         </div>
 
         <footer className="squad-chat-compose">
-          <div className="squad-chat-compose-toolbar">
-            <button type="button" className="squad-chat-tool-btn" onClick={openMentionPicker} title="Mention someone (@)">
-              <AtSign size={14} />
-            </button>
-            <button type="button" className="squad-chat-tool-btn" onClick={openSlashPicker} title="Run a command (/)">
-              <Slash size={14} />
-            </button>
-          </div>
           <div className="squad-chat-compose-box">
             {pickerOpen ? (
               <ul className="squad-chat-picker-menu" role="listbox" aria-label={picker?.kind === "mention" ? "Mention squad member" : "Slash commands"}>
@@ -404,7 +390,7 @@ export function SquadChatPanel({
               onClick={(event) => updatePickerState(event.currentTarget.value, event.currentTarget.selectionStart || 0)}
               onKeyUp={(event) => updatePickerState(event.currentTarget.value, event.currentTarget.selectionStart || 0)}
               placeholder={expanded ? "Message #network-ops" : `Message ${target?.name || "NetJarvis"}`}
-              disabled={busy}
+              disabled={busy && !draft}
               aria-label="Message input"
             />
             <div className="squad-chat-compose-bar">
@@ -498,8 +484,44 @@ function ChatMessageRow({
         <div className={`squad-chat-bubble ${isUser ? "squad-chat-bubble-user" : "squad-chat-bubble-agent"}`}>
           <MessageText text={entry.text} />
         </div>
+        {!isUser && entry.artifact ? <ChatOutputAttachment artifact={entry.artifact} technical={entry.technical} /> : null}
       </div>
     </article>
+  );
+}
+
+function ChatOutputAttachment({ artifact, technical }: { artifact: JarvisArtifact; technical?: string }) {
+  const [expandedOutput, setExpandedOutput] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const fullText = technical || artifactTechnicalText(artifact);
+  const preview = artifactPreviewText(artifact, expandedOutput ? 40 : 5);
+
+  async function copyOutput(event: MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    await navigator.clipboard.writeText(fullText);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1500);
+  }
+
+  return (
+    <div className="squad-chat-attachment">
+      <header className="squad-chat-attachment-head">
+        <div>
+          <strong>{artifact.title}</strong>
+          <span>{artifact.kind}</span>
+        </div>
+        <button type="button" className="squad-chat-attachment-copy" onClick={(event) => void copyOutput(event)} title="Copy output">
+          <Copy size={12} />
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </header>
+      <pre className="squad-chat-attachment-body">{preview}</pre>
+      {fullText.split("\n").length > 5 ? (
+        <button type="button" className="squad-chat-attachment-toggle" onClick={() => setExpandedOutput((value) => !value)}>
+          {expandedOutput ? "Show less" : "Show more"}
+        </button>
+      ) : null}
+    </div>
   );
 }
 

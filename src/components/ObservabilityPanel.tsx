@@ -2,6 +2,7 @@ import { useState, type MouseEvent } from "react";
 import { Copy } from "lucide-react";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { artifactEmailBody, artifactPlainText, downloadArtifact } from "../lib/artifactExport";
+import { artifactNarrativeText, artifactTechnicalText } from "../lib/observability";
 import type { TranscriptEntry } from "../lib/realtime";
 import type { JarvisArtifact } from "../vite-env";
 
@@ -55,16 +56,16 @@ export function ObservabilityPanel({ events, artifact, sessionLog }: Observabili
             <div className="observability-technical">
               <div className="obs-block-head">
                 <small>Technical</small>
-                <CopyChip text={technicalFromArtifact(artifact)} label="technical output" />
+                <CopyChip text={artifactTechnicalText(artifact)} label="technical output" />
               </div>
-              <pre>{technicalFromArtifact(artifact)}</pre>
+              <pre>{artifactTechnicalText(artifact)}</pre>
             </div>
             <div className="observability-narrative">
               <div className="obs-block-head">
                 <small>Narrative</small>
-                <CopyChip text={narrativeFromArtifact(artifact)} label="narrative summary" />
+                <CopyChip text={artifactNarrativeText(artifact)} label="narrative summary" />
               </div>
-              <div>{narrativeFromArtifact(artifact)}</div>
+              <div>{artifactNarrativeText(artifact)}</div>
             </div>
           </div>
 
@@ -131,40 +132,6 @@ function CopyChip({ text, label }: { text: string; label: string }) {
       {copied ? <span>OK</span> : null}
     </button>
   );
-}
-
-function technicalFromArtifact(artifact: JarvisArtifact): string {
-  if (artifact.kind === "code") return artifact.content;
-  if (artifact.kind === "table") {
-    try {
-      const rows = JSON.parse(artifact.content) as Array<Record<string, unknown>>;
-      const list = Array.isArray(rows) ? rows : [rows];
-      if (list.length === 0) return artifact.content;
-      const keys = Object.keys(list[0] || {});
-      return [keys.join("\t"), ...list.slice(0, 40).map((row) => keys.map((key) => String(row[key] ?? "")).join("\t"))].join("\n");
-    } catch {
-      return artifact.content;
-    }
-  }
-  if (artifact.kind === "markdown") {
-    const lines = artifact.content.split("\n");
-    const technical = lines.filter((line) => line.startsWith("- ") || line.startsWith("## ") || line.includes("CVE") || line.includes("sw"));
-    return technical.length > 0 ? technical.join("\n") : artifact.content.slice(0, 2000);
-  }
-  return artifact.content.slice(0, 4000);
-}
-
-function narrativeFromArtifact(artifact: JarvisArtifact): string {
-  if (artifact.kind === "markdown") {
-    const headline = artifact.content.split("\n").find((line) => line.startsWith("# "));
-    const summary = artifact.content
-      .split("\n")
-      .filter((line) => line.trim() && !line.startsWith("#") && !line.startsWith("```"))
-      .slice(0, 6)
-      .join(" ");
-    return headline ? `${headline.replace(/^#\s*/, "")}. ${summary}` : summary || artifact.title;
-  }
-  return `${artifact.title} — inspect the technical panel for raw command output or structured data.`;
 }
 
 function fallbackFromTranscript(sessionLog: TranscriptEntry[]): ObservabilityEvent[] {
