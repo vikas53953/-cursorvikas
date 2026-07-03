@@ -97,11 +97,17 @@ async function handleApi(request, response, url) {
     } catch {
       return sendJson(response, 400, { ok: false, error: "Invalid JSON body" });
     }
-    const result = await tools.sendChatMessage({
-      target: body.target,
-      message: body.message,
-    });
-    return sendJson(response, 200, result);
+    try {
+      const result = await tools.sendChatMessage({
+        target: body.target,
+        message: body.message,
+      });
+      return sendJson(response, 200, result);
+    } catch (error) {
+      const errText = error instanceof Error ? error.message : String(error);
+      logger.log("chat.handler_error", { error: errText });
+      return sendJson(response, 200, { ok: false, error: errText });
+    }
   }
 
   if (request.method === "POST" && url.pathname === "/api/realtime/token") {

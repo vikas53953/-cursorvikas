@@ -1333,6 +1333,9 @@ function createTools({ readDb, updateDb }) {
       const cliResult = await execute("run_show_command", { device: fastPath.device, commands: fastPath.commands });
       const artifacts = [];
       collectTechnicalArtifacts(cliResult, artifacts);
+      if (cliResult.ok === false) {
+        return { ok: false, error: cliResult.error || "CLI pre-check failed.", artifacts };
+      }
 
       const spec = agents.resolveTeam(fastPath.team);
       const summaryMessages = [
@@ -1349,11 +1352,23 @@ You already ran the read-only CLI pre-check on ${fastPath.device}. Summarize the
         },
         {
           role: "user",
-          content: `@${fastPath.team} pre-check on ${fastPath.device} (${spec?.name || fastPath.team}):\n\n${cliResult.artifact?.content || cliResult.error || "No CLI output."}`,
+          content: `@${fastPath.team} pre-check on ${fastPath.device} (${spec?.name || fastPath.team}):\n\n${cliResult.artifact?.content || "No CLI output."}`,
         },
       ];
-      const summaryMessage = await chatCompletion(summaryMessages, []);
-      const text = sanitizeSquadChatReply(String(summaryMessage.content || "").trim() || "Pre-check complete.");
+      let text = `**Summary** — CLI pre-check on ${fastPath.device} completed. Expand the technical output below for raw command results.`;
+      try {
+        const summaryMessage = await chatCompletion(summaryMessages, []);
+        text = sanitizeSquadChatReply(String(summaryMessage.content || "").trim() || text);
+      } catch (error) {
+        const errText = error instanceof Error ? error.message : String(error);
+        const quotaHit = errText.includes("429") || errText.toLowerCase().includes("quota");
+        logger.log("chat.fastpath.summary_failed", { device: fastPath.device, error: errText.slice(0, 200) });
+        text =
+          `**Summary** — CLI pre-check on ${fastPath.device} completed. ` +
+          (quotaHit
+            ? "AI summary unavailable (OpenAI API quota exceeded — check billing at platform.openai.com). See technical output below."
+            : "AI summary unavailable. See technical output below.");
+      }
       logger.log("chat.done", { target: fastPath.team, ms: Date.now() - started, fastPath: true });
       return { ok: true, text, artifacts };
     }
