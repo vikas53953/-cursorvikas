@@ -101,6 +101,7 @@ async function handleApi(request, response, url) {
       const result = await tools.sendChatMessage({
         target: body.target,
         message: body.message,
+        channel: body.channel,
       });
       return sendJson(response, 200, result);
     } catch (error) {

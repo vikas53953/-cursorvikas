@@ -1,5 +1,6 @@
 import type { JarvisArtifact, JarvisToolCall, JarvisToolResult, JarvisToolSpec } from "../vite-env";
 import { formatToolResultTechnical, formatToolTechnical } from "./observability";
+import type { TranscriptCommitKind } from "./transcriptGate";
 
 export type JarvisConnectionState = "idle" | "connecting" | "connected" | "error";
 export type JarvisMood = "idle" | "listening" | "thinking" | "speaking" | "working" | "error";
@@ -33,7 +34,7 @@ export type RealtimeCallbacks = {
   onConnectionState: (state: JarvisConnectionState) => void;
   onMood: (mood: JarvisMood) => void;
   onMouthShape: (shape: MouthShape) => void;
-  onTranscript: (entry: TranscriptEntry) => void;
+  onTranscript: (entry: TranscriptEntry, kind?: TranscriptCommitKind) => void;
   onArtifact: (artifact: JarvisArtifact) => void;
   onStatus: (message: string) => void;
   onActivity?: (activity: JarvisActivity) => void;

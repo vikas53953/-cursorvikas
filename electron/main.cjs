@@ -143,6 +143,7 @@ ipcMain.handle("chat:send", async (_event, payload) => {
   return tools.sendChatMessage({
     target: body.target,
     message: body.message,
+    channel: body.channel,
   });
 });
 

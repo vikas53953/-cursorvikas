@@ -181,12 +181,13 @@ declare global {
   interface Window {
     jarvis: {
       createRealtimeToken: () => Promise<{ value: string; expiresAt: number | null }>;
-      sendChatMessage: (payload: { target?: string; message: string }) => Promise<{
+      sendChatMessage: (payload: { target?: string; message: string; channel?: string }) => Promise<{
         ok: boolean;
         text?: string;
         error?: string;
         artifacts?: JarvisArtifact[];
         activity?: Array<{ tool: string; narrative: string; technical?: string; status?: "running" | "done" | "error" }>;
+        intent?: string;
       }>;
       executeTool: (toolCall: JarvisToolCall) => Promise<JarvisToolResult>;
       getToolSpecs: () => Promise<JarvisToolSpec[]>;

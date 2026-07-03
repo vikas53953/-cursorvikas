@@ -45,6 +45,7 @@ function extractDevicesFromText(text) {
 
 function parseDeviceFactQuery(message) {
   const lower = String(message || "").toLowerCase();
+  if (/\bshow\s+/.test(lower)) return null;
   const devices = extractDevicesFromText(message);
   if (devices.length === 0) return null;
 

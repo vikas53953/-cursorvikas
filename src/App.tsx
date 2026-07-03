@@ -9,6 +9,7 @@ import { JarvisRealtimeClient, newEntry, type JarvisConnectionState, type Jarvis
 import { artifactTechnicalText } from "./lib/observability";
 import { sanitizeSquadChatReply } from "./lib/chatReplySanitizer";
 import { buildMentionPrefix } from "./lib/squadMentions";
+import { commitTranscript } from "./lib/transcriptGate";
 import type { JarvisArtifact } from "./vite-env";
 
 function pushObservabilityEvent(events: ObservabilityEvent[], event: Omit<ObservabilityEvent, "id" | "at">): ObservabilityEvent[] {
@@ -20,18 +21,6 @@ function pushObservabilityEvent(events: ObservabilityEvent[], event: Omit<Observ
     },
     ...events,
   ].slice(0, 80);
-}
-
-function appendTranscript(items: TranscriptEntry[], entry: TranscriptEntry): TranscriptEntry[] {
-  const prev = items[0];
-  if (
-    entry.role === "jarvis" &&
-    prev?.role === "jarvis" &&
-    prev.text.trim() === entry.text.trim()
-  ) {
-    return items;
-  }
-  return [entry, ...items].slice(0, 80);
 }
 
 export default function App() {
@@ -71,8 +60,8 @@ export default function App() {
       onConnectionState: setConnectionState,
       onMood: setMood,
       onMouthShape: setMouthShape,
-      onTranscript: (entry) => {
-        setTranscript((items) => appendTranscript(items, entry));
+      onTranscript: (entry, kind = entry.role === "jarvis" ? "jarvis_final" : entry.role === "user" ? "user" : entry.role === "tool" ? "tool" : "system") => {
+        setTranscript((items) => commitTranscript(items, entry, kind));
         if (entry.role === "user" || entry.role === "jarvis") {
           if (entry.role === "jarvis") {
             setSpeakingText(entry.text);
@@ -168,20 +157,28 @@ export default function App() {
 
   function sendTextPrompt() {
     const trimmed = textPrompt.trim();
-    if (!trimmed) return;
-    clientRef.current?.sendText(trimmed);
-    setLastHeard(trimmed);
+    if (!trimmed || chatBusy) return;
     setTextPrompt("");
     setShowTypeInput(false);
+    void deliverUserMessage({ channel: "keyboard", message: trimmed, target: { id: "jarvis", name: "NetJarvis" } });
   }
 
-  async function sendSquadChat(target: { id: string; name: string; scope?: string }, message: string) {
+  async function deliverUserMessage({
+    channel,
+    message,
+    target,
+  }: {
+    channel: "chat" | "keyboard" | "voice";
+    message: string;
+    target: { id: string; name: string; scope?: string };
+  }) {
     const trimmed = message.trim();
     if (!trimmed || chatBusy) return;
 
-    const mentionPrefix = buildMentionPrefix(trimmed);
+    const mentionPrefix = channel === "chat" ? buildMentionPrefix(trimmed) : "";
 
-    setTranscript((items) => [newEntry("user", trimmed), ...items].slice(0, 80));
+    setTranscript((items) => commitTranscript(items, newEntry("user", trimmed), "user"));
+    setLastHeard(trimmed);
     setObservabilityEvents((items) =>
       pushObservabilityEvent(items, {
         role: "user",
@@ -190,14 +187,18 @@ export default function App() {
       }),
     );
     setPanelVisible(true);
-    if (panelTab !== "team") setPanelTab("team");
+    if (channel === "chat" && panelTab !== "team") setPanelTab("team");
 
     setChatBusy(true);
     try {
-      const result = await window.jarvis.sendChatMessage({ target: target.id, message: `${mentionPrefix}${trimmed}` });
+      const result = await window.jarvis.sendChatMessage({
+        target: target.id,
+        message: `${mentionPrefix}${trimmed}`,
+        channel,
+      });
       if (result.ok === false) {
-        const err = result.error || "Text chat failed";
-        setTranscript((items) => [newEntry("system", err), ...items].slice(0, 80));
+        const err = result.error || "Message failed";
+        setTranscript((items) => commitTranscript(items, newEntry("system", err), "system"));
         setObservabilityEvents((items) =>
           pushObservabilityEvent(items, {
             role: "system",
@@ -243,7 +244,9 @@ export default function App() {
           }),
         );
       }
-      setTranscript((items) => appendTranscript(items, jarvisEntry));
+      setTranscript((items) => commitTranscript(items, jarvisEntry, "jarvis_final"));
+      setSpeakingText(reply);
+      setHudFeed((items) => [`Jarvis: ${reply}`, ...items].slice(0, 4));
       setObservabilityEvents((items) =>
         pushObservabilityEvent(items, {
           role: "jarvis",
@@ -254,12 +257,16 @@ export default function App() {
       setTaskRefreshToken((value) => value + 1);
     } catch (error) {
       const err = error instanceof Error ? error.message : String(error);
-      setTranscript((items) => [newEntry("system", err), ...items].slice(0, 80));
+      setTranscript((items) => commitTranscript(items, newEntry("system", err), "system"));
       setMood("error");
     } finally {
       setChatBusy(false);
       if (connectionState !== "connected") setMood("idle");
     }
+  }
+
+  async function sendSquadChat(target: { id: string; name: string; scope?: string }, message: string) {
+    await deliverUserMessage({ channel: "chat", message, target });
   }
 
   return (

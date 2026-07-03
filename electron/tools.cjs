@@ -19,7 +19,8 @@ const { createScheduler } = require("./scheduler.cjs");
 const { createAlertWatcher } = require("./alert-watcher.cjs");
 const { createAgents, chatCompletion, compactToolResult } = require("./agents.cjs");
 const { sanitizeSquadChatReply } = require("./chat-reply.cjs");
-const { parseDeviceFactQuery, matchSnapshotDevices, formatDeviceFactReply } = require("./device-facts.cjs");
+const { createHandleUserMessage } = require("./handle-user-message.cjs");
+const { routerInstructionsAppendix } = require("./message-router.cjs");
 const logger = require("./logger.cjs");
 
 const sim = source.sim;
@@ -1414,237 +1415,32 @@ function createTools({ readDb, updateDb }) {
     alertWatcher.start();
   }
 
-  async function sendChatMessage({ target = "jarvis", message } = {}) {
-    const trimmed = String(message || "").trim();
-    if (!trimmed) return { ok: false, error: "Message is empty" };
+  const { handleUserMessage } = createHandleUserMessage({
+    execute,
+    agents,
+    source,
+    chatCompletion,
+    jarvisInstructions: JARVIS_INSTRUCTIONS,
+    toolSpecs,
+    buildChatActivity,
+    describeChatTool,
+    formatChatToolArgs,
+    formatChatToolResult,
+    collectTechnicalArtifacts,
+    buildPrecheckArtifact,
+    compactToolResult,
+    logger,
+  });
 
-    const factQuery = parseDeviceFactQuery(trimmed);
-    if (factQuery) {
-      const started = Date.now();
-      logger.log("chat.factpath", { kind: factQuery.kind, devices: factQuery.devices });
-      const snapshot = await source.getSnapshot();
-      const { matched, missing } = matchSnapshotDevices(factQuery.devices, snapshot.devices || []);
-      if (matched.length === 0) {
-        return {
-          ok: true,
-          text: `I couldn't find ${factQuery.devices.join(", ")} in inventory.`,
-          artifacts: [],
-          activity: [],
-        };
-      }
-      const text = formatDeviceFactReply(factQuery.kind, matched, missing);
-      const activity = [
-        buildChatActivity(
-          "device_health",
-          `Device fact: ${factQuery.kind} for ${matched.map((d) => d.name).join(", ")}`,
-          matched
-            .map((d) => `${d.name}: ip=${d.ip || "n/a"}, uptime=${d.uptime || "n/a"}, status=${d.status || "n/a"}`)
-            .join("\n"),
-        ),
-      ];
-      logger.log("chat.done", { target: "jarvis", ms: Date.now() - started, factPath: true });
-      return { ok: true, text, artifacts: [], activity };
-    }
-
-    const fastPath = parsePrecheckFastPath(trimmed, agents);
-    if (fastPath) {
-      const started = Date.now();
-      logger.log("chat.fastpath", { team: fastPath.team, device: fastPath.device, commands: fastPath.commands.length });
-      const cliResult = await execute("run_show_command", { device: fastPath.device, commands: fastPath.commands });
-      const artifacts = [];
-      if (cliResult.ok === false) {
-        return {
-          ok: false,
-          error: cliResult.error || "CLI pre-check failed.",
-          artifacts,
-          activity: [
-            buildChatActivity(
-              "run_show_command",
-              `Pre-check on ${fastPath.device} failed`,
-              `Tool: run_show_command\nDevice: ${fastPath.device}\nStatus: failed\nError: ${cliResult.error || "unknown"}`,
-              "error",
-            ),
-          ],
-        };
-      }
-
-      const elapsed = Date.now() - started;
-      const spec = agents.resolveTeam(fastPath.team);
-      const precheckArtifact = buildPrecheckArtifact({
-        device: fastPath.device,
-        agent: spec?.name || fastPath.team,
-        commands: fastPath.commands,
-        cliOutput: cliResult.artifact?.content || "",
-        elapsedMs: elapsed,
-      });
-      artifacts.push(precheckArtifact);
-      const activity = [
-        buildChatActivity(
-          "run_show_command",
-          `Pre-check on ${fastPath.device} — ${fastPath.commands.length} show commands (batched)`,
-          [
-            "Tool: run_show_command",
-            `Device: ${fastPath.device}`,
-            `Agent: ${spec?.name || fastPath.team}`,
-            `Commands (${fastPath.commands.length}):`,
-            ...fastPath.commands.map((command) => `  $ ${command}`),
-            "Status: ok",
-            `Elapsed: ${(elapsed / 1000).toFixed(1)}s`,
-          ].join("\n"),
-        ),
-      ];
-      const summaryMessages = [
-        {
-          role: "system",
-          content: `${JARVIS_INSTRUCTIONS}
-
-# Squad text chat mode — pre-check fast path
-You already ran the read-only CLI pre-check on ${fastPath.device}. Summarize the output for the engineer in Slack style.
-- Structure: one-line **Summary** first, then **Details** (bullets/tables with real numbers from the CLI).
-- The raw CLI output is shown separately below your message — do NOT paste raw CLI dumps.
-- FORBIDDEN: "Next steps", "Notes and next steps", "Recommended actions", or suggesting follow-up commands.
-- Only add **⚠ Flag:** when something is genuinely wrong.`,
-        },
-        {
-          role: "user",
-          content: `@${fastPath.team} pre-check on ${fastPath.device} (${spec?.name || fastPath.team}):\n\n${cliResult.artifact?.content || "No CLI output."}`,
-        },
-      ];
-      let text = `**Summary** — CLI pre-check on ${fastPath.device} completed. Expand the technical output below for raw command results.`;
-      try {
-        const summaryMessage = await chatCompletion(summaryMessages, []);
-        text = sanitizeSquadChatReply(String(summaryMessage.content || "").trim() || text);
-      } catch (error) {
-        const errText = error instanceof Error ? error.message : String(error);
-        const quotaHit = errText.includes("429") || errText.toLowerCase().includes("quota");
-        logger.log("chat.fastpath.summary_failed", { device: fastPath.device, error: errText.slice(0, 200) });
-        text =
-          `**Summary** — CLI pre-check on ${fastPath.device} completed. ` +
-          (quotaHit
-            ? "AI summary unavailable (OpenAI API quota exceeded — check billing at platform.openai.com). See technical output below."
-            : "AI summary unavailable. See technical output below.");
-      }
-      logger.log("chat.done", { target: fastPath.team, ms: Date.now() - started, fastPath: true });
-      return { ok: true, text, artifacts, activity };
-    }
-
-    let payload = trimmed;
-    const teamKey = String(target || "jarvis").toLowerCase();
-    if (teamKey !== "jarvis") {
-      const spec = agents.resolveTeam(teamKey);
-      if (!spec) return { ok: false, error: `Unknown squad target: ${target}` };
-      payload = `[Squad text chat — engineer is messaging ${spec.name} (${teamKey} agent). Respond in that specialist scope; use delegate_task or tools as you would for voice.] ${trimmed}`;
-    }
-
-    const jarvisTools = toolSpecs.map((spec) => ({
-      type: "function",
-      function: { name: spec.name, description: spec.description, parameters: spec.parameters },
-    }));
-
-    const customRoster = agents.listCustomAgents();
-    const customRosterNote =
-      customRoster.length > 0
-        ? `\n\nCustom agents the engineer created (delegate to these by handle when @mentioned or relevant):\n${customRoster
-            .map((agent) => `- @${agent.id} (${agent.name}): ${agent.scope}`)
-            .join("\n")}`
-        : "";
-
-    const messages = [
-      {
-        role: "system",
-        content: `${JARVIS_INSTRUCTIONS}
-
-# Squad text chat mode
-The engineer is using the Agent Squad #network-ops channel (not voice). @mentions like @data, @security, @firewall, @incident route work to those specialists via delegate_task. When you see [Squad channel mentions: ...] honor those tags and delegate to the named agent(s) immediately.${customRosterNote}
-
-# Direct answers (CRITICAL)
-- Specific device fact (IP, uptime, hostname): answer ONLY that fact in 1–2 sentences. Use network_inventory or device_health — NEVER network_overview.
-- Do NOT narrate ("let me pull up", "let me check") — call the tool and answer.
-- Uptime = how long the device has been running. Hostname = device name. Do not confuse them.
-- If the engineer corrects you, acknowledge briefly and answer the corrected question only.
-
-# Reply format (chatops) — STRICT
-- Present results the way a senior network engineer would in Slack: professional, clean, scannable.
-- Structure: one-line **Summary** first, then **Details** (bullets or table with real numbers from the output).
-- The raw CLI output is shown separately below your message — your reply is ONLY the human summary. Do not paste raw CLI dumps. Do not tell the engineer to open Reports or Observability.
-- FORBIDDEN: do not write "Next steps", "Notes and next steps", "Recommended actions", "pick one", or suggest follow-up commands unless the engineer explicitly asked what to do next.
-- Only add a single **⚠ Flag:** line when something is genuinely wrong (e.g. admin-down VLAN, errors, security risk). Otherwise end after Details.
-- When delegating pre-check or multi-command CLI work, tell the specialist to batch ALL show commands into ONE run_show_command call. Do not delegate twice for the same request.
-- Use tools when needed; every tool call appears on the Team Board.`,
-      },
-      { role: "user", content: payload },
-    ];
-
-    const artifacts = [];
-    const activity = [];
-    const started = Date.now();
-    logger.log("chat.start", { target: teamKey, chars: trimmed.length });
-
-    try {
-      for (let round = 0; round < 8; round += 1) {
-        const modelMessage = await chatCompletion(messages, jarvisTools);
-        messages.push(modelMessage);
-
-        const toolCalls = Array.isArray(modelMessage.tool_calls) ? modelMessage.tool_calls : [];
-        if (toolCalls.length === 0) {
-          const text = sanitizeSquadChatReply(String(modelMessage.content || "").trim() || "Done.");
-          logger.log("chat.done", { target: teamKey, ms: Date.now() - started, rounds: round + 1 });
-          return { ok: true, text, artifacts, activity };
-        }
-
-        for (const call of toolCalls) {
-          let args = {};
-          try {
-            args = JSON.parse(call.function?.arguments || "{}");
-          } catch {
-            args = {};
-          }
-          const name = call.function?.name || "";
-          const toolStarted = Date.now();
-          logger.log("chat.tool", { target: teamKey, tool: name, args });
-          activity.push(
-            buildChatActivity(
-              name,
-              describeChatTool(name, args),
-              formatChatToolArgs(name, args),
-              "running",
-            ),
-          );
-          const result = await execute(name, args);
-          const toolMs = Date.now() - toolStarted;
-          collectTechnicalArtifacts(result, artifacts);
-          const resultTechnical = formatChatToolResult(name, args, result, toolMs);
-          activity.push(
-            buildChatActivity(
-              name,
-              `${describeChatTool(name, args)} done in ${(toolMs / 1000).toFixed(1)}s`,
-              resultTechnical,
-              result.ok === false ? "error" : "done",
-            ),
-          );
-          messages.push({ role: "tool", tool_call_id: call.id, content: compactToolResult(result) });
-        }
-      }
-
-      return {
-        ok: true,
-        text: sanitizeSquadChatReply(
-          "Reached the tool-call limit before finishing. Check the Team Board for partial results.",
-        ),
-        artifacts,
-        activity,
-      };
-    } catch (error) {
-      const errText = error instanceof Error ? error.message : String(error);
-      logger.log("chat.error", { target: teamKey, error: errText, ms: Date.now() - started });
-      return { ok: false, error: errText };
-    }
+  async function sendChatMessage({ target = "jarvis", message, channel = "chat" } = {}) {
+    return handleUserMessage({ channel, message, target });
   }
 
   return {
     toolSpecs,
-    instructions: JARVIS_INSTRUCTIONS,
+    instructions: `${JARVIS_INSTRUCTIONS}${routerInstructionsAppendix()}`,
     execute,
+    handleUserMessage,
     sendChatMessage,
     getSnapshot: source.getSnapshot,
     listTasks: agents.listTasks,

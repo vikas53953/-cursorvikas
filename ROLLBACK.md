@@ -2,7 +2,12 @@
 
 If a deployment looks worse after a UI or behavior change, you can return to the last known-good state.
 
-## Current rollback point (before UI polish pass)
+## Current rollback point (before unified message core)
+
+**Git tag:** `rollback-pre-unified-core`  
+**Commit:** `bd2ae92` — *Fix chat: direct device facts, no duplicate replies*
+
+### Roll back to pre-UI-polish (voice HUD live, before design tokens)
 
 **Git tag:** `rollback-pre-ui-polish`  
 **Commit:** `c238b1d` — *Make voice HUD live: streaming speech, full text, tool feed*
