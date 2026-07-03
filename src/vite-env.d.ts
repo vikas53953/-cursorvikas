@@ -10,10 +10,27 @@ export type JarvisArtifact = {
     | "notes"
     | "mermaid"
     | "statusBoard"
+    | "taskBoard"
     | "progress";
   content: string;
   language?: string;
   fullscreen?: boolean;
+  downloadUrl?: string;
+  downloadName?: string;
+};
+
+export type TeamTask = {
+  id: string;
+  team: string;
+  teamName: string;
+  title: string;
+  request?: string;
+  status: "queued" | "in_progress" | "done" | "failed";
+  createdAt: string;
+  updatedAt: string;
+  steps?: Array<{ ts: string; text: string }>;
+  result?: string | null;
+  error?: string | null;
 };
 
 export type JarvisToolSpec = {
@@ -108,6 +125,7 @@ declare global {
       executeTool: (toolCall: JarvisToolCall) => Promise<JarvisToolResult>;
       getToolSpecs: () => Promise<JarvisToolSpec[]>;
       getDashboard: (options?: { force?: boolean }) => Promise<DashboardSnapshot>;
+      getTasks: () => Promise<TeamTask[]>;
       logEvent: (event: Record<string, unknown>) => Promise<void>;
     };
   }

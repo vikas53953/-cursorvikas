@@ -272,7 +272,7 @@ async function runCommands(deviceUuids, commands, { pollTimeoutMs = 40000 } = {}
   const deadline = Date.now() + pollTimeoutMs;
   let fileId = null;
   while (Date.now() < deadline) {
-    await sleep(2000);
+    await sleep(1200);
     const task = await api("GET", `/dna/intent/api/v1/task/${taskId}`);
     const progress = task?.response?.progress || "";
     if (task?.response?.isError) {

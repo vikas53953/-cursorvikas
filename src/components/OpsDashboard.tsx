@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
+import type { TranscriptEntry } from "../lib/realtime";
 import type { DashboardSnapshot } from "../vite-env";
 
 const REFRESH_MS = 30000;
 
-export function OpsDashboard() {
+type OpsDashboardProps = {
+  sessionLog?: TranscriptEntry[];
+};
+
+export function OpsDashboard({ sessionLog = [] }: OpsDashboardProps) {
   const [snapshot, setSnapshot] = useState<DashboardSnapshot | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -160,9 +165,24 @@ export function OpsDashboard() {
         </section>
       ) : null}
 
+      {sessionLog.length > 0 ? (
+        <section className="dash-section">
+          <h3>Live session log</h3>
+          <ul className="dash-list dash-session">
+            {sessionLog.slice(0, 10).map((entry) => (
+              <li key={entry.id} className={`dash-session-${entry.role}`}>
+                <time>{entry.at}</time>
+                <strong>{entry.role === "jarvis" ? "Jarvis" : entry.role}</strong>
+                <span>{entry.text}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       {events.length > 0 ? (
         <section className="dash-section">
-          <h3>Recent events</h3>
+          <h3>Recent network events</h3>
           <ul className="dash-list dash-events">
             {events.slice(0, 8).map((event, index) => (
               <li key={index}>

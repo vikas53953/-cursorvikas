@@ -1,4 +1,4 @@
-import type { DashboardSnapshot, JarvisToolCall, JarvisToolResult, JarvisToolSpec } from "../vite-env";
+import type { DashboardSnapshot, JarvisToolCall, JarvisToolResult, JarvisToolSpec, TeamTask } from "../vite-env";
 
 // When the app runs in a plain browser (web mode) there is no Electron
 // preload, so window.jarvis is missing. This shim provides the same surface
@@ -57,6 +57,7 @@ export function installWebBridge(): void {
     executeTool: (toolCall: JarvisToolCall) => postJson<JarvisToolResult>("/api/tools/execute", toolCall),
     getToolSpecs: () => getJson<JarvisToolSpec[]>("/api/tools/list"),
     getDashboard: (options?: { force?: boolean }) => getJson<DashboardSnapshot>(`/api/dashboard${options?.force ? "?force=1" : ""}`),
+    getTasks: () => getJson<TeamTask[]>("/api/tasks"),
     logEvent: logSafe,
   };
 }

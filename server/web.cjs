@@ -116,6 +116,24 @@ async function handleApi(request, response, url) {
     return sendJson(response, 200, logger.recent(limit));
   }
 
+  if (request.method === "GET" && url.pathname === "/api/tasks") {
+    return sendJson(response, 200, await tools.listTasks());
+  }
+
+  if (request.method === "GET" && url.pathname.startsWith("/api/exports/")) {
+    const name = path.basename(url.pathname);
+    const filePath = path.join(process.cwd(), "data", "exports", name);
+    if (!fs.existsSync(filePath)) {
+      return sendJson(response, 404, { error: `No such export: ${name}` });
+    }
+    response.writeHead(200, {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": `attachment; filename="${name}"`,
+    });
+    fs.createReadStream(filePath).pipe(response);
+    return;
+  }
+
   if (request.method === "GET" && url.pathname === "/healthz") {
     return sendJson(response, 200, { ok: true, uptimeSeconds: Math.round(process.uptime()) });
   }

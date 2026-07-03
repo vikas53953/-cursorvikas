@@ -42,6 +42,21 @@ Security:
 
 - "Any vulnerabilities on these switches?" — reads the devices' real software version and queries the NVD CVE database (no API key needed).
 
+Team delegation (multi-agent):
+
+- "Hand this to the data team: full spanning tree health check."
+- "Ask the incident agent to triage the current alerts."
+- Specialist agents (data, firewall, load balancer, proxy, incident ops, problem management) investigate with their own tool runs; every handoff is visible on the **Team Board** Kanban tab (queued → in progress → done), with per-step detail and copy-as-email on each card.
+
+Pre-checks and comparisons:
+
+- "Run a pre-check labeled pre-maintenance." → snapshots device health, all interfaces, and error counters.
+- "Run a post-check and compare." → exact diff: reachability/health changes, interface status/VLAN/IP changes, error-counter increases.
+
+Exports:
+
+- "Put this in Excel/CSV" → the Reports panel shows the table with a **Download CSV** button; every report also has **Copy** and **Copy email** buttons.
+
 Big picture:
 
 - "Show me the status board." (the right-hand dashboard shows this continuously)
@@ -52,9 +67,10 @@ Extras: Exa web search for vendor advisories and outage news, and local shift/ha
 ## The window
 
 - **Left:** the NetJarvis network-core avatar — a status ring and topology graph that shows state at a glance (cyan pulse = listening, amber rotation = thinking, waveform = speaking, packets in flight = running tools, red = error). Below it, a HUD shows the exact state, what Jarvis heard, and which command is running right now. A floating mini-HUD keeps this visible even when the panel is fullscreen.
-- **Right:** the operations panel with two tabs:
-  - **Dashboard** — always-on view of the network: LIVE/SIM source badge, health score, device tiles with CPU/memory/health, link status, active issues, and recent events. Auto-refreshes every 30 seconds.
-  - **Reports** — artifacts produced by Jarvis: overviews, tables, raw CLI output, mermaid topology diagrams, and notes. Opens automatically when a tool produces something.
+- **Right:** the operations panel with three tabs:
+  - **Dashboard** — always-on view of the network: LIVE/SIM source badge, health score, device tiles with CPU/memory/health, link status, active issues, the live session log (who said what, which tools ran), and recent network events. Auto-refreshes every 30 seconds.
+  - **Team Board** — Kanban view of every task NetJarvis delegated to its specialist agents, updating live as agents work.
+  - **Reports** — artifacts produced by Jarvis: overviews, tables, raw CLI output, mermaid topology diagrams, and notes, each with Copy / Copy email / Download buttons. Opens automatically when a tool produces something.
 
 ## Architecture
 

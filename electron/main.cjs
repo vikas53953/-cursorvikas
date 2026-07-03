@@ -66,6 +66,14 @@ ipcMain.handle("tools:execute", async (_event, toolCall) => {
   return tools.execute(name, args);
 });
 
+ipcMain.handle("tasks:list", async () => {
+  try {
+    return await tools.listTasks();
+  } catch {
+    return [];
+  }
+});
+
 ipcMain.handle("dashboard:snapshot", async (_event, options) => {
   try {
     return await tools.getSnapshot(options?.force === true);

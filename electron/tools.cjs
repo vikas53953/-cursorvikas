@@ -4,11 +4,16 @@
 // node for testing. The Electron main process wires it to IPC.
 
 const crypto = require("node:crypto");
+const path = require("node:path");
+const fs = require("node:fs/promises");
 const source = require("./network-source.cjs");
 const nvd = require("./sources/nvd.cjs");
+const checks = require("./checks.cjs");
+const { createAgents } = require("./agents.cjs");
 const logger = require("./logger.cjs");
 
 const sim = source.sim;
+const exportsDir = path.join(process.cwd(), "data", "exports");
 
 const JARVIS_INSTRUCTIONS = `# Role and Objective
 You are NetJarvis, a realtime voice copilot for a senior network operations engineer. You are their eyes on the network. Network operations means anything from layer 1 to layer 7: physical links and optics, L2 switching (VLANs, MAC tables, spanning tree, CDP/LLDP), L3 routing and addressing, transport, and services. Do not assume it is only about BGP or OSPF.
@@ -34,9 +39,25 @@ Talk like a sharp NOC colleague, not a chatbot. Confident, concise, calm. Lead w
 - Use web_search only for outside-world questions (vendor advisories, outage news).
 - Use note_add for shift or handoff notes.
 
+# Your team (delegation)
+You are the SME lead of a NOC team with specialist agents: data (switching, routing, STP, VLANs, interfaces, capacity), firewall, loadbalancer, proxy, incident (active alert triage), and problem (root-cause and trends).
+- When a request is deep domain work, an investigation, or the engineer asks for a team or a handoff, announce it briefly ("Handing this to the Data agent") and call delegate_task with the team and a precise task. The task appears live on the Team Board (Kanban) tab; the specialist investigates with read-only tools and returns a report, which you then summarize aloud.
+- Delegation takes 15-60 seconds; the tool blocks until the specialist finishes, so you will have the result in the same turn.
+- For quick facts (one show command, a health check), answer yourself instead of delegating.
+- Use team_board when the engineer asks what the team is working on.
+
+# Pre-checks and comparisons
+- "Run a pre-check" or "take a snapshot": call precheck_capture with a label like "pre-maintenance". It records device health, all interfaces, and error counters.
+- "Post-check", "compare", "did anything change": call precheck_capture (label "post-...") then precheck_compare. Report the diff plainly: what changed, what did not.
+
+# Exports and files
+- When the engineer wants data as Excel, CSV, a file, or a download: call export_csv with a title, headers, and rows built from data you already gathered. The Reports panel then shows the table with a "Download CSV" button - tell the engineer to click it. Every report also has Copy and Copy-as-email buttons.
+
 # Tool behavior
 - Call tools directly when intent is clear; never invent numbers a tool can give you.
 - You have NO background work. Every tool returns its result before you speak. NEVER say "I'm still checking", "it's running on my side", or "I'll get back to you" - either call a tool now and answer from its result, or say plainly that you cannot get that data and why.
+- If you are interrupted mid-turn, any tool call you had not finished issuing NEVER RAN. Call the tool again immediately; never claim a command is still in progress.
+- For spanning tree overviews prefer "show spanning-tree summary" (fast); use the full "show spanning-tree" only for one device at a time.
 - Security/vulnerability questions ("any vulnerabilities on these switches?", "any CVEs for this version?"): call vulnerability_check. It reads the devices' real software version and queries the NVD CVE database. Summarize the worst findings by severity and remind that exposure depends on enabled features.
 - After a tool runs, speak a short summary; the full detail renders in the Reports tab and the dashboard.
 - Acknowledging an alert changes state: summarize the alert and get a clear yes before calling acknowledge_alert with confirmed true.
@@ -199,6 +220,66 @@ const toolSpecs = [
   },
   {
     type: "function",
+    name: "delegate_task",
+    description: "Hand a task off to a specialist agent on your team. The task shows up on the Team Board (Kanban); the specialist investigates with read-only network tools and returns a written report. Blocks until done (15-60s). Teams: data (switching/routing/STP/VLANs/interfaces/capacity), firewall, loadbalancer, proxy, incident (alert triage), problem (root cause/trends).",
+    parameters: {
+      type: "object",
+      properties: {
+        team: { type: "string", enum: ["data", "firewall", "loadbalancer", "proxy", "incident", "problem"] },
+        task: { type: "string", description: "Precise task for the specialist, e.g. 'Check spanning tree health across all switches: root bridge, blocked ports, any loops or flapping.'" },
+      },
+      required: ["team", "task"],
+      additionalProperties: false,
+    },
+  },
+  {
+    type: "function",
+    name: "team_board",
+    description: "Show the team's Kanban board: every delegated task with its agent, status (queued/in progress/done/failed), steps taken, and results.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    type: "function",
+    name: "precheck_capture",
+    description: "Capture a labeled pre/post-check snapshot of the network: device health, every interface (status/admin/vlan/ip), and interface error counters. Use before and after changes or at shift boundaries.",
+    parameters: {
+      type: "object",
+      properties: {
+        label: { type: "string", description: "Snapshot label, e.g. 'pre-maintenance' or 'post-change'" },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    type: "function",
+    name: "precheck_compare",
+    description: "Compare two pre/post-check snapshots and report exactly what changed: device reachability/health, interface status/admin/vlan/ip changes, and error-counter increases. Defaults to the two most recent snapshots.",
+    parameters: {
+      type: "object",
+      properties: {
+        before: { type: "string", description: "Snapshot id or label (optional; defaults to second-most-recent)" },
+        after: { type: "string", description: "Snapshot id or label (optional; defaults to most recent)" },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    type: "function",
+    name: "export_csv",
+    description: "Create a downloadable CSV file (opens in Excel) from data you have already gathered. The Reports panel shows the table with a Download CSV button. Use whenever the engineer asks for Excel, CSV, a spreadsheet, or a downloadable file.",
+    parameters: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "File title, e.g. 'IOS-XE vulnerabilities'" },
+        headers: { type: "array", items: { type: "string" } },
+        rows: { type: "array", items: { type: "array", items: { type: "string" } }, description: "Data rows matching the headers" },
+      },
+      required: ["title", "headers", "rows"],
+      additionalProperties: false,
+    },
+  },
+  {
+    type: "function",
     name: "vulnerability_check",
     description: "Check for known vulnerabilities (CVEs) affecting the network's software. Reads the devices' real software type/version from inventory and queries the NVD CVE database for recent published CVEs. Use for any 'vulnerabilities / CVEs / security advisories on these switches' question. No API key needed.",
     parameters: {
@@ -264,6 +345,8 @@ const toolSpecs = [
 ];
 
 function createTools({ readDb, updateDb }) {
+  const agents = createAgents({ executeTool: (name, args) => execute(name, args), toolSpecs });
+
   async function execute(name, args) {
     const started = Date.now();
     const result = await executeInner(name, args);
@@ -312,6 +395,16 @@ function createTools({ readDb, updateDb }) {
           return await dropReport(args);
         case "vulnerability_check":
           return await vulnerabilityCheck(args);
+        case "delegate_task":
+          return await delegateTask(args);
+        case "team_board":
+          return await teamBoard();
+        case "precheck_capture":
+          return await precheckCapture(args);
+        case "precheck_compare":
+          return await precheckCompare(args);
+        case "export_csv":
+          return await exportCsv(args);
         case "artifact_show":
           return { ok: true, artifact: args };
         case "show_menu":
@@ -694,6 +787,138 @@ function createTools({ readDb, updateDb }) {
   }
 
   // -------------------------------------------------------------------------
+  // Team delegation / Kanban
+  // -------------------------------------------------------------------------
+
+  async function delegateTask(args) {
+    const outcome = await agents.delegate(args.team, args.task);
+    return {
+      ok: true,
+      taskId: outcome.taskId,
+      team: outcome.teamName,
+      report: outcome.result,
+      artifact: {
+        title: `${outcome.teamName}: ${String(args.task).slice(0, 60)}`,
+        kind: "markdown",
+        content: `# ${outcome.teamName} report\n\nTask: ${args.task}\n\n---\n\n${outcome.result}`,
+      },
+    };
+  }
+
+  async function teamBoard() {
+    const tasks = await agents.listTasks();
+    return {
+      ok: true,
+      counts: {
+        queued: tasks.filter((task) => task.status === "queued").length,
+        inProgress: tasks.filter((task) => task.status === "in_progress").length,
+        done: tasks.filter((task) => task.status === "done").length,
+        failed: tasks.filter((task) => task.status === "failed").length,
+      },
+      tasks: tasks.slice(0, 10).map((task) => ({ id: task.id, team: task.teamName, title: task.title, status: task.status })),
+      artifact: { title: "Team Board", kind: "taskBoard", content: JSON.stringify({ tasks }) },
+    };
+  }
+
+  // -------------------------------------------------------------------------
+  // Pre-checks
+  // -------------------------------------------------------------------------
+
+  async function precheckCapture(args) {
+    const snapshot = await checks.captureSnapshot(args.label);
+    const all = await checks.listSnapshots();
+    return {
+      ok: true,
+      id: snapshot.id,
+      label: snapshot.label,
+      devices: snapshot.devices.length,
+      interfaces: snapshot.interfaces.length,
+      errorCountersCaptured: Object.keys(snapshot.errorCounters || {}).length > 0,
+      totalSnapshots: all.length,
+      artifact: {
+        title: `Pre-check captured: ${snapshot.label}`,
+        kind: "markdown",
+        content: [
+          `# Pre-check snapshot: ${snapshot.label}`,
+          "",
+          `- Id: ${snapshot.id}`,
+          `- Taken: ${snapshot.at}`,
+          `- Source: ${snapshot.mode === "live" ? "live network" : "simulator"}`,
+          `- Devices captured: ${snapshot.devices.length}`,
+          `- Interfaces captured: ${snapshot.interfaces.length}`,
+          `- Error counters captured: ${Object.keys(snapshot.errorCounters || {}).length > 0 ? "yes" : "no"}`,
+          "",
+          `Existing snapshots: ${all.map((snap) => `${snap.label} (${snap.at.slice(11, 16)})`).join(", ")}`,
+          "",
+          "Run the change, then say \"run a post-check and compare\" to see exactly what changed.",
+        ].join("\n"),
+      },
+    };
+  }
+
+  async function precheckCompare(args) {
+    const diff = await checks.compareSnapshots(args.before, args.after);
+    const lines = [];
+    lines.push(`# Pre/post comparison`);
+    lines.push("");
+    lines.push(`Before: **${diff.before.label}** (${diff.before.at}) - After: **${diff.after.label}** (${diff.after.at})`);
+    lines.push("");
+    if (diff.totalChanges === 0) {
+      lines.push("**No changes detected.** Devices, interfaces, and error counters are identical between the two snapshots.");
+    } else {
+      lines.push(`**${diff.totalChanges} change${diff.totalChanges === 1 ? "" : "s"} detected.**`);
+      if (diff.changes.devices.length > 0) {
+        lines.push("", "## Device changes");
+        for (const change of diff.changes.devices) lines.push(`- ${change}`);
+      }
+      if (diff.changes.interfaces.length > 0) {
+        lines.push("", "## Interface changes");
+        for (const change of diff.changes.interfaces) lines.push(`- ${change}`);
+      }
+      if (diff.changes.errorCounters.length > 0) {
+        lines.push("", "## Error counter increases");
+        for (const change of diff.changes.errorCounters) lines.push(`- ${change}`);
+      }
+    }
+    return { ok: true, ...diff, artifact: { title: "Pre/Post Comparison", kind: "markdown", content: lines.join("\n") } };
+  }
+
+  // -------------------------------------------------------------------------
+  // CSV export
+  // -------------------------------------------------------------------------
+
+  async function exportCsv(args) {
+    const headers = (Array.isArray(args.headers) ? args.headers : []).map(String);
+    const rows = (Array.isArray(args.rows) ? args.rows : []).map((row) => (Array.isArray(row) ? row.map(String) : [String(row)]));
+    if (headers.length === 0 || rows.length === 0) {
+      return { ok: false, error: "export_csv needs headers and at least one row." };
+    }
+    const escape = (value) => (/[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value);
+    const csv = [headers.map(escape).join(","), ...rows.map((row) => row.map(escape).join(","))].join("\r\n");
+
+    const slug = String(args.title || "export").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "export";
+    const filename = `${slug}-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "")}.csv`;
+    await fs.mkdir(exportsDir, { recursive: true });
+    await fs.writeFile(path.join(exportsDir, filename), csv, "utf8");
+    logger.log("export.csv", { filename, rows: rows.length });
+
+    const tableRows = rows.map((row) => Object.fromEntries(headers.map((header, index) => [header, row[index] ?? ""])));
+    return {
+      ok: true,
+      filename,
+      rows: rows.length,
+      downloadUrl: `/api/exports/${filename}`,
+      artifact: {
+        title: String(args.title || "Export"),
+        kind: "table",
+        content: JSON.stringify(tableRows),
+        downloadUrl: `/api/exports/${filename}`,
+        downloadName: filename,
+      },
+    };
+  }
+
+  // -------------------------------------------------------------------------
   // Menu / search / notes
   // -------------------------------------------------------------------------
 
@@ -763,7 +988,7 @@ function createTools({ readDb, updateDb }) {
     };
   }
 
-  return { toolSpecs, instructions: JARVIS_INSTRUCTIONS, execute, getSnapshot: source.getSnapshot };
+  return { toolSpecs, instructions: JARVIS_INSTRUCTIONS, execute, getSnapshot: source.getSnapshot, listTasks: agents.listTasks };
 }
 
 // ---------------------------------------------------------------------------
@@ -927,6 +1152,22 @@ Current source: **${mode === "live" ? "LIVE" : "SIMULATED"}** - ${sourceLabel}
 
 - "Any vulnerabilities on these switches?"
 - "Any recent CVEs for this IOS-XE version?"
+
+## Team delegation (Kanban)
+
+- "Hand this to the data team: full spanning tree health check."
+- "Ask the incident agent to triage the current alerts."
+- "What is the team working on?" (or open the Team Board tab)
+
+## Pre-checks and comparisons
+
+- "Run a pre-check on all four switches." / "Take a snapshot labeled pre-maintenance."
+- "Run a post-check and compare." / "Did anything change since the pre-check?"
+
+## Exports
+
+- "Put this in Excel / CSV so I can download it." (Reports panel gets a Download CSV button)
+- Every report has Copy and Copy-as-email buttons.
 
 ## Big picture
 

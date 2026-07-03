@@ -5,5 +5,6 @@ contextBridge.exposeInMainWorld("jarvis", {
   executeTool: (toolCall) => ipcRenderer.invoke("tools:execute", toolCall),
   getToolSpecs: () => ipcRenderer.invoke("tools:list"),
   getDashboard: (options) => ipcRenderer.invoke("dashboard:snapshot", options),
+  getTasks: () => ipcRenderer.invoke("tasks:list"),
   logEvent: (event) => ipcRenderer.invoke("log:event", event),
 });

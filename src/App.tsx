@@ -173,6 +173,7 @@ export default function App() {
         fullscreen={panelFullscreen}
         onToggleVisible={() => setPanelVisible((value) => !value)}
         onToggleFullscreen={() => setPanelFullscreen((value) => !value)}
+        sessionLog={transcript}
       />
 
       {panelFullscreen && panelVisible ? (
