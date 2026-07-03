@@ -581,12 +581,14 @@ function CreateAgentModal({ onClose, onCreated }: { onClose: () => void; onCreat
         capabilities: capabilities.trim(),
       });
       if (result.ok === false) {
-        setError(result.error || "Could not create agent");
+        const msg = result.error || "Could not create agent";
+        setError(msg.includes("No such API route") ? `${msg} — restart the backend with: npm run web` : msg);
         return;
       }
       await onCreated();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg.includes("No such API route") ? `${msg} — restart the backend with: npm run web` : msg);
     } finally {
       setBusy(false);
     }

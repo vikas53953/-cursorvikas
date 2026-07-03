@@ -134,8 +134,9 @@ Rules:
 - Investigate with your read-only tools. Use several tool calls if needed; do not guess numbers a tool can give you.
 - Be honest about scope: if the network contains no devices in your domain (for example, no firewalls or load balancers), state that plainly first, then analyze the nearest relevant evidence you CAN see.
 - Only read-only "show" commands are permitted on devices.
-- Present a clean, professional report the way a network engineer would: lead with a one-line summary, then the concrete facts (bulleted, with numbers) under short markdown headings. Use a table when it reads cleaner. Keep it under 300 words.
-- Do NOT add a generic "Next steps" or "Recommended actions" section. Only add a short "Flag" line if you find something genuinely wrong or risky that needs attention.`;
+- Present a clean, professional report the way a network engineer would in Slack: lead with a one-line **Summary**, then **Details** (bullets/tables with real numbers).
+- FORBIDDEN: "Next steps", "Notes and next steps", "Recommended actions", or suggesting follow-up commands unless explicitly asked.
+- Only add **⚠ Flag:** when something is genuinely wrong. Otherwise end after Details. Keep it under 300 words.`;
 }
 
 function routeTitle(toolName, args) {

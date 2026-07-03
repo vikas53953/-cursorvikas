@@ -18,6 +18,7 @@ const snmp = require("./sources/snmp.cjs");
 const { createScheduler } = require("./scheduler.cjs");
 const { createAlertWatcher } = require("./alert-watcher.cjs");
 const { createAgents, chatCompletion, compactToolResult } = require("./agents.cjs");
+const { sanitizeSquadChatReply } = require("./chat-reply.cjs");
 const logger = require("./logger.cjs");
 
 const sim = source.sim;
@@ -1258,11 +1259,12 @@ function createTools({ readDb, updateDb }) {
 # Squad text chat mode
 The engineer is using the Agent Squad #network-ops channel (not voice). @mentions like @data, @security, @firewall, @incident route work to those specialists via delegate_task. When you see [Squad channel mentions: ...] honor those tags and delegate to the named agent(s) immediately.${customRosterNote}
 
-# Reply format (chatops)
+# Reply format (chatops) — STRICT
 - Present results the way a senior network engineer would in Slack: professional, clean, scannable.
-- Lead with a one-line summary sentence, then the important facts under short markdown headings and bullet lists (with real numbers). Use a markdown table when it reads cleaner.
-- The raw CLI / technical output is shown separately to the engineer, so your reply is the human summary — surface the key facts from the output, do not paste the whole raw dump.
-- Do NOT add a generic "Next steps" or "Recommended actions" section. Only add a short "⚠ Flag:" line when you find something genuinely wrong or risky. If the engineer only asked to see information, just present it cleanly with no recommendations.
+- Structure: one-line **Summary** first, then **Details** (bullets or table with real numbers from the output).
+- The raw CLI output is shown separately below your message — your reply is ONLY the human summary. Do not paste raw CLI dumps. Do not tell the engineer to open Reports or Observability.
+- FORBIDDEN: do not write "Next steps", "Notes and next steps", "Recommended actions", "pick one", or suggest follow-up commands unless the engineer explicitly asked what to do next.
+- Only add a single **⚠ Flag:** line when something is genuinely wrong (e.g. admin-down VLAN, errors, security risk). Otherwise end after Details.
 - Use tools when needed; every tool call appears on the Team Board.`,
       },
       { role: "user", content: payload },
@@ -1279,7 +1281,7 @@ The engineer is using the Agent Squad #network-ops channel (not voice). @mention
 
         const toolCalls = Array.isArray(modelMessage.tool_calls) ? modelMessage.tool_calls : [];
         if (toolCalls.length === 0) {
-          const text = String(modelMessage.content || "").trim() || "Done.";
+          const text = sanitizeSquadChatReply(String(modelMessage.content || "").trim() || "Done.");
           logger.log("chat.done", { target: teamKey, ms: Date.now() - started, rounds: round + 1 });
           return { ok: true, text, artifacts };
         }
@@ -1301,7 +1303,9 @@ The engineer is using the Agent Squad #network-ops channel (not voice). @mention
 
       return {
         ok: true,
-        text: "Reached the tool-call limit before finishing. Check the Team Board and Observability tab for partial results.",
+        text: sanitizeSquadChatReply(
+          "Reached the tool-call limit before finishing. Check the Team Board for partial results.",
+        ),
         artifacts,
       };
     } catch (error) {

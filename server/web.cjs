@@ -231,7 +231,11 @@ async function handleApi(request, response, url) {
   }
 
   if (request.method === "GET" && url.pathname === "/healthz") {
-    return sendJson(response, 200, { ok: true, uptimeSeconds: Math.round(process.uptime()) });
+    return sendJson(response, 200, {
+      ok: true,
+      uptimeSeconds: Math.round(process.uptime()),
+      features: ["custom-agents", "squad-chat", "chat-reply-sanitizer"],
+    });
   }
 
   return sendJson(response, 404, { error: `No such API route: ${request.method} ${url.pathname}` });

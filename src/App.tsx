@@ -7,6 +7,7 @@ import { NetworkCore } from "./components/NetworkCore";
 import type { ObservabilityEvent } from "./components/ObservabilityPanel";
 import { JarvisRealtimeClient, newEntry, type JarvisConnectionState, type JarvisMood, type MouthShape, type TranscriptEntry } from "./lib/realtime";
 import { artifactTechnicalText } from "./lib/observability";
+import { sanitizeSquadChatReply } from "./lib/chatReplySanitizer";
 import { buildMentionPrefix } from "./lib/squadMentions";
 import type { JarvisArtifact } from "./vite-env";
 
@@ -192,7 +193,7 @@ export default function App() {
         return;
       }
 
-      const reply = result.text?.trim() || "Done.";
+      const reply = sanitizeSquadChatReply(result.text?.trim() || "Done.");
       const artifacts = result.artifacts || [];
       const jarvisEntry: TranscriptEntry = { ...newEntry("jarvis", reply) };
       if (artifacts.length > 0) {
