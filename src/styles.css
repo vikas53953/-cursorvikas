@@ -4119,6 +4119,37 @@ td {
   opacity: 1;
 }
 
+.squad-chat-row-body {
+  position: relative;
+}
+
+.squad-chat-row-copy {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  background: #121820;
+  color: #aeb7c8;
+  font-size: 10px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+
+.squad-chat-row:hover .squad-chat-row-copy {
+  opacity: 1;
+}
+
+.squad-chat-row-copy:hover {
+  background: rgba(110, 242, 190, 0.14);
+  color: #e8edf7;
+}
+
 .squad-chat-bubble {
   max-width: 100%;
 }
@@ -4147,6 +4178,108 @@ td {
 
 .squad-chat-bubble-user p {
   color: #e8edf7;
+}
+
+/* Markdown rendering inside agent chat bubbles */
+.md {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: #d7dde8;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.squad-chat-stage .md {
+  font-size: 14px;
+}
+
+.md-paragraph {
+  margin: 0;
+  color: #d7dde8;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.md-heading {
+  margin: 4px 0 0;
+  color: #f0f3fa;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.md h1.md-heading {
+  font-size: 1.3em;
+}
+
+.md h2.md-heading {
+  font-size: 1.15em;
+}
+
+.md h3.md-heading,
+.md h4.md-heading {
+  font-size: 1.05em;
+  color: #cdd5e3;
+  text-transform: none;
+}
+
+.md-list {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.md-list li {
+  color: #d7dde8;
+}
+
+.md-list-ordered {
+  list-style: decimal;
+}
+
+.md-list .md-list {
+  margin-top: 3px;
+  padding-left: 18px;
+}
+
+.md-inline-code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(125, 162, 255, 0.14);
+  color: #cddcff;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.9em;
+}
+
+.md-code {
+  margin: 2px 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.32);
+  overflow: auto;
+  max-height: 320px;
+}
+
+.md-code code {
+  color: #b9c4d6;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.9em;
+  line-height: 1.5;
+  white-space: pre;
+}
+
+.md-divider {
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin: 4px 0;
+}
+
+.md strong {
+  color: #f0f3fa;
+  font-weight: 700;
 }
 
 .squad-chat-bubble-typing {

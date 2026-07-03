@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, 
 import { ChevronLeft, ChevronRight, Copy, Hash, Loader2, Maximize2, Minimize2, Send, Sparkles, Users } from "lucide-react";
 import type { JarvisConnectionState, TranscriptEntry } from "../lib/realtime";
 import { splitArtifactOutput } from "../lib/observability";
+import { Markdown } from "./Markdown";
 import { buildMemberMentions, filterMemberMentions, splitMentionText, type SquadMention } from "../lib/squadMentions";
 import { expandSlashCommand, filterSlashCommands, type SlashCommand } from "../lib/squadSlashCommands";
 import type { AgentOrg, JarvisArtifact } from "../vite-env";
@@ -464,6 +465,18 @@ function ChatMessageRow({
 }) {
   const isUser = entry.role === "user";
   const initials = avatarInitials(isUser ? "You" : targetName, isUser ? "user" : "jarvis");
+  const [copiedMessage, setCopiedMessage] = useState(false);
+
+  async function copyMessage() {
+    const parts = [entry.text.trim()];
+    for (const artifact of dedupeArtifacts(entry.artifacts || (entry.artifact ? [entry.artifact] : []))) {
+      const tech = splitArtifactOutput(artifact).technical;
+      if (tech) parts.push("", `${artifact.title}`, "```", tech, "```");
+    }
+    await navigator.clipboard.writeText(parts.join("\n"));
+    setCopiedMessage(true);
+    window.setTimeout(() => setCopiedMessage(false), 1500);
+  }
 
   return (
     <article className={`squad-chat-row ${isUser ? "squad-chat-row-user" : "squad-chat-row-agent"} ${expanded ? "squad-chat-row-expanded" : ""}`}>
@@ -483,8 +496,20 @@ function ChatMessageRow({
         ) : (
           <time className="squad-chat-row-time-hover">{entry.at}</time>
         )}
+        {!isUser ? (
+          <button
+            type="button"
+            className="squad-chat-row-copy"
+            onClick={() => void copyMessage()}
+            title="Copy message for incident notes"
+            aria-label="Copy message"
+          >
+            <Copy size={12} />
+            {copiedMessage ? "Copied" : "Copy"}
+          </button>
+        ) : null}
         <div className={`squad-chat-bubble ${isUser ? "squad-chat-bubble-user" : "squad-chat-bubble-agent"}`}>
-          <MessageText text={entry.text} />
+          {isUser ? <MessageText text={entry.text} /> : <Markdown text={entry.text} />}
         </div>
         {!isUser ? (
           <ChatOutputAttachments
@@ -507,14 +532,15 @@ function ChatOutputAttachments({
   replyText: string;
   technical?: string;
 }) {
-  if (artifacts.length === 0) return null;
+  const unique = dedupeArtifacts(artifacts);
+  if (unique.length === 0) return null;
   return (
     <>
-      {artifacts.map((artifact, index) => (
+      {unique.map((artifact, index) => (
         <ChatOutputAttachment
           key={`${artifact.title}-${index}`}
           artifact={artifact}
-          technical={index === artifacts.length - 1 ? technical : undefined}
+          technical={index === unique.length - 1 ? technical : undefined}
           replyText={index === 0 ? replyText : ""}
         />
       ))}
@@ -592,6 +618,18 @@ function ChatOutputAttachment({
       ) : null}
     </div>
   );
+}
+
+function dedupeArtifacts(artifacts: JarvisArtifact[]): JarvisArtifact[] {
+  const seen = new Set<string>();
+  const result: JarvisArtifact[] = [];
+  for (const artifact of artifacts) {
+    const key = `${artifact.title}::${artifact.content}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(artifact);
+  }
+  return result;
 }
 
 function summarizeReply(text: string): string {
