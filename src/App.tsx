@@ -129,6 +129,24 @@ export default function App() {
     setShowTypeInput(false);
   }
 
+  async function sendSquadChat(target: { id: string; name: string; scope?: string }, message: string) {
+    const trimmed = message.trim();
+    if (!trimmed) return;
+
+    let payload = trimmed;
+    if (target.id !== "jarvis") {
+      payload = `[Squad text chat — engineer is messaging ${target.name} (${target.id} team). Respond in that specialist scope; use delegate_task or tools as you would for voice.] ${trimmed}`;
+    }
+
+    if (connectionState !== "connected") {
+      await connect();
+    }
+    clientRef.current?.sendText(payload);
+    setLastHeard(trimmed);
+    setPanelVisible(true);
+    setPanelTab("team");
+  }
+
   return (
     <main className="app-shell">
       <div className="window-drag-strip" aria-hidden="true" />
@@ -238,6 +256,8 @@ export default function App() {
         mood={mood}
         taskRefreshToken={taskRefreshToken}
         observabilityEvents={observabilityEvents}
+        connectionState={connectionState}
+        onSendSquadChat={sendSquadChat}
       />
 
       {panelFullscreen ? (
@@ -247,14 +267,8 @@ export default function App() {
           activity={hudActivity}
           lastHeard={lastHeard}
           isConnected={isConnected}
-          showTypeInput={showTypeInput}
-          textPrompt={textPrompt}
           onConnect={() => void connect()}
           onDisconnect={disconnect}
-          onToggleTypeInput={() => setShowTypeInput((value) => !value)}
-          onTextPromptChange={setTextPrompt}
-          onSendText={sendTextPrompt}
-          onExitFullscreen={() => setPanelFullscreen(false)}
         />
       ) : null}
     </main>

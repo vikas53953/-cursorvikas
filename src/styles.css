@@ -1903,17 +1903,29 @@ td {
 .floating-console {
   position: fixed;
   z-index: 200;
-  left: 18px;
-  bottom: 18px;
+  left: 16px;
+  bottom: 16px;
   display: grid;
   gap: 0;
-  width: min(400px, calc(100vw - 36px));
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: rgba(6, 9, 8, 0.96);
-  border: 1px solid rgba(110, 242, 190, 0.3);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+  width: min(280px, calc(100vw - 32px));
+  padding: 8px 10px;
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgba(8, 12, 11, 0.92), rgba(12, 18, 16, 0.88));
+  border: 1px solid rgba(110, 242, 190, 0.22);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
   pointer-events: auto;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.floating-console:hover {
+  border-color: rgba(110, 242, 190, 0.42);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.55),
+    0 0 24px rgba(110, 242, 190, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .floating-console .hud {
@@ -1921,84 +1933,77 @@ td {
   padding: 0;
   border: 0;
   background: transparent;
+  gap: 4px;
+}
+
+.hud-compact .hud-line {
+  gap: 6px;
 }
 
 .hud-compact .hud-line p {
-  font-size: 11px;
+  font-size: 10px;
+}
+
+.hud-compact .hud-line span {
+  font-size: 9px;
 }
 
 .hud-compact .hud-state strong {
-  font-size: 12px;
+  font-size: 11px;
+}
+
+.hud-compact .hud-dot {
+  width: 8px;
+  height: 8px;
 }
 
 .floating-console-actions {
-  display: grid;
-  gap: 8px;
   overflow: hidden;
   max-height: 0;
   opacity: 0;
   margin-top: 0;
   transition:
-    max-height 0.22s ease,
-    opacity 0.18s ease,
-    margin-top 0.18s ease;
+    max-height 0.2s ease,
+    opacity 0.16s ease,
+    margin-top 0.16s ease;
 }
 
 .floating-console:hover .floating-console-actions,
-.floating-console:focus-within .floating-console-actions,
-.floating-console-expanded .floating-console-actions {
-  max-height: 140px;
+.floating-console:focus-within .floating-console-actions {
+  max-height: 44px;
   opacity: 1;
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
-.floating-console-expanded .floating-console-actions {
-  max-height: 180px;
-}
-
-.floating-controls {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.floating-btn {
+.floating-stop {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  min-height: 38px;
-  padding: 0 14px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.1);
-  color: #f6f7fb;
-  font-size: 12px;
+  width: 100%;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  color: #e8ebf5;
+  font-size: 11px;
   font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
-.floating-btn:hover {
-  background: rgba(255, 255, 255, 0.16);
+.floating-stop:hover {
+  background: rgba(255, 255, 255, 0.14);
 }
 
-.floating-btn-active {
-  border-color: rgba(110, 242, 190, 0.55);
-  background: rgba(110, 242, 190, 0.18);
-  color: #c2ffe6;
+.floating-stop-active {
+  border-color: rgba(255, 91, 114, 0.45);
+  background: rgba(255, 91, 114, 0.16);
+  color: #ffc4cd;
 }
 
-.floating-prompt {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 8px;
-}
-
-.floating-prompt input {
-  min-height: 34px;
-  padding: 0 10px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.04);
-  color: #f6f7fb;
+.floating-stop-active:hover {
+  background: rgba(255, 91, 114, 0.24);
 }
 
 /* Agent visual states */
@@ -2290,9 +2295,13 @@ td {
 
 .team-board-layout {
   display: grid;
-  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  grid-template-columns: minmax(200px, 240px) minmax(0, 1fr);
   gap: 14px;
   min-height: calc(100vh - 120px);
+}
+
+.team-board-layout-chat {
+  grid-template-columns: minmax(190px, 220px) minmax(0, 1fr) minmax(220px, 260px);
 }
 
 .agent-roster-board,
@@ -2524,12 +2533,192 @@ td {
   text-decoration: underline;
 }
 
+.artifacts-table a:hover {
+  text-decoration: underline;
+}
+
+/* --- Squad chat (Agent Squad right rail) ----------------------------- */
+
+.squad-chat {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 8px;
+  min-height: 0;
+  max-height: calc(100vh - 140px);
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.squad-chat-header {
+  display: grid;
+  gap: 8px;
+}
+
+.squad-chat-eyebrow {
+  color: #6ef2be;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.squad-chat-header strong {
+  display: block;
+  font-size: 13px;
+}
+
+.squad-chat-select-wrap {
+  display: grid;
+  gap: 4px;
+  font-size: 10px;
+  color: #8b93a5;
+}
+
+.squad-chat-select-wrap select {
+  min-height: 30px;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: #dbe4f4;
+  font-size: 11px;
+}
+
+.squad-chat-scope {
+  margin: 0;
+  color: #6d7685;
+  font-size: 10px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.squad-chat-feed {
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  padding-right: 2px;
+}
+
+.squad-chat-empty {
+  margin: 0;
+  color: #6d7685;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.squad-chat-msg {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.squad-chat-msg header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.squad-chat-msg header strong {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.squad-chat-msg header time {
+  color: #6d7685;
+  font-size: 9px;
+}
+
+.squad-chat-msg p {
+  margin: 0;
+  color: #c5ccda;
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.squad-chat-msg-user {
+  border-color: rgba(94, 204, 255, 0.15);
+  background: rgba(94, 204, 255, 0.06);
+}
+
+.squad-chat-msg-jarvis {
+  border-color: rgba(110, 242, 190, 0.18);
+  background: rgba(110, 242, 190, 0.06);
+}
+
+.squad-chat-compose {
+  display: grid;
+  gap: 6px;
+}
+
+.squad-chat-hint {
+  color: #8b93a5;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.squad-chat-input-row {
+  display: grid;
+  grid-template-columns: 1fr 34px;
+  gap: 6px;
+}
+
+.squad-chat-input-row input {
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f6f7fb;
+  font-size: 12px;
+}
+
+.squad-chat-input-row button {
+  display: grid;
+  place-items: center;
+  min-height: 34px;
+  border-radius: 8px;
+  background: rgba(110, 242, 190, 0.18);
+  border: 1px solid rgba(110, 242, 190, 0.35);
+  color: #c2ffe6;
+}
+
+.squad-chat-input-row button:disabled {
+  opacity: 0.45;
+}
+
+.squad-chat-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #6ef2be;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+}
+
 @media (max-width: 1200px) {
-  .team-board-layout {
+  .team-board-layout,
+  .team-board-layout-chat {
     grid-template-columns: 1fr;
   }
 
-  .agent-roster-board {
+  .squad-chat {
+    max-height: 360px;
+  }
+
+  .agent-roster-board,
+  .agent-squad {
     max-height: none;
   }
 

@@ -3,8 +3,9 @@ import mermaid from "mermaid";
 import { OpsDashboard } from "./OpsDashboard";
 import { TeamBoard } from "./TeamBoard";
 import { ArtifactsPanel } from "./ArtifactsPanel";
+import { SquadChatPanel, type SquadChatTarget } from "./SquadChatPanel";
 import { ObservabilityPanel, type ObservabilityEvent } from "./ObservabilityPanel";
-import type { TranscriptEntry } from "../lib/realtime";
+import type { JarvisConnectionState, TranscriptEntry } from "../lib/realtime";
 import type { JarvisArtifact, TeamTask } from "../vite-env";
 
 export type RightPanelTab = "dashboard" | "team" | "observability" | "artifacts";
@@ -21,6 +22,8 @@ type ArtifactPanelProps = {
   mood: import("../lib/realtime").JarvisMood;
   taskRefreshToken: number;
   observabilityEvents: ObservabilityEvent[];
+  connectionState: JarvisConnectionState;
+  onSendSquadChat: (target: SquadChatTarget, message: string) => void | Promise<void>;
 };
 
 type MermaidState = {
@@ -63,7 +66,7 @@ mermaid.initialize({
   securityLevel: "strict",
 });
 
-export function ArtifactPanel({ artifact, tab, onTabChange, visible, fullscreen, onToggleVisible, onToggleFullscreen, sessionLog, mood, taskRefreshToken, observabilityEvents }: ArtifactPanelProps) {
+export function ArtifactPanel({ artifact, tab, onTabChange, visible, fullscreen, onToggleVisible, onToggleFullscreen, sessionLog, mood, taskRefreshToken, observabilityEvents, connectionState, onSendSquadChat }: ArtifactPanelProps) {
   const [mermaidState, setMermaidState] = useState<MermaidState>({ svg: "", error: null, source: "" });
   const rawId = useId();
   const mermaidId = useMemo(() => `mermaid-${rawId.replace(/[^a-zA-Z0-9_-]/g, "")}`, [rawId]);
@@ -156,7 +159,14 @@ export function ArtifactPanel({ artifact, tab, onTabChange, visible, fullscreen,
         {tab === "dashboard" ? (
           <OpsDashboard sessionLog={sessionLog} expanded={fullscreen} />
         ) : tab === "team" ? (
-          <TeamBoard mood={mood} active={tab === "team"} refreshToken={taskRefreshToken} />
+          <TeamBoard
+            mood={mood}
+            active={tab === "team"}
+            refreshToken={taskRefreshToken}
+            sessionLog={sessionLog}
+            connectionState={connectionState}
+            onSendSquadChat={onSendSquadChat}
+          />
         ) : tab === "artifacts" ? (
           <ArtifactsPanel />
         ) : tab === "observability" ? (

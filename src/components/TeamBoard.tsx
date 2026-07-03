@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { AgentRoster } from "./AgentRoster";
+import { SquadChatPanel, type SquadChatTarget } from "./SquadChatPanel";
 import { useTeamTasks } from "../hooks/useTeamTasks";
-import type { JarvisMood } from "../lib/realtime";
+import type { JarvisConnectionState, JarvisMood, TranscriptEntry } from "../lib/realtime";
 import type { TeamTask } from "../vite-env";
 
 const COLUMNS: Array<{ key: TeamTask["status"][]; title: string; className: string }> = [
@@ -29,21 +30,33 @@ type TeamBoardProps = {
   mood?: JarvisMood;
   active?: boolean;
   refreshToken?: number;
+  sessionLog?: TranscriptEntry[];
+  connectionState?: JarvisConnectionState;
+  onSendSquadChat?: (target: SquadChatTarget, message: string) => void | Promise<void>;
 };
 
-export function TeamBoard({ staticTasks, mood = "idle", active = true, refreshToken = 0 }: TeamBoardProps) {
+export function TeamBoard({
+  staticTasks,
+  mood = "idle",
+  active = true,
+  refreshToken = 0,
+  sessionLog = [],
+  connectionState = "idle",
+  onSendSquadChat,
+}: TeamBoardProps) {
   const live = useTeamTasks(active && !staticTasks, refreshToken);
   const tasks = staticTasks || live.tasks;
   const [doneVisible, setDoneVisible] = useState(DONE_INITIAL);
+  const showChat = !staticTasks && Boolean(onSendSquadChat);
 
   if (!staticTasks && tasks.length === 0 && !live.error) {
     return (
-      <div className="team-board-layout">
+      <div className={`team-board-layout ${showChat ? "team-board-layout-chat" : ""}`}>
         <AgentRoster mood={mood} tasks={[]} />
         <div className="team-board-main">
           <header className="team-board-toolbar">
             <div>
-              <strong>Task board</strong>
+              <strong>Kanban board</strong>
               <p>Syncing live tasks...</p>
             </div>
             {live.lastSync ? <span className="team-board-sync">sync {live.lastSync}</span> : null}
@@ -52,6 +65,7 @@ export function TeamBoard({ staticTasks, mood = "idle", active = true, refreshTo
             <p>Waiting for Jarvis activity. When you delegate or run a tool, cards appear in Queued → In Progress → Done.</p>
           </div>
         </div>
+        {showChat ? <SquadChatPanel sessionLog={sessionLog} connectionState={connectionState} onSend={onSendSquadChat!} /> : null}
       </div>
     );
   }
@@ -73,7 +87,7 @@ export function TeamBoard({ staticTasks, mood = "idle", active = true, refreshTo
   }
 
   return (
-    <div className="team-board-layout">
+    <div className={`team-board-layout ${showChat ? "team-board-layout-chat" : ""}`}>
       <AgentRoster mood={mood} tasks={tasks} />
 
       <div className="team-board-main">
@@ -119,6 +133,8 @@ export function TeamBoard({ staticTasks, mood = "idle", active = true, refreshTo
           })}
         </div>
       </div>
+
+      {showChat ? <SquadChatPanel sessionLog={sessionLog} connectionState={connectionState} onSend={onSendSquadChat!} /> : null}
     </div>
   );
 }
