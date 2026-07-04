@@ -35,7 +35,11 @@ function createQueryLayer({ registry, config = {} }) {
     const results = await mapLimit(scope.devices, cfg.concurrency, async (device) => {
       const executor = registry.executorFor(device);
       if (!executor) return { host: device.name, ok: false, outputs: {}, error: `No executor for ${device.name}.` };
-      return executor.runReadOnly(device, commands);
+      try {
+        return await executor.runReadOnly(device, commands);
+      } catch (error) {
+        return { host: device.name, ok: false, outputs: {}, error: error instanceof Error ? error.message : String(error) };
+      }
     });
     return { ok: true, devices: scope.devices, results, capped: scope.capped, total: scope.total };
   }
