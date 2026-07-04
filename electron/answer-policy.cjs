@@ -28,6 +28,11 @@ function applyPolicy(intent, text, { factKind } = {}) {
     cleaned = sentences.slice(0, 4).join(" ");
   }
 
+  if (intent === INTENTS.INTERFACE_STATUS) {
+    const sentences = cleaned.split(/(?<=[.!?])\s+/).filter(Boolean);
+    cleaned = sentences.slice(0, 5).join(" ");
+  }
+
   return cleaned.trim() || text;
 }
 

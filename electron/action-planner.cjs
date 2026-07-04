@@ -54,6 +54,16 @@ function planAction(route, context = {}) {
         meta: route.meta,
       };
 
+    case INTENTS.INTERFACE_STATUS:
+      return {
+        skill: "interface_status",
+        mode: "automated",
+        useLlm: false,
+        batch: false,
+        tool: "interface_report",
+        meta: route.meta,
+      };
+
     case INTENTS.CLI_SHOW:
       return {
         skill: "cli_show",

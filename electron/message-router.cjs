@@ -6,6 +6,7 @@ const INTENTS = {
   DEVICE_FACT: "device_fact",
   NETWORK_OVERVIEW: "network_overview",
   DEVICE_PRECHECK: "device_precheck",
+  INTERFACE_STATUS: "interface_status",
   CLI_SHOW: "cli_show",
   DELEGATE: "delegate",
   GENERAL: "general",
@@ -64,6 +65,31 @@ function parsePrecheckRoute(message, agentsApi) {
   return { team, device, commands: PRECHECK_COMMANDS };
 }
 
+function parseInterfaceStatusRoute(message) {
+  const lower = String(message || "").toLowerCase();
+  if (/\bshow\s+/.test(lower)) return null;
+
+  const device = extractDeviceFromText(message);
+  if (!device) return null;
+
+  // Spanning-tree questions are not interface/link status.
+  if (/\b(spanning[- ]?tree|stp|rstp|pvst|root bridge)\b/.test(lower) && !/\b(ethernet|interface|port|link)s?\b/.test(lower)) {
+    return null;
+  }
+
+  const asksInterfaces =
+    (/\b(ethernet|interface|port|link)s?\b/.test(lower) && /\b(status|state|up|down|connected)\b/.test(lower)) ||
+    /\bwhat\b.*\b(ethernet|interface|port|link)s?\b/.test(lower) ||
+    /\b(ethernet|interface|port|link)s?\b.*\bon\b/.test(lower);
+
+  if (!asksInterfaces) return null;
+
+  return {
+    device,
+    problemsOnly: /\b(problem|error|issue|flap|down only|only down)\b/.test(lower),
+  };
+}
+
 function parseCliShowRoute(message) {
   const lower = String(message || "").toLowerCase();
   const device = extractDeviceFromText(message);
@@ -115,6 +141,11 @@ function classifyIntent(message, { agentsApi, target = "jarvis" } = {}) {
     return { intent: INTENTS.CLI_SHOW, confidence: "high", meta: cliShow };
   }
 
+  const interfaceStatus = parseInterfaceStatusRoute(trimmed);
+  if (interfaceStatus) {
+    return { intent: INTENTS.INTERFACE_STATUS, confidence: "high", meta: interfaceStatus };
+  }
+
   const factQuery = parseDeviceFactQuery(trimmed);
   if (factQuery) {
     return {
@@ -153,6 +184,7 @@ function routerInstructionsAppendix() {
   return `
 # Intent routing (enforced by NetJarvis core)
 - device_fact (IP, uptime, hostname on a named switch): answer that fact only — never network_overview.
+- interface_status (Ethernet/interface/port/link status on a named device): use interface_report — not spanning-tree unless they asked for STP.
 - network_overview: only when the engineer asks how the network is doing or wants a shift rundown.
 - device_precheck: batch all standard show commands in one run_show_command on the named device.
 - cli_show: run the requested show command on the named device.

@@ -3,11 +3,12 @@
 const deviceFact = require("./device-fact.cjs");
 const networkOverview = require("./network-overview.cjs");
 const devicePrecheck = require("./device-precheck.cjs");
+const interfaceStatus = require("./interface-status.cjs");
 const cliShow = require("./cli-show.cjs");
 const llmLoop = require("./llm-loop.cjs");
 
 const SKILLS = new Map(
-  [deviceFact, networkOverview, devicePrecheck, cliShow, llmLoop].map((skill) => [skill.id, skill]),
+  [deviceFact, networkOverview, devicePrecheck, interfaceStatus, cliShow, llmLoop].map((skill) => [skill.id, skill]),
 );
 
 function getSkill(skillId) {
