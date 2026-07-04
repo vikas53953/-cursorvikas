@@ -1,0 +1,280 @@
+<title>NetJarvis — Phase 1 Plan</title>
+<style>
+  :root {
+    --bg: #F5F8FA; --surface: #FFFFFF; --surface-2: #EDF3F6; --ink: #0E1A24;
+    --muted: #566A7B; --line: #D9E2E8; --accent: #0C8FA3; --accent-ink: #076576;
+    --accent-soft: #E1F3F6; --good: #1B935D; --good-soft: #E2F3EB; --warn: #B9791A;
+    --warn-soft: #F6ECD8; --crit: #C9455A; --crit-soft: #F8E6E9;
+    --shadow: 0 1px 2px rgba(14,26,36,.04), 0 6px 20px rgba(14,26,36,.06);
+    --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --maxw: 980px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #091019; --surface: #0F1B26; --surface-2: #15242F; --ink: #E7EEF4;
+      --muted: #91A5B5; --line: #21343F; --accent: #2BC4D7; --accent-ink: #7FE0EC;
+      --accent-soft: #0E2E38; --good: #38BC80; --good-soft: #10281E; --warn: #E0A244;
+      --warn-soft: #2C2413; --crit: #E8677A; --crit-soft: #2C1519;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 26px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F5F8FA; --surface: #FFFFFF; --surface-2: #EDF3F6; --ink: #0E1A24;
+    --muted: #566A7B; --line: #D9E2E8; --accent: #0C8FA3; --accent-ink: #076576;
+    --accent-soft: #E1F3F6; --good: #1B935D; --good-soft: #E2F3EB; --warn: #B9791A;
+    --warn-soft: #F6ECD8; --crit: #C9455A; --crit-soft: #F8E6E9;
+    --shadow: 0 1px 2px rgba(14,26,36,.04), 0 6px 20px rgba(14,26,36,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #091019; --surface: #0F1B26; --surface-2: #15242F; --ink: #E7EEF4;
+    --muted: #91A5B5; --line: #21343F; --accent: #2BC4D7; --accent-ink: #7FE0EC;
+    --accent-soft: #0E2E38; --good: #38BC80; --good-soft: #10281E; --warn: #E0A244;
+    --warn-soft: #2C2413; --crit: #E8677A; --crit-soft: #2C1519;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 26px rgba(0,0,0,.35);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; } }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-sans); font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 clamp(18px, 4vw, 40px); }
+
+  .topbar { position: sticky; top: 0; z-index: 50; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+  .topbar-inner { display: flex; align-items: center; gap: 14px; padding: 12px clamp(18px,4vw,40px); max-width: var(--maxw); margin: 0 auto; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 700; }
+  .brand .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); flex: none; }
+  .brand small { font-family: var(--font-mono); font-weight: 500; font-size: .7rem; color: var(--muted); letter-spacing: .04em; }
+  .progress { margin-left: auto; font-family: var(--font-mono); font-size: .72rem; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  .progress b { color: var(--accent-ink); }
+
+  header.hero { padding: clamp(34px, 6vw, 60px) 0 6px; }
+  .eyebrow { font-family: var(--font-mono); font-size: .72rem; text-transform: uppercase; letter-spacing: .14em; color: var(--accent-ink); margin: 0 0 14px; }
+  h1 { font-size: clamp(1.8rem, 4.4vw, 2.7rem); line-height: 1.06; letter-spacing: -.025em; margin: 0 0 16px; text-wrap: balance; font-weight: 750; }
+  .lede { font-size: clamp(1.02rem, 1.8vw, 1.18rem); color: var(--muted); max-width: 64ch; margin: 0; }
+  .lede b { color: var(--ink); font-weight: 650; }
+
+  .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 26px; }
+  @media (max-width: 700px) { .facts { grid-template-columns: 1fr; } }
+  .fact { background: var(--surface); border: 1px solid var(--line); border-radius: 13px; padding: 16px 18px; box-shadow: var(--shadow); }
+  .fact .k { font-family: var(--font-mono); font-size: .66rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+  .fact .v { margin-top: 5px; font-weight: 600; }
+  .fact .v code { font-family: var(--font-mono); font-size: .82em; background: var(--surface-2); padding: 1px 6px; border-radius: 5px; font-weight: 500; }
+
+  section { padding: clamp(30px, 5vw, 52px) 0; border-top: 1px solid var(--line); }
+  .sec-head { margin-bottom: 22px; }
+  h2 { font-size: clamp(1.3rem, 3vw, 1.7rem); letter-spacing: -.02em; margin: 6px 0 6px; font-weight: 700; }
+  .sec-head p { margin: 0; color: var(--muted); max-width: 64ch; }
+
+  .caps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 26px; }
+  @media (max-width: 640px) { .caps { grid-template-columns: 1fr; } }
+  .cap { background: var(--surface); border: 1px solid var(--line); border-radius: 13px; padding: 16px 18px; box-shadow: var(--shadow); display: flex; align-items: baseline; gap: 12px; }
+  .cap .big { font-family: var(--font-mono); font-size: 1.7rem; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+  .cap .t { font-size: .88rem; color: var(--muted); }
+
+  /* task list */
+  .tasks { display: flex; flex-direction: column; gap: 0; }
+  .task { display: grid; grid-template-columns: 46px 1fr; gap: 16px; }
+  .task .rail { display: flex; flex-direction: column; align-items: center; }
+  .task .n { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; font-family: var(--font-mono); font-weight: 700; font-size: 1rem; background: var(--accent-soft); color: var(--accent-ink); border: 1px solid transparent; flex: none; }
+  .task .line { width: 2px; flex: 1; background: var(--line); margin: 6px 0; min-height: 14px; }
+  .task:last-child .line { display: none; }
+  .task .body { padding-bottom: 20px; min-width: 0; }
+  .task h3 { margin: 8px 0 6px; font-size: 1.06rem; letter-spacing: -.01em; }
+  .task .desc { margin: 0 0 12px; color: var(--muted); font-size: .93rem; }
+  .task .rowmeta { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tag { font-family: var(--font-mono); font-size: .72rem; padding: 4px 9px; border-radius: 7px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tag.new { color: var(--good); background: var(--good-soft); border-color: transparent; }
+  .tag.mod { color: var(--warn); background: var(--warn-soft); border-color: transparent; }
+  .tag.del { color: var(--crit); background: var(--crit-soft); border-color: transparent; }
+  .tag.test { color: var(--accent-ink); background: var(--accent-soft); border-color: transparent; }
+  .task .kicker { font-family: var(--font-mono); font-size: .64rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+
+  .callout { border-radius: 14px; padding: 20px; border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow); }
+  .callout.warn { border-left: 4px solid var(--warn); }
+  .callout h3 { margin: 0 0 10px; font-size: 1rem; }
+  .callout ul { margin: 0; padding-left: 20px; color: var(--muted); font-size: .92rem; }
+  .callout li { margin: 5px 0; }
+  .callout code { font-family: var(--font-mono); font-size: .84em; background: var(--surface-2); padding: 1px 5px; border-radius: 5px; }
+
+  .exec { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 700px) { .exec { grid-template-columns: 1fr; } }
+  .opt { border-radius: 14px; border: 1px solid var(--line); padding: 20px; background: var(--surface); box-shadow: var(--shadow); }
+  .opt.rec { border: 1.5px solid var(--accent); }
+  .opt .badge { font-family: var(--font-mono); font-size: .62rem; letter-spacing: .1em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; background: var(--accent); color: #fff; }
+  .opt h3 { margin: 12px 0 6px; font-size: 1.05rem; }
+  .opt p { margin: 0; color: var(--muted); font-size: .9rem; }
+
+  footer { border-top: 1px solid var(--line); padding: 28px 0 60px; color: var(--muted); font-size: .82rem; }
+  footer code { font-family: var(--font-mono); background: var(--surface-2); padding: 1px 6px; border-radius: 5px; }
+</style>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <span class="brand"><span class="dot"></span>NetJarvis <small>PHASE 1 · IMPLEMENTATION PLAN</small></span>
+    <span class="progress">TDD · <b>node --test</b> · 11 tasks</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <p class="eyebrow">Phase 1 · Foundation · 2026-07-04</p>
+    <h1>Build the two-plane core, proven on real backends.</h1>
+    <p class="lede">Replace the ad-hoc live/sim layer with pluggable <b>Inventory + Executor</b> sources behind a scope-first, capped <b>Query Layer</b> — validated against the real Catalyst Center sandbox and a real SSH device, with the fake simulator deleted. Every task is test-driven and independently shippable.</p>
+    <div class="facts">
+      <div class="fact"><div class="k">Test runner</div><div class="v"><code>node --test</code> · zero new test deps</div></div>
+      <div class="fact"><div class="k">New dependency</div><div class="v"><code>ssh2</code> · SSH executor only</div></div>
+      <div class="fact"><div class="k">SSH validation target</div><div class="v"><code>sandbox-iosxe-latest-1.cisco.com:22</code></div></div>
+    </div>
+  </header>
+
+  <section id="caps">
+    <div class="sec-head">
+      <p class="eyebrow">Enforced in code</p>
+      <h2>The safety rails every task inherits</h2>
+      <p>Read-only, real-only, scope-first — with hard numeric caps so nothing ever runs estate-wide.</p>
+    </div>
+    <div class="caps">
+      <div class="cap"><span class="big" style="color:var(--accent-ink)">25</span><span class="t">interactive device cap — confirm above this</span></div>
+      <div class="cap"><span class="big" style="color:var(--crit)">500</span><span class="t">hard ceiling — refuse &amp; ask to narrow</span></div>
+      <div class="cap"><span class="big" style="color:var(--good)">10</span><span class="t">max concurrent sessions</span></div>
+    </div>
+    <div class="callout">
+      <h3>Also global</h3>
+      <ul>
+        <li><b>Read-only forever</b>, enforced per platform (ios-xe / nx-os / pan-os / f5-tmos).</li>
+        <li><b>Real data only</b> — unreachable returns an honest status, never fabricated devices.</li>
+        <li><b>Inventory-driven names</b> — no hardcoded <code>swN</code>; matches real hostnames, IPs, roles, sites.</li>
+        <li><b>Secrets from <code>.env.local</code></b> only; SSH creds are per-launch dynamic, never hardcoded.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="tasks">
+    <div class="sec-head">
+      <p class="eyebrow">The build, task by task</p>
+      <h2>11 tasks · test → implement → commit</h2>
+      <p>Each task ends with a passing <code>npm test</code> and its own commit. Tasks 2–9 are pure, fast unit tests; 10–11 integrate against the real facade.</p>
+    </div>
+    <div class="tasks">
+
+      <div class="task"><div class="rail"><div class="n">1</div><div class="line"></div></div><div class="body">
+        <div class="kicker">Scaffolding</div>
+        <h3>Test harness</h3>
+        <p class="desc">Wire up Node's built-in test runner and an <code>npm test</code> script. Foundation for every task below.</p>
+        <div class="rowmeta"><span class="tag mod">package.json</span><span class="tag test">test/smoke.test.cjs</span></div>
+      </div></div>
+
+      <div class="task"><div class="rail"><div class="n">2</div><div class="line"></div></div><div class="body">
+        <div class="kicker">Plane contracts</div>
+        <h3>Core contracts</h3>
+        <p class="desc">The <code>Device</code> shape + <code>InventoryProvider</code>/<code>Executor</code> typedefs, domain &amp; platform constants, and <code>normalizeDevice()</code>. Everything else builds on these types.</p>
+        <div class="rowmeta"><span class="tag new">core/contracts.cjs</span><span class="tag test">test/contracts.test.cjs</span></div>
+      </div></div>
+
+      <div class="task"><div class="rail"><div class="n">3</div><div class="line"></div></div><div class="body">
+        <div class="kicker">Safety · Plane 2</div>
+        <h3>Per-platform read-only policy</h3>
+        <p class="desc">Generalize the guardrail into a platform-aware allowlist (<code>show</code> on IOS-XE, <code>show/list</code> on F5, …) + a mutating-token blocklist. Existing guardrail delegates to it.</p>
+        <div class="rowmeta"><span class="tag new">core/read-only-policy.cjs</span><span class="tag mod">guardrails.cjs</span><span class="tag test">test/read-only-policy.test.cjs</span></div>
+      </div></div>
+
+      <div class="task"><div class="rail"><div class="n">4</div><div class="line"></div></div><div class="body">
+        <div class="kicker">Scale · Plane 1</div>
+        <h3>Inventory-driven scope resolver</h3>
+        <p class="desc">Turn "the access switches in DC3" / "CORE-R1" / "sw1" / an IP into a bounded device set matched against real inventory. This is where the broken <code>swN</code> parser dies.</p>
+        <div class="rowmeta"><span class="tag new">core/scope-resolver.cjs</span><span class="tag test">test/scope-resolver.test.cjs</span></div>
+      </div></div>
+
+      <div class="task"><div class="rail"><div class="n">5</div><div class="line"></div></div><div class="body">
+        <div class="kicker">Plane 1 source</div>
+        <h3>Catalyst Center InventoryProvider</h3>
+        <p class="desc">Wrap the existing CATC inventory API behind the <code>InventoryProvider</code> interface, tagging devices with source + executor. Tested with an injected fake — no network.</p>
+        <div class="rowmeta"><span class="tag new">sources/providers/catalyst-center-inventory.cjs</span><span class="tag test">test/catalyst-center-inventory.test.cjs</span></div>
+      </div></div>
+
+      <div class="task"><div class="rail"><div class="n">6</div><div class="line"></div></div><div class="body">
+        <div class="kicker">Plane 2 executor · A</div>
+        <h3>Catalyst Center executor</h3>
+        <p class="desc">Wrap the Command Runner behind the <code>Executor</code> interface. Enforces read-only <em>before</em> touching the device. Real output from real switches.</p>
+        <div class="rowmeta"><span class="tag new">sources/executors/catalyst-center-executor.cjs</span><span class="tag test">test/catalyst-center-executor.test.cjs</span></div>
+      </div></div>
+
+      <div class="task"><div class="rail"><div class="n">7</div><div class="line"></div></div><div class="body">
+        <div class="kicker">Plane 2 executor · B</div>
+        <h3>SSH executor</h3>
+        <p class="desc">The real enterprise transport: <code>ssh2</code> to the device CLI (jump-host aware), credentials from <code>.env.local</code>. Logic unit-tested with a mock; a gated manual step hits the live IOS-XE sandbox.</p>
+        <div class="rowmeta"><span class="tag new">sources/executors/ssh-executor.cjs</span><span class="tag mod">package.json · .env.example</span><span class="tag test">test/ssh-executor.test.cjs</span></div>
+      </div></div>
+
+      <div class="task"><div class="rail"><div class="n">8</div><div class="line"></div></div><div class="body">
+        <div class="kicker">Registry</div>
+        <h3>Source registry</h3>
+        <p class="desc">Register sources, aggregate their devices, and route each device to the executor that supports it. This is where a new network becomes "just another source."</p>
+        <div class="rowmeta"><span class="tag new">core/source-registry.cjs</span><span class="tag test">test/source-registry.test.cjs</span></div>
+      </div></div>
+
+      <div class="task"><div class="rail"><div class="n">9</div><div class="line"></div></div><div class="body">
+        <div class="kicker">The shared brain</div>
+        <h3>Network Query Layer</h3>
+        <p class="desc">Resolve scope → dispatch to executors with bounded concurrency → normalize. Refuses empty scopes and anything over the hard cap. Both pipelines will call this.</p>
+        <div class="rowmeta"><span class="tag new">core/query-layer.cjs</span><span class="tag test">test/query-layer.test.cjs</span></div>
+      </div></div>
+
+      <div class="task"><div class="rail"><div class="n">10</div><div class="line"></div></div><div class="body">
+        <div class="kicker">Real-only</div>
+        <h3>Remove the fake simulator</h3>
+        <p class="desc">Delete <code>network-data.cjs</code> and every sim branch; the facade returns a real snapshot or an honest "unreachable" state. Dashboard badge becomes LIVE / UNREACHABLE.</p>
+        <div class="rowmeta"><span class="tag del">network-data.cjs</span><span class="tag mod">network-source.cjs · tools.cjs · OpsDashboard.tsx</span><span class="tag test">test/network-source.test.cjs</span></div>
+      </div></div>
+
+      <div class="task"><div class="rail"><div class="n">11</div><div class="line"></div></div><div class="body">
+        <div class="kicker">Integration</div>
+        <h3>Route tools through the Query Layer</h3>
+        <p class="desc">Wire the registry + query layer into <code>createTools</code>; <code>run_show_command</code> and device extraction now go scope-first through the layer. End-to-end test with an injected CATC.</p>
+        <div class="rowmeta"><span class="tag mod">tools.cjs · message-router.cjs · device-facts.cjs</span><span class="tag test">test/query-layer.integration.test.cjs</span></div>
+      </div></div>
+
+    </div>
+  </section>
+
+  <section id="scope">
+    <div class="sec-head">
+      <p class="eyebrow">Honest boundaries</p>
+      <h2>Deliberately not in this plan</h2>
+      <p>Called out so nothing reads as "done" when it isn't.</p>
+    </div>
+    <div class="callout warn">
+      <ul>
+        <li><b>Frontend polish (Plan 1C):</b> dead-code removal in <code>ArtifactPanel.tsx</code> and topology (mermaid) rendering — only the reachability badge is touched here.</li>
+        <li><b>Inventory search / pagination (Phase 2):</b> today's estate is 4 devices, so search is unfiltered; large-inventory search is a later phase.</li>
+        <li><b>Real jump-host multi-hop (Phase 4):</b> the SSH executor connects directly to the single sandbox; true bastion channel-forwarding comes with the real network.</li>
+        <li><b>Firewall / proxy / load-balancer sources (Phase 3):</b> domains stay registered-but-empty until their backends are reachable.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="exec">
+    <div class="sec-head">
+      <p class="eyebrow">Your call</p>
+      <h2>How to execute it</h2>
+      <p>Both run the same plan, task by task, with tests gating each step.</p>
+    </div>
+    <div class="exec">
+      <div class="opt rec">
+        <span class="badge">Recommended</span>
+        <h3>Subagent-driven</h3>
+        <p>A fresh subagent implements each task, with a two-stage review between tasks. Fast iteration, clean context per task, you review at each checkpoint.</p>
+      </div>
+      <div class="opt">
+        <h3>Inline execution</h3>
+        <p>I implement the tasks in this session in batches, pausing at checkpoints for you to review. Simpler, one continuous thread.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Visual companion to <code>docs/superpowers/plans/2026-07-04-phase-1-foundation.md</code>, which carries the full test + implementation code for every step. Built on the architecture spec <code>2026-07-04-netjarvis-enterprise-architecture-design.md</code>.
+  </footer>
+</div>
+</content>

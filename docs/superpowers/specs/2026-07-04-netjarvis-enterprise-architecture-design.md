@@ -275,7 +275,11 @@ implementation plan (via the writing-plans step).
    Phase 3 InventoryProvider adapter. Interface stays generic until known.
 2. **Jump-host specifics** — the "Patti" gateway: SSH proxy jump, or an agent/API in front of it?
    Shapes `SshExecutor`'s connection model for Phase 4.
-3. **Exact SSH sandbox** to validate `SshExecutor` in Phase 1 (a Cisco DevNet always-on IOS-XE
-   sandbox that exposes SSH).
+3. ~~**Exact SSH sandbox** to validate `SshExecutor` in Phase 1.~~ **RESOLVED 2026-07-04:**
+   `sandbox-iosxe-latest-1.cisco.com` (SSH port 22, always-on IOS-XE). Credentials are per-launch
+   dynamic (AAA) — supplied via `.env.local`, never hardcoded. Uses the `ssh2` Node client. The
+   live-SSH test is gated on credentials being present; executor logic is unit-tested with a mock.
+   (This single router only validates the SSH executor *mechanism*; the Catalyst Center sandbox
+   remains the realistic multi-device network via the Command Runner executor.)
 4. **Deployment & user auth** — single-engineer desktop vs team web behind SSO; who may use it; RBAC.
 </content>
