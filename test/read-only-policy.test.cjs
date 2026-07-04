@@ -34,3 +34,23 @@ test("still allows a plain show run", () => {
 test("still allows show piped through a filter", () => {
   assert.equal(assertReadOnly("ios-xe", "show run | include foo").ok, true);
 });
+
+test("allows show running-config (config as hyphen suffix is read-only)", () => {
+  assert.equal(assertReadOnly("ios-xe", "show running-config").ok, true);
+});
+
+test("allows show startup-config", () => {
+  assert.equal(assertReadOnly("ios-xe", "show startup-config").ok, true);
+});
+
+test("still blocks configure terminal", () => {
+  assert.equal(assertReadOnly("ios-xe", "configure terminal").ok, false);
+});
+
+test("still blocks config t", () => {
+  assert.equal(assertReadOnly("ios-xe", "config t").ok, false);
+});
+
+test("blocks tee even on show running-config (not passing incidentally)", () => {
+  assert.equal(assertReadOnly("ios-xe", "show running-config | tee flash:x").ok, false);
+});

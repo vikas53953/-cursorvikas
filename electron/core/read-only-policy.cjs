@@ -3,7 +3,7 @@
 const { PLATFORMS } = require("./contracts.cjs");
 
 const BLOCKED_PATTERNS = [
-  /\bconfig(?:ure)?\b/i, /\bconf\s*t\b/i, /\bwrite\b/i, /\berase\b/i, /\bcopy\b/i,
+  /(?<![\w-])config(?:ure)?\b/i, /\bconf\s*t\b/i, /\bwrite\b/i, /\berase\b/i, /\bcopy\b/i,
   /\bdelete\b/i, /\bremove\b/i, /\bno\s+\w/i, /\bclear\b/i, /\breload\b/i,
   /\bshutdown\b/i, /\breboot\b/i, /\bdebug\b/i, /\btelnet\b/i, /\bssh\b/i,
   /\bappend\b/i, /\btclsh\b/i, /\bset\b/i, /\bcreate\b/i, /\bmodify\b/i,
