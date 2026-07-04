@@ -47,24 +47,13 @@ export function Hud({
   compact = false,
 }: HudProps) {
   const offline = connectionState !== "connected";
-  const displayMood: JarvisMood = !offline && mood === "idle" ? "listening" : mood;
   const stateLabel =
-    connectionState === "connecting" ? "Connecting" : offline ? "Voice off" : STATE_LABEL[displayMood] || displayMood;
-  const stateClass = offline ? "offline" : displayMood;
-  const tone = connectionState === "connecting" ? "warning" : offline ? "neutral" : STATE_TONE[displayMood] || "neutral";
+    connectionState === "connecting" ? "Connecting" : offline ? "Voice off" : STATE_LABEL[mood] || mood;
+  const stateClass = offline ? "offline" : mood;
+  const tone = connectionState === "connecting" ? "warning" : offline ? "neutral" : STATE_TONE[mood] || "neutral";
   const hudClass = floating ? "hud hud-floating hud-compact" : compact ? "hud hud-compact" : "hud";
-
-  const primaryLine = (() => {
-    if (displayMood === "speaking" && speakingText.trim()) return speakingText;
-    if (displayMood === "thinking") return speakingText.trim() || lastHeard || "Processing your request…";
-    if (displayMood === "working") return activity.text || speakingText.trim() || "Running network tools…";
-    if (displayMood === "listening" && lastHeard.trim()) return lastHeard;
-    if (displayMood === "listening") return "Speak now — I'm listening.";
-    if (displayMood === "error") return speakingText.trim() || lastHeard || "Voice error — try reconnecting.";
-    return lastHeard;
-  })();
-
-  const showYouRow = Boolean(lastHeard.trim()) && (displayMood === "speaking" || displayMood === "thinking" || displayMood === "working");
+  const showSpeaking = Boolean(speakingText.trim()) && (mood === "speaking" || mood === "thinking" || mood === "working");
+  const primaryLine = showSpeaking ? speakingText : activity.kind === "tool_start" ? activity.text : lastHeard;
 
   return (
     <section className={hudClass} aria-label="Voice status">
@@ -82,9 +71,9 @@ export function Hud({
         )}
       </header>
 
-      {showYouRow || activity.kind !== "idle" ? (
+      {(lastHeard && showSpeaking) || activity.kind !== "idle" ? (
         <div className="hud-secondary">
-          {showYouRow ? (
+          {lastHeard && showSpeaking ? (
             <div className="hud-row">
               <span className="hud-label">You</span>
               <p>{lastHeard}</p>

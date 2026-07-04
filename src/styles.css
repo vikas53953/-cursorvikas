@@ -556,50 +556,6 @@ summary:focus-visible {
   transition: height 60ms linear;
 }
 
-.netcore-listening .netcore-wave span {
-  animation: nc-wave-listen 1.15s ease-in-out infinite;
-  animation-delay: calc(var(--f, 0.5) * 0.09s);
-}
-
-.netcore-thinking .netcore-wave span {
-  animation: nc-wave-think 1.8s ease-in-out infinite;
-  animation-delay: calc(var(--f, 0.5) * 0.12s);
-}
-
-.netcore-working .netcore-wave span {
-  animation: nc-wave-work 1.25s ease-in-out infinite;
-  animation-delay: calc(var(--f, 0.5) * 0.07s);
-}
-
-.netcore-speaking .netcore-wave span {
-  animation: none;
-}
-
-.nc-think-orbit {
-  fill: none;
-  stroke: var(--nc-bright);
-  stroke-width: 1.5;
-  stroke-dasharray: 10 14;
-  opacity: 0.55;
-  transform-origin: 200px 200px;
-  animation: nc-rotate 3.2s linear infinite;
-}
-
-@keyframes nc-wave-listen {
-  0%, 100% { height: calc(6px + var(--voice-energy, 0.2) * 18px * var(--f, 0.5)); }
-  50% { height: calc(10px + var(--voice-energy, 0.35) * 32px * var(--f, 0.5)); }
-}
-
-@keyframes nc-wave-think {
-  0%, 100% { height: calc(8px + var(--voice-energy, 0.4) * 22px * var(--f, 0.5)); }
-  50% { height: calc(14px + var(--voice-energy, 0.4) * 28px * var(--f, 0.5)); }
-}
-
-@keyframes nc-wave-work {
-  0%, 100% { height: calc(10px + var(--voice-energy, 0.5) * 26px * var(--f, 0.5)); }
-  50% { height: calc(18px + var(--voice-energy, 0.55) * 34px * var(--f, 0.5)); }
-}
-
 /* --- HUD --------------------------------------------------------------- */
 
 .hud {

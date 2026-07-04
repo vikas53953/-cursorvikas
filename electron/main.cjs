@@ -134,13 +134,8 @@ ipcMain.handle("log:event", (_event, event) => {
   return { ok: true };
 });
 
-ipcMain.handle("realtime:create-token", async (_event, options) => {
-  const body = asObject(options);
-  return createRealtimeToken({
-    instructions: tools.instructions,
-    toolSpecs: tools.toolSpecs,
-    routerMode: body.routerMode !== false,
-  });
+ipcMain.handle("realtime:create-token", async () => {
+  return createRealtimeToken({ instructions: tools.instructions, toolSpecs: tools.toolSpecs });
 });
 
 ipcMain.handle("chat:send", async (_event, payload) => {

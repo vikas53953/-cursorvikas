@@ -54,8 +54,7 @@ export function installWebBridge(): void {
   }
 
   window.jarvis = {
-    createRealtimeToken: (options?: { routerMode?: boolean }) =>
-      postJson<{ value: string; expiresAt: number | null }>("/api/realtime/token", options ?? {}),
+    createRealtimeToken: () => postJson<{ value: string; expiresAt: number | null }>("/api/realtime/token", {}),
       sendChatMessage: (payload: { target?: string; message: string; channel?: string }) =>
       postJson<{
         ok: boolean;

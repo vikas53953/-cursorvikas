@@ -57,10 +57,6 @@ export default function App() {
     clientRef.current = null;
 
     const client = new JarvisRealtimeClient({
-      onRoutedSpeech: async (text) => {
-        clientRef.current?.setBackendPhase("thinking");
-        return deliverUserMessage({ channel: "voice", message: text, target: { id: "jarvis", name: "NetJarvis" } });
-      },
       onConnectionState: setConnectionState,
       onMood: setMood,
       onMouthShape: setMouthShape,
@@ -175,7 +171,7 @@ export default function App() {
     channel: "chat" | "keyboard" | "voice";
     message: string;
     target: { id: string; name: string; scope?: string };
-  }): Promise<string | undefined> {
+  }) {
     const trimmed = message.trim();
     if (!trimmed || chatBusy) return;
 
@@ -194,9 +190,6 @@ export default function App() {
     if (channel === "chat" && panelTab !== "team") setPanelTab("team");
 
     setChatBusy(true);
-    if (channel === "voice") {
-      clientRef.current?.setBackendPhase("thinking");
-    }
     try {
       const result = await window.jarvis.sendChatMessage({
         target: target.id,
@@ -214,13 +207,10 @@ export default function App() {
           }),
         );
         setMood("error");
-        return undefined;
+        return;
       }
 
       if (result.activity?.length) {
-        if (channel === "voice") {
-          clientRef.current?.setBackendPhase("working");
-        }
         setObservabilityEvents((items) => {
           let next = items;
           for (const step of result.activity || []) {
@@ -265,14 +255,13 @@ export default function App() {
         }),
       );
       setTaskRefreshToken((value) => value + 1);
-      return reply;
     } catch (error) {
       const err = error instanceof Error ? error.message : String(error);
       setTranscript((items) => commitTranscript(items, newEntry("system", err), "system"));
       setMood("error");
-      return undefined;
     } finally {
       setChatBusy(false);
+      if (connectionState !== "connected") setMood("idle");
     }
   }
 

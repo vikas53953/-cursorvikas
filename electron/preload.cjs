@@ -1,7 +1,7 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("jarvis", {
-  createRealtimeToken: (options) => ipcRenderer.invoke("realtime:create-token", options),
+  createRealtimeToken: () => ipcRenderer.invoke("realtime:create-token"),
   sendChatMessage: (payload) => ipcRenderer.invoke("chat:send", payload),
   executeTool: (toolCall) => ipcRenderer.invoke("tools:execute", toolCall),
   getToolSpecs: () => ipcRenderer.invoke("tools:list"),

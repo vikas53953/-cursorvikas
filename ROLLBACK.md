@@ -2,6 +2,18 @@
 
 If a deployment looks worse after a UI or behavior change, you can return to the last known-good state.
 
+## Voice path (reverted 2026-07-04)
+
+Voice + HUD + orb restored to **direct Realtime** behavior (commit `9d00b7a` baseline).
+The experimental **voice router** (transcribe → handleUserMessage → TTS) was reverted — it caused slowness and broke HUD/orb sync.
+
+**Chat** still uses the unified message router (classifier → planner → skills → audit). That path is unchanged.
+
+To roll back voice only:
+```bash
+git checkout 9d00b7a -- src/lib/realtime.ts src/components/Hud.tsx src/components/NetworkCore.tsx electron/realtime-token.cjs
+```
+
 ## Current rollback point (before enterprise layers)
 
 **Git tag:** `rollback-pre-enterprise-layers`  

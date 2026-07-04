@@ -112,20 +112,8 @@ async function handleApi(request, response, url) {
   }
 
   if (request.method === "POST" && url.pathname === "/api/realtime/token") {
-    const raw = await readBody(request);
-    let body = {};
     try {
-      body = JSON.parse(raw || "{}");
-    } catch {
-      body = {};
-    }
-    try {
-      const routerMode = body.routerMode !== false;
-      const token = await createRealtimeToken({
-        instructions: tools.instructions,
-        toolSpecs: tools.toolSpecs,
-        routerMode,
-      });
+      const token = await createRealtimeToken({ instructions: tools.instructions, toolSpecs: tools.toolSpecs });
       return sendJson(response, 200, token);
     } catch (error) {
       return sendJson(response, 500, { error: error instanceof Error ? error.message : String(error) });
