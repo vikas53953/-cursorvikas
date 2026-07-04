@@ -57,7 +57,10 @@ export default function App() {
     clientRef.current = null;
 
     const client = new JarvisRealtimeClient({
-      onRoutedSpeech: async (text) => deliverUserMessage({ channel: "voice", message: text, target: { id: "jarvis", name: "NetJarvis" } }),
+      onRoutedSpeech: async (text) => {
+        clientRef.current?.setBackendPhase("thinking");
+        return deliverUserMessage({ channel: "voice", message: text, target: { id: "jarvis", name: "NetJarvis" } });
+      },
       onConnectionState: setConnectionState,
       onMood: setMood,
       onMouthShape: setMouthShape,
@@ -191,6 +194,9 @@ export default function App() {
     if (channel === "chat" && panelTab !== "team") setPanelTab("team");
 
     setChatBusy(true);
+    if (channel === "voice") {
+      clientRef.current?.setBackendPhase("thinking");
+    }
     try {
       const result = await window.jarvis.sendChatMessage({
         target: target.id,
@@ -212,6 +218,9 @@ export default function App() {
       }
 
       if (result.activity?.length) {
+        if (channel === "voice") {
+          clientRef.current?.setBackendPhase("working");
+        }
         setObservabilityEvents((items) => {
           let next = items;
           for (const step of result.activity || []) {
@@ -256,9 +265,6 @@ export default function App() {
         }),
       );
       setTaskRefreshToken((value) => value + 1);
-      if (channel === "voice" && connectionState === "connected") {
-        setMood("speaking");
-      }
       return reply;
     } catch (error) {
       const err = error instanceof Error ? error.message : String(error);
@@ -267,7 +273,6 @@ export default function App() {
       return undefined;
     } finally {
       setChatBusy(false);
-      if (connectionState !== "connected") setMood("idle");
     }
   }
 

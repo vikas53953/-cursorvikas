@@ -33,7 +33,17 @@ const WAVE_FACTORS = [0.25, 0.45, 0.65, 0.85, 1, 0.9, 0.7, 0.9, 1, 0.85, 0.65, 0
 // with packets in flight while tools run, and the bars are a voice waveform
 // driven by the realtime audio meter.
 export function NetworkCore({ mood, mouthShape, compact = false, compactSize = "md" }: NetworkCoreProps) {
-  const energy = Math.min(1, mouthShape.open * 1.25 + mouthShape.teeth * 0.3 + mouthShape.width * 0.15);
+  const speakEnergy = Math.min(1, mouthShape.open * 1.25 + mouthShape.teeth * 0.3 + mouthShape.width * 0.15);
+  const voiceEnergy =
+    mood === "speaking"
+      ? speakEnergy
+      : mood === "listening"
+        ? Math.max(0.18, mouthShape.open * 1.1)
+        : mood === "thinking"
+          ? 0.42
+          : mood === "working"
+            ? 0.55
+            : 0;
   const sizeClass = compact
     ? compactSize === "xs"
       ? "netcore-compact-xs"
@@ -45,13 +55,16 @@ export function NetworkCore({ mood, mouthShape, compact = false, compactSize = "
   return (
     <div
       className={`netcore netcore-${mood} ${sizeClass}`}
-      style={{ "--voice-energy": (mood === "speaking" ? energy : 0).toFixed(3) } as CSSProperties}
+      style={{ "--voice-energy": voiceEnergy.toFixed(3) } as CSSProperties}
       aria-label={`NetJarvis state: ${mood}`}
     >
       <svg className="netcore-svg" viewBox="0 0 400 400" role="img">
         {/* Status ring */}
         <circle className="nc-ring" cx="200" cy="200" r="190" />
         <circle className="nc-ring-dash" cx="200" cy="200" r="178" />
+
+        {/* Thinking orbit */}
+        {mood === "thinking" ? <circle className="nc-think-orbit" cx="200" cy="200" r="72" /> : null}
 
         {/* Listening pulses */}
         {mood === "listening" ? (
