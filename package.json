@@ -12,7 +12,15 @@
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit"
   },
-  "keywords": ["electron", "openai", "realtime", "voice", "network-operations", "noc", "ai-copilot"],
+  "keywords": [
+    "electron",
+    "openai",
+    "realtime",
+    "voice",
+    "network-operations",
+    "noc",
+    "ai-copilot"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
@@ -21,7 +29,8 @@
     "mermaid": "^11.16.0",
     "nodemailer": "^7.0.5",
     "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "react-dom": "^19.2.7",
+    "ssh2": "^1.17.0"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",
