@@ -76,6 +76,55 @@ test("preserves result order when the first-dispatched finishes last", async () 
   assert.deepEqual(r.results.map((x) => x.host), ["sw1", "sw2"]);
 });
 
+test("runAll refuses when total exceeds the hard cap", async () => {
+  const many = Array.from({ length: 600 }, (_, i) => ({ id: String(i), name: `sw${i}`, role: "access", site: "dc3", executor: "x" }));
+  const ql = createQueryLayer({ registry: fixtureRegistry(many), config: { hardCap: 500 } });
+  const r = await ql.runAll(["show version"]);
+  assert.equal(r.ok, false);
+  assert.match(r.error, /500|safety limit|narrow/i);
+});
+
+test("runAll never exceeds the configured concurrency cap", async () => {
+  let active = 0;
+  let maxActive = 0;
+  const executor = {
+    supports: () => true,
+    runReadOnly: async (d) => {
+      active++;
+      maxActive = Math.max(maxActive, active);
+      await new Promise((r) => setTimeout(r, 5));
+      active--;
+      return { host: d.name, ok: true, outputs: {} };
+    },
+  };
+  const registry = {
+    allDevices: async () => Array.from({ length: 30 }, (_, i) => ({ id: String(i), name: `sw${i}`, role: "access", site: "dc3", executor: "x" })),
+    executorFor: () => executor,
+  };
+  const ql = createQueryLayer({ registry, config: { concurrency: 3, interactiveCap: 100 } });
+  const r = await ql.runAll(["show version"]);
+  assert.equal(r.ok, true);
+  assert.equal(r.results.length, 30);
+  assert.ok(maxActive <= 3, `maxActive was ${maxActive}, expected <= 3`);
+});
+
+test("runAll bounds the run to the interactive cap and reports total", async () => {
+  const devices = Array.from({ length: 40 }, (_, i) => ({ id: String(i), name: `sw${i}`, role: "access", site: "dc3", executor: "x" }));
+  const ql = createQueryLayer({ registry: fixtureRegistry(devices), config: { interactiveCap: 25, hardCap: 500 } });
+  const r = await ql.runAll(["show version"]);
+  assert.equal(r.ok, true);
+  assert.equal(r.total, 40);
+  assert.equal(r.devices.length, 25);
+  assert.equal(r.capped, true);
+});
+
+test("runAll refuses honestly when no devices are available", async () => {
+  const ql = createQueryLayer({ registry: fixtureRegistry([]) });
+  const r = await ql.runAll(["show version"]);
+  assert.equal(r.ok, false);
+  assert.match(r.error, /no devices/i);
+});
+
 test("isolates a per-device executor failure without failing the whole run", async () => {
   const executor = {
     supports: () => true,

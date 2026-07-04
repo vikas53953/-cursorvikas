@@ -822,42 +822,26 @@ function createTools({ readDb, updateDb }) {
     };
   }
 
-  // Deviation from the brief's literal sample: the tool spec documents
-  // `device: "all"` (or omitted) as "every device", but scope-resolver has no
-  // "all" keyword — resolving the text "on all" would match zero devices and
-  // break that documented capability. Preserve it by bypassing scope-text
-  // matching for the all-devices case and going straight to the registry.
-  async function runShowCommandAllDevices(commands) {
-    const devices = await registry.allDevices();
-    if (devices.length === 0) {
-      return { ok: false, error: "No devices are available from any registered source — the network source may be unreachable." };
-    }
-    const results = await Promise.all(
-      devices.map(async (device) => {
-        const executor = registry.executorFor(device);
-        if (!executor) return { host: device.name, ok: false, outputs: {}, error: `No executor for ${device.name}.` };
-        try {
-          return await executor.runReadOnly(device, commands);
-        } catch (error) {
-          return { host: device.name, ok: false, outputs: {}, error: error instanceof Error ? error.message : String(error) };
-        }
-      }),
-    );
-    return { ok: true, results };
-  }
-
   async function runShowCommand(args) {
     const { mode } = await source.getMode();
     const commands = (Array.isArray(args.commands) ? args.commands : []).map(String).filter(Boolean);
     if (commands.length === 0) {
       return { ok: false, error: "Provide at least one read-only 'show' command." };
     }
+    // The tool spec documents `device: "all"` (or omitted) as "every device",
+    // but scope-resolver has no "all" keyword — resolving the text "on all"
+    // would match zero devices. Route it through queryLayer.runAll so it still
+    // respects the same hardCap / interactiveCap / concurrency safety limits.
     const deviceArg = String(args.device || "").trim();
     const isAllDevices = !deviceArg || /^all(\s+devices)?$/i.test(deviceArg);
     const result = isAllDevices
-      ? await runShowCommandAllDevices(commands)
+      ? await queryLayer.runAll(commands)
       : await queryLayer.run(`on ${deviceArg}`, commands);
     if (!result.ok) {
+      // Distinguish an unreachable source from a name that simply didn't match.
+      if (mode !== "live") {
+        return { ok: false, mode, error: "run_show_command needs the live Catalyst Center source, which is not reachable right now." };
+      }
       return { ok: false, mode, error: result.error };
     }
     const outputs = {};
