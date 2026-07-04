@@ -10,6 +10,7 @@ const source = require("./network-source.cjs");
 const { createRegistry } = require("./core/source-registry.cjs");
 const { createQueryLayer } = require("./core/query-layer.cjs");
 const { createGrounding } = require("./core/grounding.cjs");
+const { logFactAudit } = require("./core/fact-telemetry.cjs");
 const { createCatalystCenterInventory } = require("./sources/providers/catalyst-center-inventory.cjs");
 const { createCatalystCenterExecutor } = require("./sources/executors/catalyst-center-executor.cjs");
 const { createSshExecutor } = require("./sources/executors/ssh-executor.cjs");
@@ -931,6 +932,16 @@ function createTools({ readDb, updateDb }) {
       question: args.question,
       commands: Array.isArray(args.commands) ? args.commands : undefined,
     });
+
+    // Silent fact-audit telemetry (Task G6 / O4 phase 1): record what the
+    // engine grounded for later drift analysis. Never allowed to affect the
+    // answer - wrapped defensively even though logFactAudit itself swallows
+    // its own errors.
+    try {
+      logFactAudit({ channel: "tool", question: args.question, grounded: result });
+    } catch {
+      // ignore - telemetry must never block or alter the answer.
+    }
 
     let artifact = null;
     if (result.status === "answered" && result.answerKind === "fact") {
