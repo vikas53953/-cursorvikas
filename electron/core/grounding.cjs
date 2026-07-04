@@ -1,0 +1,79 @@
+// Grounding capability: resolves the user's verbatim target phrase against
+// the live inventory, then answers either with a single composed fact or by
+// running a read-only command through the query layer. Never states a fact
+// the engine did not produce (R1/R2). Honest "not found" (R3). Read-back best
+// guess on ambiguity (R4). Deterministic anaphora via session.lastDevice (R5).
+const { resolveScope } = require("./scope-resolver.cjs");
+const { composeFact } = require("./fact-compose.cjs");
+
+const PRONOUNS = new Set(["it", "its", "that", "this"]);
+
+// A phrase counts as pronoun-led when its leading word is a bare pronoun
+// ("it", "its", "that", "this") — covers both an exact pronoun ("it") and a
+// pronoun-led follow-up ("its uptime").
+function isBarePronoun(phrase) {
+  const trimmed = String(phrase || "").trim().toLowerCase();
+  const first = trimmed.split(/\s+/)[0];
+  return PRONOUNS.has(first);
+}
+
+function createGrounding({ registry, queryLayer, getDeviceFacts, session }) {
+  const state = session || {};
+
+  async function ask({ targetPhrase, question, commands } = {}) {
+    let phrase = targetPhrase;
+    if (!String(phrase || "").trim() || isBarePronoun(phrase)) {
+      if (!state.lastDevice) {
+        return { status: "need_target", message: "Which device?" };
+      }
+      phrase = state.lastDevice;
+    }
+
+    const devices = await registry.allDevices();
+    const resolved = resolveScope(phrase, devices, { cap: 5 });
+
+    if (resolved.total === 0) {
+      const nearest = devices.slice(0, 3).map((d) => d.name);
+      return { status: "not_found", phrase: targetPhrase, nearest };
+    }
+
+    const device = resolved.devices[0];
+    const others = resolved.devices.slice(1).map((d) => d.name);
+    state.lastDevice = device.name;
+
+    const enriched = (getDeviceFacts && getDeviceFacts(device.name)) || device;
+    const fact = composeFact(question, enriched);
+    if (fact.matched) {
+      return {
+        status: "answered",
+        device: device.name,
+        answerKind: "fact",
+        attribute: fact.attribute,
+        sentence: fact.sentence,
+        others,
+      };
+    }
+
+    if (Array.isArray(commands) && commands.length > 0) {
+      const runResult = await queryLayer.run(targetPhrase, commands);
+      return {
+        status: "answered",
+        device: device.name,
+        answerKind: "output",
+        output: runResult,
+        others,
+        note: "Summarize only what is in output; state no number not present here.",
+      };
+    }
+
+    return {
+      status: "need_command",
+      device: device.name,
+      message: "Provide a read-only show command for this question.",
+    };
+  }
+
+  return { ask };
+}
+
+module.exports = { createGrounding };
