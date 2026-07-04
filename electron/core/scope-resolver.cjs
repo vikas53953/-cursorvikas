@@ -8,7 +8,7 @@ function resolveScope(text, devices, { cap = Infinity } = {}) {
   const tokenSet = new Set(tokens);
 
   // 1. exact name / IP hits (highest precedence)
-  let hits = devices.filter((d) => tokenSet.has(d.name.toLowerCase()) || tokenSet.has(d.mgmtIp));
+  let hits = devices.filter((d) => tokenSet.has(String(d.name || "").toLowerCase()) || tokenSet.has(String(d.mgmtIp || "")));
 
   // 2. role (+ optional site) filter
   if (hits.length === 0) {
@@ -16,13 +16,16 @@ function resolveScope(text, devices, { cap = Infinity } = {}) {
     for (const [word, role] of Object.entries(ROLE_WORDS)) if (lower.includes(word)) roles.add(role);
     const sites = new Set(devices.map((d) => d.site).filter(Boolean).filter((s) => tokenSet.has(s.toLowerCase())));
     if (roles.size > 0) {
-      hits = devices.filter((d) => roles.has(d.role) && (sites.size === 0 || sites.has(d.site.toLowerCase())));
+      hits = devices.filter((d) => roles.has(d.role) && (sites.size === 0 || sites.has(String(d.site || "").toLowerCase())));
     }
   }
 
-  // 3. name substring fallback (e.g. "switch 1" -> sw1 not covered by exact match)
+  // 3. name substring fallback: only treat a token as a device-name fragment
+  // when it carries a digit or hyphen (sw1, core-r1, fw-1). This avoids
+  // English words like "is" false-matching "DIST-SW1".
   if (hits.length === 0) {
-    hits = devices.filter((d) => tokens.some((t) => t.length >= 2 && d.name.toLowerCase().includes(t)));
+    const fragments = tokens.filter((t) => t.length >= 3 && /[0-9-]/.test(t));
+    hits = devices.filter((d) => fragments.some((t) => String(d.name || "").toLowerCase().includes(t)));
   }
 
   const total = hits.length;

@@ -35,3 +35,21 @@ test("applies the cap and reports total", () => {
   assert.equal(r.capped, true);
   assert.equal(r.devices.length, 1);
 });
+
+test("role+site query does not throw on a device with missing site", () => {
+  const fixture = [
+    ...FIXTURE,
+    { id: "5", name: "sw3", mgmtIp: "10.10.20.53", role: "access", site: undefined },
+  ];
+  let r;
+  assert.doesNotThrow(() => {
+    r = resolveScope("show version on the access switches in dc3", fixture);
+  });
+  assert.deepEqual(r.devices.map((d) => d.name).sort(), ["sw1", "sw2"]);
+});
+
+test("does not false-match English words in the substring fallback", () => {
+  const r = resolveScope("what is the network health", FIXTURE);
+  assert.deepEqual(r.devices, []);
+  assert.equal(r.total, 0);
+});
