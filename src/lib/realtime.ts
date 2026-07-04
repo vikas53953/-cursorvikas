@@ -145,11 +145,16 @@ export class JarvisRealtimeClient {
       pc = new RTCPeerConnection();
       remoteAudio = document.createElement("audio");
       remoteAudio.autoplay = true;
+      remoteAudio.setAttribute("playsinline", "true");
+      document.body.appendChild(remoteAudio);
       this.remoteAudio = remoteAudio;
 
       pc.ontrack = (event) => {
         if (this.disposed || !remoteAudio) return;
         remoteAudio.srcObject = event.streams[0];
+        void remoteAudio.play().catch(() => {
+          // Autoplay may require a prior user gesture; connect() counts as one.
+        });
         this.startOutputMeter(event.streams[0]);
       };
 
@@ -300,13 +305,21 @@ export class JarvisRealtimeClient {
     this.pendingVoiceReply = text.trim();
     this.currentAssistantText = "";
     this.callbacks.onMood("speaking");
+    // gpt-realtime-2 rejects response.modalities — session already has output_modalities: ["audio"].
     this.sendEvent({
-      type: "response.create",
-      response: {
-        modalities: ["audio", "text"],
-        instructions: `Speak this answer clearly to the network operator. Do not add tools or extra commentary:\n\n${this.pendingVoiceReply}`,
+      type: "conversation.item.create",
+      item: {
+        type: "message",
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text: `[VOICE OUTPUT — read the following verbatim in clear English, do not add tools or commentary]:\n\n${this.pendingVoiceReply}`,
+          },
+        ],
       },
     });
+    this.sendEvent({ type: "response.create" });
   }
 
   private async routeSpeech(transcript: string): Promise<void> {

@@ -35,6 +35,7 @@ async function createRealtimeToken({ instructions, toolSpecs, routerMode = true 
             // exactly what NetJarvis heard.
             transcription: {
               model: "whisper-1",
+              language: "en",
             },
             turn_detection: {
               type: "semantic_vad",

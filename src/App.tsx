@@ -256,6 +256,9 @@ export default function App() {
         }),
       );
       setTaskRefreshToken((value) => value + 1);
+      if (channel === "voice" && connectionState === "connected") {
+        setMood("speaking");
+      }
       return reply;
     } catch (error) {
       const err = error instanceof Error ? error.message : String(error);
