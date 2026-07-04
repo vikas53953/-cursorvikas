@@ -9,6 +9,7 @@ const fs = require("node:fs/promises");
 const source = require("./network-source.cjs");
 const { createRegistry } = require("./core/source-registry.cjs");
 const { createQueryLayer } = require("./core/query-layer.cjs");
+const { createGrounding } = require("./core/grounding.cjs");
 const { createCatalystCenterInventory } = require("./sources/providers/catalyst-center-inventory.cjs");
 const { createCatalystCenterExecutor } = require("./sources/executors/catalyst-center-executor.cjs");
 const { createSshExecutor } = require("./sources/executors/ssh-executor.cjs");
@@ -150,6 +151,21 @@ const toolSpecs = [
         commands: { type: "array", items: { type: "string" }, description: "One or two read-only show commands" },
       },
       required: ["commands"],
+      additionalProperties: false,
+    },
+  },
+  {
+    type: "function",
+    name: "ask_network",
+    description: "Grounded answer for ANY question about a specific device or target on the network. Pass the engineer's VERBATIM words as target_phrase (never your paraphrase, never a device you assumed) - the engine resolves it against the real inventory, honestly reports 'not found' with the nearest real names if it does not match, and answers single-fact questions (version, IP, uptime, model, serial, role, reachability, CPU, memory) directly from live inventory/health. For anything else, supply read-only 'show' commands and it runs them and returns the raw output to summarize. State only what this tool returns.",
+    parameters: {
+      type: "object",
+      properties: {
+        target_phrase: { type: "string", description: "The engineer's exact words naming the device/target, e.g. 'sw1', 'switch 3', 'the access switch in dc3', or 'it'/'its' for a follow-up." },
+        question: { type: "string", description: "The engineer's question, verbatim." },
+        commands: { type: "array", items: { type: "string" }, description: "Optional read-only show command(s) to run if this is not a single-fact question." },
+      },
+      required: ["target_phrase", "question"],
       additionalProperties: false,
     },
   },
@@ -620,6 +636,39 @@ function createTools({ readDb, updateDb }) {
   }
   const queryLayer = createQueryLayer({ registry });
 
+  // Per-tools-instance grounding session: deterministic anaphora ("its uptime")
+  // resolves against the last device ask_network actually grounded, not a
+  // model guess.
+  const groundingSession = { lastDevice: null };
+
+  // Enriched device record for composeFact's attribute vocabulary: merges the
+  // Catalyst Center inventory row (softwareVersion, uptime, serial, platform,
+  // managementIp) with device-health (cpu, memory, reachability), matched by
+  // hostname/name. Real data only - returns null rather than guessing.
+  async function getDeviceFacts(name) {
+    const query = String(name || "").trim().toLowerCase();
+    if (!query) return null;
+    const [inventory, health] = await Promise.all([catc.getInventoryCached(), catc.getDeviceHealth().catch(() => [])]);
+    const row = inventory.find((device) => String(device.hostname || "").toLowerCase() === query);
+    if (!row) return null;
+    const healthRow = health.find((device) => String(device.name || "").toLowerCase() === query) || {};
+    return {
+      name: row.hostname,
+      mgmtIp: row.managementIp || "",
+      role: row.role || "",
+      platform: row.platform || row.series || "",
+      software: row.softwareType || "",
+      softwareVersion: row.softwareVersion || "",
+      serialNumber: row.serialNumber || "",
+      uptime: row.uptime || "",
+      reachability: healthRow.reachabilityHealth || row.reachability || "",
+      cpu: healthRow.cpuUtilization != null ? `${Math.round(healthRow.cpuUtilization)}%` : "",
+      memory: healthRow.memoryUtilization != null ? `${Math.round(healthRow.memoryUtilization)}%` : "",
+    };
+  }
+
+  const grounding = createGrounding({ registry, queryLayer, getDeviceFacts, session: groundingSession });
+
   async function execute(name, args, context = {}) {
     const guard = validateToolCall(name, args);
     if (guard.ok === false) {
@@ -670,6 +719,8 @@ function createTools({ readDb, updateDb }) {
           return await interfaceReport(args);
         case "run_show_command":
           return await runShowCommand(args);
+        case "ask_network":
+          return await askNetwork(args);
         case "topology_show":
           return await topologyShow();
         case "active_alerts":
@@ -858,6 +909,39 @@ function createTools({ readDb, updateDb }) {
       outputs: trimOutputs(outputs),
       artifact: { title, kind: "code", content: formatCliOutputs(outputs) },
     };
+  }
+
+  // Grounded answer for any device/target question (G2 engine + G1 composer),
+  // wired as a tool: the model passes the engineer's verbatim words, never
+  // its own paraphrase or an assumed device name. See docs/superpowers/plans
+  // /2026-07-04-grounded-answers-impl.md Task G3.
+  async function askNetwork(args) {
+    const result = await grounding.ask({
+      targetPhrase: args.target_phrase,
+      question: args.question,
+      commands: Array.isArray(args.commands) ? args.commands : undefined,
+    });
+
+    let artifact = null;
+    if (result.status === "answered" && result.answerKind === "fact") {
+      artifact = {
+        title: `ask_network: ${result.device}`,
+        kind: "markdown",
+        content: `# ${result.device}\n\n${result.sentence}`,
+      };
+    } else if (result.status === "answered" && result.answerKind === "output") {
+      const outputs = {};
+      for (const r of result.output?.results || []) {
+        outputs[r.host] = r.ok === false ? { error: r.error || "unknown error" } : r.outputs;
+      }
+      artifact = {
+        title: `ask_network: ${result.device}`,
+        kind: "markdown",
+        content: [`# ${result.device}`, "", `**${String(args.question || "")}**`, "", formatCliOutputs(outputs)].join("\n"),
+      };
+    }
+
+    return { ok: true, ...result, ...(artifact ? { artifact } : {}) };
   }
 
   async function topologyShow() {

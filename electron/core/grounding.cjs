@@ -41,7 +41,10 @@ function createGrounding({ registry, queryLayer, getDeviceFacts, session }) {
     const others = resolved.devices.slice(1).map((d) => d.name);
     state.lastDevice = device.name;
 
-    const enriched = (getDeviceFacts && getDeviceFacts(device.name)) || device;
+    // getDeviceFacts is expected to hit the real inventory/health APIs (G3),
+    // so it is normally async; `await` on a plain object (as used by G2's
+    // synchronous test doubles) is a no-op and resolves to the same value.
+    const enriched = (getDeviceFacts && (await getDeviceFacts(device.name))) || device;
     const fact = composeFact(question, enriched);
     if (fact.matched) {
       return {
