@@ -165,6 +165,69 @@ test("defaults session to {} when not passed", async () => {
   assert.equal(result.status, "need_target");
 });
 
+// --- SME review regression: commands must win over single-fact composition,
+// and the CLI/output path must run against the resolved device, not a raw
+// (possibly pronoun) targetPhrase.
+
+test("commands are not dropped for a question that also looks like a fact (CLI path wins)", async () => {
+  let calledWith = null;
+  const queryLayer = makeQueryLayer(async (phrase, commands) => {
+    calledWith = { phrase, commands };
+    return { ok: true, devices: [{ name: "sw1" }], results: [{ host: "sw1", ok: true, outputs: { "show ip route": "0.0.0.0/0 via 10.10.20.1" } }] };
+  });
+  const grounding = createGrounding({
+    registry: makeRegistry(),
+    queryLayer,
+    getDeviceFacts: (name) => (name === "sw1" ? { name: "sw1", mgmtIp: "10.10.20.175" } : null),
+    session: {},
+  });
+
+  const result = await grounding.ask({
+    targetPhrase: "sw1",
+    question: "show ip route on sw1",
+    commands: ["show ip route"],
+  });
+
+  assert.equal(result.status, "answered");
+  assert.equal(result.answerKind, "output");
+  assert.ok(calledWith);
+  assert.deepEqual(calledWith.commands, ["show ip route"]);
+});
+
+test("pronoun follow-up on the command path runs queryLayer against the resolved device, not the pronoun", async () => {
+  const session = { lastDevice: null };
+  const grounding = createGrounding({
+    registry: makeRegistry(),
+    queryLayer: makeQueryLayer(),
+    getDeviceFacts: () => null,
+    session,
+  });
+
+  // First call resolves sw1 and sets lastDevice.
+  await grounding.ask({ targetPhrase: "sw1", question: "show vlans on sw1", commands: ["show vlan brief"] });
+  assert.equal(session.lastDevice, "sw1");
+
+  let calledWith = null;
+  const queryLayer2 = makeQueryLayer(async (phrase, commands) => {
+    calledWith = { phrase, commands };
+    return { ok: true, devices: [{ name: "sw1" }], results: [] };
+  });
+  const grounding2 = createGrounding({
+    registry: makeRegistry(),
+    queryLayer: queryLayer2,
+    getDeviceFacts: () => null,
+    session,
+  });
+
+  const result = await grounding2.ask({ targetPhrase: "its", question: "its vlans", commands: ["show vlan brief"] });
+
+  assert.equal(result.status, "answered");
+  assert.equal(result.device, "sw1");
+  assert.ok(calledWith);
+  assert.equal(calledWith.phrase, "sw1");
+  assert.notEqual(calledWith.phrase, "its");
+});
+
 test("ambiguous resolution reports others alongside the top device", async () => {
   const session = {};
   const grounding = createGrounding({

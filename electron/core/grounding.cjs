@@ -41,6 +41,27 @@ function createGrounding({ registry, queryLayer, getDeviceFacts, session }) {
     const others = resolved.devices.slice(1).map((d) => d.name);
     state.lastDevice = device.name;
 
+    // CLI/output path runs first: when the caller has already supplied
+    // read-only show commands, that is an explicit signal this is a
+    // command-shaped question, and it must never be silently dropped in
+    // favor of a single-fact guess. Single-fact composition is only
+    // attempted when NO commands were supplied.
+    if (Array.isArray(commands) && commands.length > 0) {
+      // Anaphora fix: run against the resolved device (device.name), not the
+      // original targetPhrase — targetPhrase may be a pronoun ("its") that
+      // resolves to nothing on its own; the engine already grounded it to
+      // `device` above.
+      const runResult = await queryLayer.run(device.name, commands);
+      return {
+        status: "answered",
+        device: device.name,
+        answerKind: "output",
+        output: runResult,
+        others,
+        note: "Summarize only what is in output; state no number not present here.",
+      };
+    }
+
     // getDeviceFacts is expected to hit the real inventory/health APIs (G3),
     // so it is normally async; `await` on a plain object (as used by G2's
     // synchronous test doubles) is a no-op and resolves to the same value.
@@ -54,18 +75,6 @@ function createGrounding({ registry, queryLayer, getDeviceFacts, session }) {
         attribute: fact.attribute,
         sentence: fact.sentence,
         others,
-      };
-    }
-
-    if (Array.isArray(commands) && commands.length > 0) {
-      const runResult = await queryLayer.run(targetPhrase, commands);
-      return {
-        status: "answered",
-        device: device.name,
-        answerKind: "output",
-        output: runResult,
-        others,
-        note: "Summarize only what is in output; state no number not present here.",
       };
     }
 

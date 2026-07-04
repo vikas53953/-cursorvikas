@@ -11,10 +11,14 @@
 
 // Attribute class -> { synonyms (word/phrase, matched with word boundaries),
 // device field, sentence builder }.
+// NOTE: synonyms here must be unambiguous inventory-attribute heads only.
+// Bare words that also name a CLI/table concept (e.g. "address", "status",
+// "running", "code") are deliberately excluded — see the CLI/table guard in
+// composeFact below, which is the general fix for that ambiguity.
 const ATTRIBUTES = [
   {
     key: "version",
-    synonyms: ["version", "software", "ios", "code", "running"],
+    synonyms: ["version", "software", "ios"],
     field: "softwareVersion",
     sentence: (device, value) => {
       const software = device.software ? `${device.software} ` : "";
@@ -23,7 +27,7 @@ const ATTRIBUTES = [
   },
   {
     key: "ip",
-    synonyms: ["management ip", "ip address", "ip", "address"],
+    synonyms: ["management ip", "ip address", "ip"],
     field: "mgmtIp",
     sentence: (device, value) => `${device.name}'s management IP is ${value}.`,
   },
@@ -53,7 +57,7 @@ const ATTRIBUTES = [
   },
   {
     key: "reachability",
-    synonyms: ["reachability", "reachable", "status"],
+    synonyms: ["reachability", "reachable"],
     field: "reachability",
     sentence: (device, value) => `${device.name} is ${value}.`,
   },
@@ -70,6 +74,35 @@ const ATTRIBUTES = [
     sentence: (device, value) => `${device.name}'s memory utilization is ${value}.`,
   },
 ];
+
+// CLI/table signal: a "show" verb, or any L2/L3 table noun. Single-fact
+// composition only covers inventory attributes (version, IP, uptime, model,
+// serial, role, reachability, CPU, memory) — anything that names a CLI
+// command or a table-shaped construct belongs on the command/output path,
+// never to single-attribute composition. This is a general guard, not a
+// per-phrase blocklist: it fires on the class of question, not the wording.
+const CLI_TABLE_SIGNALS = [
+  "show",
+  "vlan",
+  "mac",
+  "arp",
+  "route",
+  "routing",
+  "interface",
+  "spanning",
+  "stp",
+  "cdp",
+  "lldp",
+  "bgp",
+  "ospf",
+  "neighbor",
+  "counter",
+  "logging",
+];
+
+function hasCliTableSignal(question) {
+  return CLI_TABLE_SIGNALS.some((word) => synonymRegex(word).test(question));
+}
 
 function synonymRegex(phrase) {
   const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
@@ -102,7 +135,14 @@ function detectAttribute(question) {
  */
 function composeFact(question, device) {
   if (!device) return { matched: false };
-  const attr = detectAttribute(String(question || ""));
+  const text = String(question || "");
+  // General guard: CLI/table questions never resolve to a single fact, even
+  // if they also contain a word that looks like an attribute synonym (e.g.
+  // "show ip route" contains "ip"; "mac address table" contains nothing
+  // ambiguous anymore, but "interface status" or "is it running ospf" would
+  // without this). These belong to the CLI/output path.
+  if (hasCliTableSignal(text)) return { matched: false };
+  const attr = detectAttribute(text);
   if (!attr) return { matched: false };
 
   const value = device[attr.field];

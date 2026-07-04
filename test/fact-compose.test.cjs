@@ -59,3 +59,45 @@ test("empty-string field value is treated as missing (never guess)", () => {
   const result = composeFact("serial number of sw1", device);
   assert.deepEqual(result, { matched: false });
 });
+
+// --- SME review regression: CLI/table questions must never be hijacked
+// into a single-attribute fact, even though they contain a word that used
+// to be an ambiguous synonym (address/status/running/code).
+
+test("mac address table question falls through to CLI path (not IP fact)", () => {
+  const device = { name: "sw1", mgmtIp: "10.10.20.175" };
+  const result = composeFact("what's the mac address table on sw1", device);
+  assert.deepEqual(result, { matched: false });
+});
+
+test("show ip route question falls through to CLI path (not IP fact)", () => {
+  const device = { name: "sw1", mgmtIp: "10.10.20.175" };
+  const result = composeFact("show ip route on sw1", device);
+  assert.deepEqual(result, { matched: false });
+});
+
+test("interface status question falls through to CLI path (not reachability fact)", () => {
+  const device = { name: "sw1", reachability: "reachable" };
+  const result = composeFact("interface status on sw1", device);
+  assert.deepEqual(result, { matched: false });
+});
+
+test("is sw1 running ospf falls through to CLI path (not version fact)", () => {
+  const device = { name: "sw1", softwareVersion: "17.12.1" };
+  const result = composeFact("is sw1 running ospf", device);
+  assert.deepEqual(result, { matched: false });
+});
+
+test("what version is sw1 running still resolves to version fact (no CLI/table signal)", () => {
+  const device = { name: "sw1", softwareVersion: "17.12.1" };
+  const result = composeFact("what version is sw1 running", device);
+  assert.equal(result.matched, true);
+  assert.equal(result.attribute, "version");
+});
+
+test("ip of sw1 still resolves to ip fact (no CLI/table signal)", () => {
+  const device = { name: "sw1", mgmtIp: "10.10.20.175" };
+  const result = composeFact("ip of sw1", device);
+  assert.equal(result.matched, true);
+  assert.equal(result.attribute, "ip");
+});
