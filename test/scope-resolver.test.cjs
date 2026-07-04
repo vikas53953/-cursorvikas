@@ -53,3 +53,9 @@ test("does not false-match English words in the substring fallback", () => {
   assert.deepEqual(r.devices, []);
   assert.equal(r.total, 0);
 });
+
+test("does not false-match 'score' as the 'core' role keyword", () => {
+  const r = resolveScope("what is the network score", FIXTURE);
+  assert.deepEqual(r.devices, []);
+  assert.equal(r.total, 0);
+});

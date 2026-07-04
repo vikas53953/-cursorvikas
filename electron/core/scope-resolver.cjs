@@ -13,7 +13,10 @@ function resolveScope(text, devices, { cap = Infinity } = {}) {
   // 2. role (+ optional site) filter
   if (hits.length === 0) {
     const roles = new Set();
-    for (const [word, role] of Object.entries(ROLE_WORDS)) if (lower.includes(word)) roles.add(role);
+    for (const [word, role] of Object.entries(ROLE_WORDS)) {
+      const boundary = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
+      if (boundary.test(lower)) roles.add(role);
+    }
     const sites = new Set(devices.map((d) => d.site).filter(Boolean).filter((s) => tokenSet.has(s.toLowerCase())));
     if (roles.size > 0) {
       hits = devices.filter((d) => roles.has(d.role) && (sites.size === 0 || sites.has(String(d.site || "").toLowerCase())));

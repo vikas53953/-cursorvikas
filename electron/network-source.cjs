@@ -13,6 +13,7 @@
 // unreachable if it does not respond.
 
 const catc = require("./sources/catalyst-center.cjs");
+const { assertReadOnly } = require("./core/read-only-policy.cjs");
 
 const configuredMode = (process.env.NETJARVIS_SOURCE || "auto").toLowerCase();
 
@@ -228,9 +229,8 @@ function formatSpeed(speed) {
 // or "all". Returns { scope, outputs: { host: { command: output } } }.
 async function runLiveShowCommands(deviceQuery, commands) {
   for (const command of commands) {
-    if (!/^show\s/i.test(command.trim())) {
-      throw new Error(`Only read-only "show" commands are allowed. Rejected: ${command}`);
-    }
+    const verdict = assertReadOnly("ios-xe", command);
+    if (!verdict.ok) throw new Error(verdict.error);
   }
   const devices = await findLiveDevices(deviceQuery);
   const uuids = devices.map((device) => device.id).slice(0, 4);

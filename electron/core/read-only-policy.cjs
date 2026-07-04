@@ -7,7 +7,9 @@ const BLOCKED_PATTERNS = [
   /\bdelete\b/i, /\bremove\b/i, /\bno\s+\w/i, /\bclear\b/i, /\breload\b/i,
   /\bshutdown\b/i, /\breboot\b/i, /\bdebug\b/i, /\btelnet\b/i, /\bssh\b/i,
   /\bappend\b/i, /\btclsh\b/i, /\bset\b/i, /\bcreate\b/i, /\bmodify\b/i,
+  /\btee\b/i, /\bredirect\b/i,
   /[>|]\s*(?:flash|bootflash|disk|tftp|scp|ftp)/i,
+  /\b(?:tee|redirect|append)\b[^|]*\b(?:flash|bootflash|disk\d?|nvram|tftp|scp|ftp|https?)\b/i,
 ];
 
 function assertReadOnly(platform, command) {

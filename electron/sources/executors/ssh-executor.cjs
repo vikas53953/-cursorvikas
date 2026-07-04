@@ -20,7 +20,11 @@ function defaultConnect() {
         conn.exec(command, (err, stream) => {
           if (err) return reject(err);
           let out = "";
-          stream.on("data", (d) => (out += d)).on("close", () => resolve(out)).stderr.on("data", (d) => (out += d));
+          stream
+            .on("data", (d) => (out += d))
+            .on("close", () => resolve(out))
+            .on("error", reject)
+            .stderr.on("data", (d) => (out += d));
         });
       }),
       close: () => conn.end(),
@@ -35,7 +39,17 @@ function dial(opts, Client) {
   });
 }
 
-function createSshExecutor({ connect = defaultConnect() } = {}) {
+function withTimeout(promise, ms, command) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`Command timed out after ${ms}ms: ${command}`)), ms);
+    promise.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (error) => { clearTimeout(timer); reject(error); },
+    );
+  });
+}
+
+function createSshExecutor({ connect = defaultConnect(), execTimeoutMs = 30000 } = {}) {
   function supports(device) {
     return device && device.executor === "ssh";
   }
@@ -48,7 +62,7 @@ function createSshExecutor({ connect = defaultConnect() } = {}) {
     try {
       session = await connect(device);
       const outputs = {};
-      for (const command of commands) outputs[command] = await session.exec(command);
+      for (const command of commands) outputs[command] = await withTimeout(session.exec(command), execTimeoutMs, command);
       return { host: device.name, outputs, ok: true };
     } catch (error) {
       return { host: device.name, outputs: {}, ok: false, error: error instanceof Error ? error.message : String(error) };

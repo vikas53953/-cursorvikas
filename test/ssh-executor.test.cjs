@@ -34,3 +34,15 @@ test("closes the session even when a command errors", async () => {
   assert.equal(r.ok, false);
   assert.equal(closed, true);
 });
+
+test("times out instead of hanging forever on a stuck command", async () => {
+  let closed = false;
+  const connect = async () => ({
+    exec: () => new Promise(() => {}), // never resolves - simulates a stuck channel
+    close: () => { closed = true; },
+  });
+  const exec = createSshExecutor({ connect, execTimeoutMs: 20 });
+  const r = await exec.runReadOnly(device, ["show version"]);
+  assert.equal(r.ok, false);
+  assert.equal(closed, true);
+});
