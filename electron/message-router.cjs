@@ -34,14 +34,14 @@ function extractMentionHandles(message) {
   return [...new Set(handles)];
 }
 
-function extractDeviceFromText(text) {
-  const devices = extractDevicesFromText(text);
-  return devices[0] || null;
+function extractDeviceFromText(text, devices) {
+  const names = extractDevicesFromText(text, devices);
+  return names[0] || null;
 }
 
-function parsePrecheckRoute(message, agentsApi) {
+function parsePrecheckRoute(message, agentsApi, devices) {
   const lower = String(message || "").toLowerCase();
-  const device = extractDeviceFromText(message);
+  const device = extractDeviceFromText(message, devices);
   if (!device) return null;
 
   const isPrecheck = /pre[-\s]?post|pre[-\s]?check|precheck|\brun\s+(?:a\s+)?precheck\b|\brun\s+on\b/.test(lower);
@@ -65,11 +65,11 @@ function parsePrecheckRoute(message, agentsApi) {
   return { team, device, commands: PRECHECK_COMMANDS };
 }
 
-function parseInterfaceStatusRoute(message) {
+function parseInterfaceStatusRoute(message, devices) {
   const lower = String(message || "").toLowerCase();
   if (/\bshow\s+/.test(lower)) return null;
 
-  const device = extractDeviceFromText(message);
+  const device = extractDeviceFromText(message, devices);
   if (!device) return null;
 
   // Spanning-tree questions are not interface/link status.
@@ -90,9 +90,9 @@ function parseInterfaceStatusRoute(message) {
   };
 }
 
-function parseCliShowRoute(message) {
+function parseCliShowRoute(message, devices) {
   const lower = String(message || "").toLowerCase();
-  const device = extractDeviceFromText(message);
+  const device = extractDeviceFromText(message, devices);
   if (!device) return null;
 
   const showMatch = lower.match(/\bshow\s+[\w\s-|]+/);
@@ -104,12 +104,12 @@ function parseCliShowRoute(message) {
   return { device, commands: [command] };
 }
 
-function parseDelegateRoute(message, agentsApi) {
+function parseDelegateRoute(message, agentsApi, devices) {
   const handles = extractMentionHandles(message).filter((h) => h !== "jarvis");
   if (handles.length === 0) return null;
 
   const lower = String(message || "").toLowerCase();
-  const device = extractDeviceFromText(message);
+  const device = extractDeviceFromText(message, devices);
   const isPrecheck = /pre[-\s]?post|pre[-\s]?check|precheck/.test(lower);
 
   if (isPrecheck && device) return null;
@@ -123,11 +123,11 @@ function parseDelegateRoute(message, agentsApi) {
   return { teams: teams.map((t) => t.handle), primary: teams[0].handle };
 }
 
-function classifyIntent(message, { agentsApi, target = "jarvis" } = {}) {
+function classifyIntent(message, { agentsApi, target = "jarvis", devices } = {}) {
   const trimmed = String(message || "").trim();
   const lower = trimmed.toLowerCase();
 
-  const precheck = parsePrecheckRoute(trimmed, agentsApi);
+  const precheck = parsePrecheckRoute(trimmed, agentsApi, devices);
   if (precheck) {
     return {
       intent: INTENTS.DEVICE_PRECHECK,
@@ -136,17 +136,17 @@ function classifyIntent(message, { agentsApi, target = "jarvis" } = {}) {
     };
   }
 
-  const cliShow = parseCliShowRoute(trimmed);
+  const cliShow = parseCliShowRoute(trimmed, devices);
   if (cliShow) {
     return { intent: INTENTS.CLI_SHOW, confidence: "high", meta: cliShow };
   }
 
-  const interfaceStatus = parseInterfaceStatusRoute(trimmed);
+  const interfaceStatus = parseInterfaceStatusRoute(trimmed, devices);
   if (interfaceStatus) {
     return { intent: INTENTS.INTERFACE_STATUS, confidence: "high", meta: interfaceStatus };
   }
 
-  const factQuery = parseDeviceFactQuery(trimmed);
+  const factQuery = parseDeviceFactQuery(trimmed, devices);
   if (factQuery) {
     return {
       intent: INTENTS.DEVICE_FACT,
@@ -163,7 +163,7 @@ function classifyIntent(message, { agentsApi, target = "jarvis" } = {}) {
     return { intent: INTENTS.NETWORK_OVERVIEW, confidence: "high", meta: {} };
   }
 
-  const delegate = parseDelegateRoute(trimmed, agentsApi);
+  const delegate = parseDelegateRoute(trimmed, agentsApi, devices);
   if (delegate) {
     return { intent: INTENTS.DELEGATE, confidence: "high", meta: delegate };
   }

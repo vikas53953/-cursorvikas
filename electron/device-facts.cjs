@@ -1,5 +1,7 @@
 // Parse direct device fact questions (IP, uptime, hostname) for chat fast-path.
 
+const { resolveScope } = require("./core/scope-resolver.cjs");
+
 const WORD_NUMBERS = {
   one: 1,
   two: 2,
@@ -12,7 +14,17 @@ const WORD_NUMBERS = {
   nine: 9,
 };
 
-function extractDevicesFromText(text) {
+// When a live `inventory` (real Device[] from the source registry) is
+// supplied, delegate name extraction to the scope resolver so role/site
+// phrasing ("the access switch in dc3") and non-swN hostnames resolve too.
+// Falls back to the original swN/"switch N" regex when no inventory is
+// available (e.g. registry fetch failed, or a caller hasn't been wired yet) —
+// this keeps every existing caller's behavior unchanged by default.
+function extractDevicesFromText(text, inventory) {
+  if (Array.isArray(inventory) && inventory.length > 0) {
+    return resolveScope(text, inventory).devices.map((d) => d.name);
+  }
+
   const devices = new Set();
   const lower = String(text || "").toLowerCase();
 
@@ -43,10 +55,10 @@ function extractDevicesFromText(text) {
   return [...devices].sort();
 }
 
-function parseDeviceFactQuery(message) {
+function parseDeviceFactQuery(message, inventory) {
   const lower = String(message || "").toLowerCase();
   if (/\bshow\s+/.test(lower)) return null;
-  const devices = extractDevicesFromText(message);
+  const devices = extractDevicesFromText(message, inventory);
   if (devices.length === 0) return null;
 
   const wantsNetworkOverview =

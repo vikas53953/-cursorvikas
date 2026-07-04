@@ -11,7 +11,12 @@ function createHandleUserMessage(deps) {
     if (!trimmed) return { ok: false, error: "Message is empty" };
 
     const started = Date.now();
-    const route = classifyIntent(trimmed, { agentsApi: deps.agents, target });
+    // Pass the live inventory through when a registry is wired (Task 11) so
+    // device extraction can use real names/roles/sites, not just the swN
+    // regex. Falls back to [] (→ regex fallback inside device-facts.cjs) if
+    // the registry isn't available or the fetch fails.
+    const devices = typeof deps.getDevices === "function" ? await deps.getDevices().catch(() => []) : [];
+    const route = classifyIntent(trimmed, { agentsApi: deps.agents, target, devices });
     const plan = planAction(route, { message: trimmed, target, channel, agents: deps.agents });
 
     if (plan.ok === false) {

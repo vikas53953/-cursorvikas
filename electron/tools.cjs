@@ -7,6 +7,12 @@ const crypto = require("node:crypto");
 const path = require("node:path");
 const fs = require("node:fs/promises");
 const source = require("./network-source.cjs");
+const { createRegistry } = require("./core/source-registry.cjs");
+const { createQueryLayer } = require("./core/query-layer.cjs");
+const { createCatalystCenterInventory } = require("./sources/providers/catalyst-center-inventory.cjs");
+const { createCatalystCenterExecutor } = require("./sources/executors/catalyst-center-executor.cjs");
+const { createSshExecutor } = require("./sources/executors/ssh-executor.cjs");
+const catc = require("./sources/catalyst-center.cjs");
 const nvd = require("./sources/nvd.cjs");
 const checks = require("./checks.cjs");
 const artifacts = require("./artifacts.cjs");
@@ -579,6 +585,41 @@ function createTools({ readDb, updateDb }) {
   let scheduler;
   const alertWatcher = createAlertWatcher({ getSnapshot: source.getSnapshot });
 
+  // ---------------------------------------------------------------------------
+  // Source registry + query layer (scope-first, real inventory only).
+  // ---------------------------------------------------------------------------
+  const registry = createRegistry();
+  registry.register({
+    id: "catc-sandbox",
+    domain: "data",
+    inventory: createCatalystCenterInventory({ catc, sourceId: "catc-sandbox" }),
+    executor: createCatalystCenterExecutor({ catc }),
+  });
+  if (process.env.SSH_SANDBOX_HOST) {
+    registry.register({
+      id: "iosxe-ssh",
+      domain: "data",
+      inventory: {
+        search: async () => [
+          {
+            id: "csr1",
+            name: "csr1",
+            mgmtIp: process.env.SSH_SANDBOX_HOST,
+            domain: "data",
+            platform: "ios-xe",
+            role: "router",
+            site: "",
+            sourceId: "iosxe-ssh",
+            executor: "ssh",
+          },
+        ],
+        health: async () => ({ ok: true, reachable: true }),
+      },
+      executor: createSshExecutor(),
+    });
+  }
+  const queryLayer = createQueryLayer({ registry });
+
   async function execute(name, args, context = {}) {
     const guard = validateToolCall(name, args);
     if (guard.ok === false) {
@@ -781,29 +822,57 @@ function createTools({ readDb, updateDb }) {
     };
   }
 
+  // Deviation from the brief's literal sample: the tool spec documents
+  // `device: "all"` (or omitted) as "every device", but scope-resolver has no
+  // "all" keyword — resolving the text "on all" would match zero devices and
+  // break that documented capability. Preserve it by bypassing scope-text
+  // matching for the all-devices case and going straight to the registry.
+  async function runShowCommandAllDevices(commands) {
+    const devices = await registry.allDevices();
+    if (devices.length === 0) {
+      return { ok: false, error: "No devices are available from any registered source — the network source may be unreachable." };
+    }
+    const results = await Promise.all(
+      devices.map(async (device) => {
+        const executor = registry.executorFor(device);
+        if (!executor) return { host: device.name, ok: false, outputs: {}, error: `No executor for ${device.name}.` };
+        try {
+          return await executor.runReadOnly(device, commands);
+        } catch (error) {
+          return { host: device.name, ok: false, outputs: {}, error: error instanceof Error ? error.message : String(error) };
+        }
+      }),
+    );
+    return { ok: true, results };
+  }
+
   async function runShowCommand(args) {
     const { mode } = await source.getMode();
     const commands = (Array.isArray(args.commands) ? args.commands : []).map(String).filter(Boolean);
     if (commands.length === 0) {
       return { ok: false, error: "Provide at least one read-only 'show' command." };
     }
-    if (mode !== "live") {
-      return {
-        ok: false,
-        mode,
-        error: "run_show_command needs the live Catalyst Center source, which is not reachable right now.",
-      };
+    const deviceArg = String(args.device || "").trim();
+    const isAllDevices = !deviceArg || /^all(\s+devices)?$/i.test(deviceArg);
+    const result = isAllDevices
+      ? await runShowCommandAllDevices(commands)
+      : await queryLayer.run(`on ${deviceArg}`, commands);
+    if (!result.ok) {
+      return { ok: false, mode, error: result.error };
     }
-    const result = await source.runLiveShowCommands(args.device, commands);
+    const outputs = {};
+    for (const r of result.results) {
+      outputs[r.host] = r.ok === false ? { error: r.error || "unknown error" } : r.outputs;
+    }
     const device = String(args.device || "device");
     const title =
       commands.length === 1 ? `${device} · ${commands[0]}` : commands.length <= 3 ? `${device} · ${commands.join(" / ")}` : `Pre-check: ${device}`;
     return {
       ok: true,
       mode,
-      scope: result.scope,
-      outputs: trimOutputs(result.outputs),
-      artifact: { title, kind: "code", content: formatCliOutputs(result.outputs) },
+      scope: Object.keys(outputs).join(", "),
+      outputs: trimOutputs(outputs),
+      artifact: { title, kind: "code", content: formatCliOutputs(outputs) },
     };
   }
 
@@ -1337,6 +1406,7 @@ function createTools({ readDb, updateDb }) {
     execute,
     agents,
     source,
+    getDevices: registry.allDevices,
     chatCompletion,
     jarvisInstructions: JARVIS_INSTRUCTIONS,
     toolSpecs,
