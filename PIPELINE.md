@@ -6,11 +6,11 @@
 | 2 | Requirements  | APPROVED by Vikas 2026-07-04 (autonomous build authorized) | docs/plans/2026-07-04-001-feature-grounded-answers-plan.md |
 | 3 | UX mock       | skipped (behavior change; minimal UI) | — |
 | 4 | Architecture & plan | done                      | docs/superpowers/plans/2026-07-04-grounded-answers-impl.md |
-| 5 | Build         | in progress (branch grounded-answers, autonomous) | — |
-| 6 | Code review   | not started                     | — |
-| 7 | Browser QA    | not started (chat path; voice = Vikas confirms AM) | — |
-| 8 | Ship          | GitHub push + visual page + paste-to-Cursor deploy command (Vikas's morning) | — |
-| 9 | Learn         | not started                     | — |
+| 5 | Build         | DONE — G1–G6, 93/93 tests, typecheck clean | branch grounded-answers |
+| 6 | Code review   | DONE — SME (opus) found 1 Critical + 2 Important; all fixed + regression-tested | a11ade6 |
+| 7 | Browser QA    | PARTIAL — unit/integration + composeFact spot-check verified; live chat browser-QA + voice = Vikas AM | — |
+| 8 | Ship          | DONE — merged to main (447af07) + pushed to GitHub; morning page + deploy command prepared | main |
+| 9 | Learn         | pending (ce-compound after Vikas confirms)      | — |
 
 ## AUTONOMOUS BUILD MODE (Vikas away — sleep + travel, authorized 2026-07-04 ~22:50 IST)
 - Gate 1 (requirements) + Gate 3 (green light) collapsed into one approval — Vikas authorized full autonomous build.
