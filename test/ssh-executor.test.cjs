@@ -25,3 +25,12 @@ test("blocks a mutating command before connecting", async () => {
   assert.equal(r.ok, false);
   assert.equal(connected, false);
 });
+
+test("closes the session even when a command errors", async () => {
+  let closed = false;
+  const connect = async () => ({ exec: async () => { throw new Error("channel failed"); }, close: () => { closed = true; } });
+  const exec = createSshExecutor({ connect });
+  const r = await exec.runReadOnly({ name: "csr1", platform: "ios-xe", executor: "ssh" }, ["show version"]);
+  assert.equal(r.ok, false);
+  assert.equal(closed, true);
+});
