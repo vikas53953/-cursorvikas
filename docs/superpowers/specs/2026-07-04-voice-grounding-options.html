@@ -1,0 +1,135 @@
+<title>NetJarvis — Voice Grounding: 6 Options</title>
+<style>
+  :root{--bg:#F5F8FA;--surface:#FFFFFF;--surface-2:#EDF3F6;--ink:#0E1A24;--muted:#566A7B;--line:#D9E2E8;--accent:#0C8FA3;--accent-ink:#076576;--accent-soft:#E1F3F6;--good:#1B935D;--good-soft:#E2F3EB;--warn:#B9791A;--warn-soft:#F6ECD8;--crit:#C9455A;--crit-soft:#F8E6E9;--shadow:0 1px 2px rgba(14,26,36,.04),0 6px 20px rgba(14,26,36,.06);--font-sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;--font-mono:ui-monospace,"Cascadia Code","SF Mono",Menlo,Consolas,monospace;--maxw:1040px;}
+  @media (prefers-color-scheme:dark){:root{--bg:#091019;--surface:#0F1B26;--surface-2:#15242F;--ink:#E7EEF4;--muted:#91A5B5;--line:#21343F;--accent:#2BC4D7;--accent-ink:#7FE0EC;--accent-soft:#0E2E38;--good:#38BC80;--good-soft:#10281E;--warn:#E0A244;--warn-soft:#2C2413;--crit:#E8677A;--crit-soft:#2C1519;--shadow:0 1px 2px rgba(0,0,0,.3),0 8px 26px rgba(0,0,0,.35);}}
+  :root[data-theme="light"]{--bg:#F5F8FA;--surface:#FFFFFF;--surface-2:#EDF3F6;--ink:#0E1A24;--muted:#566A7B;--line:#D9E2E8;--accent:#0C8FA3;--accent-ink:#076576;--accent-soft:#E1F3F6;--good:#1B935D;--good-soft:#E2F3EB;--warn:#B9791A;--warn-soft:#F6ECD8;--crit:#C9455A;--crit-soft:#F8E6E9;--shadow:0 1px 2px rgba(14,26,36,.04),0 6px 20px rgba(14,26,36,.06);}
+  :root[data-theme="dark"]{--bg:#091019;--surface:#0F1B26;--surface-2:#15242F;--ink:#E7EEF4;--muted:#91A5B5;--line:#21343F;--accent:#2BC4D7;--accent-ink:#7FE0EC;--accent-soft:#0E2E38;--good:#38BC80;--good-soft:#10281E;--warn:#E0A244;--warn-soft:#2C2413;--crit:#E8677A;--crit-soft:#2C1519;--shadow:0 1px 2px rgba(0,0,0,.3),0 8px 26px rgba(0,0,0,.35);}
+  *{box-sizing:border-box;}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;}}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 clamp(18px,4vw,40px);}
+  header.hero{padding:clamp(36px,6vw,64px) 0 8px;}
+  .eyebrow{font-family:var(--font-mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.14em;color:var(--accent-ink);margin:0 0 14px;}
+  h1{font-size:clamp(1.8rem,4.4vw,2.7rem);line-height:1.06;letter-spacing:-.025em;margin:0 0 14px;text-wrap:balance;font-weight:750;}
+  .lede{font-size:clamp(1rem,1.8vw,1.15rem);color:var(--muted);max-width:64ch;margin:0;}
+  .bugs{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:24px;}
+  @media (max-width:640px){.bugs{grid-template-columns:1fr;}}
+  .bug{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow);border-left:3px solid var(--crit);}
+  .bug b{display:block;font-size:.9rem;margin-bottom:3px;}
+  .bug span{color:var(--muted);font-size:.85rem;}
+  section{padding:clamp(28px,4vw,44px) 0;border-top:1px solid var(--line);}
+  h2{font-size:clamp(1.3rem,3vw,1.7rem);letter-spacing:-.02em;margin:0 0 18px;font-weight:700;}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media (max-width:760px){.grid{grid-template-columns:1fr;}}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;box-shadow:var(--shadow);position:relative;display:flex;flex-direction:column;gap:10px;}
+  .card.rec{border:1.5px solid var(--accent);}
+  .card .top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .card .oid{font-family:var(--font-mono);font-size:.72rem;font-weight:600;color:var(--accent-ink);background:var(--accent-soft);border-radius:6px;padding:3px 8px;}
+  .card h3{margin:0;font-size:1.06rem;letter-spacing:-.01em;flex:1;min-width:0;}
+  .card .recbadge{font-family:var(--font-mono);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:999px;padding:3px 8px;}
+  .card .essence{font-size:.95rem;font-weight:550;}
+  .card .how{font-size:.88rem;color:var(--muted);margin:0;}
+  .card .trade{font-size:.82rem;color:var(--muted);border-top:1px dashed var(--line);padding-top:8px;}
+  .card .trade b{color:var(--ink);font-weight:600;}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto;}
+  .chip{font-family:var(--font-mono);font-size:.68rem;padding:3px 8px;border-radius:6px;background:var(--surface-2);border:1px solid var(--line);color:var(--muted);}
+  .chip.eff{color:var(--warn);background:var(--warn-soft);border-color:transparent;}
+  .chip.lat0{color:var(--good);background:var(--good-soft);border-color:transparent;}
+  .rec-strip{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:14px;padding:22px;box-shadow:var(--shadow);}
+  .rec-strip h3{margin:0 0 10px;font-size:1.1rem;}
+  .rec-strip p{margin:0 0 14px;color:var(--muted);font-size:.92rem;}
+  .flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .step{font-family:var(--font-mono);font-size:.78rem;background:var(--accent-soft);color:var(--accent-ink);border-radius:8px;padding:8px 12px;font-weight:600;}
+  .step small{display:block;color:var(--muted);font-weight:400;font-size:.68rem;margin-top:2px;}
+  .flow .ar{color:var(--accent);font-weight:700;}
+  footer{border-top:1px solid var(--line);padding:24px 0 56px;color:var(--muted);font-size:.82rem;}
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <p class="eyebrow">Voice grounding · 6-panel brainstorm · 2026-07-04</p>
+    <h1>Six ways to stop the AI improvising — pick one, mix them, or take it to Fable.</h1>
+    <p class="lede">A panel of six specialists attacked one question: how to make voice answers <b>faithful to what you asked</b> and <b>honest when it doesn't know</b> — generally, with <b>no per-case rules</b>. None of these say "switch vs VLAN." Every one is a single contract over the real inventory.</p>
+    <div class="bugs">
+      <div class="bug"><b>Bug 1 — wrong / invented target</b><span>"switch 99" silently became "VLAN 99 on sw1."</span></div>
+      <div class="bug"><b>Bug 2 — fumbled the phrasing</b><span>"version?" → answered IP, then hostname, then version.</span></div>
+    </div>
+  </header>
+
+  <section>
+    <h2>The 6 options</h2>
+    <div class="grid">
+
+      <div class="card rec">
+        <div class="top"><span class="oid">O1</span><h3>Inventory Lock: resolve, then run</h3><span class="recbadge">Top pick</span></div>
+        <div class="essence">The AI literally can't run a command on a device until it's confirmed real. No real match → it can only ask, or say it doesn't exist.</div>
+        <p class="how">Every action is forced into two steps: first check the name against the live catalog (found / ambiguous / not-found); the command tool then refuses anything but a confirmed real ID. Silent substitution becomes structurally impossible — not a rule, a wall. Kills Bug 1 as a whole category.</p>
+        <div class="trade"><b>Trade-off:</b> changes the tool definitions + a re-check on run. Doesn't fix mishearing the word itself.</div>
+        <div class="chips"><span class="chip eff">effort L</span><span class="chip">latency low</span><span class="chip">stacks: O3·O5·O6·O4</span></div>
+      </div>
+
+      <div class="card rec">
+        <div class="top"><span class="oid">O3</span><h3>Engine-written answers</h3><span class="recbadge">Top pick</span></div>
+        <div class="essence">For a fact question, the engine writes the exact sentence to say ("The version on sw1 is 17.9"); the AI just voices it — never digs through raw output.</div>
+        <p class="how">The engine already knows you asked for "version," so it pulls that one value and hands over a ready line. The AI may not add any fact that isn't in it. If the device doesn't exist, there's no value to fill — so the only honest sentence is "I don't have that." Kills Bug 2.</p>
+        <div class="trade"><b>Trade-off:</b> can sound templated without a few natural lead-ins; broad questions need a summary mode.</div>
+        <div class="chips"><span class="chip eff">effort M</span><span class="chip lat0">no latency</span><span class="chip">stacks: O1·O2·O5·O6</span></div>
+      </div>
+
+      <div class="card rec">
+        <div class="top"><span class="oid">O6</span><h3>Two-beat: speak now, confirm later</h3><span class="recbadge">Top pick</span></div>
+        <div class="essence">An instant "let me check that on sw1…" keeps the talking-orb alive, then the real grounded fact once the engine returns. Speech starts immediately; only the fact waits.</div>
+        <p class="how">The hedge commits to zero facts, so it can't be wrong, and it buys the ~second the engine needs. This directly fixes what killed the earlier attempt — that version blocked all speech until the engine finished, breaking the orb sync.</p>
+        <div class="trade"><b>Trade-off:</b> the hedge must stay genuinely non-committal; a truly slow device still means a slightly longer pause (slower-but-true).</div>
+        <div class="chips"><span class="chip eff">effort L</span><span class="chip lat0">no latency</span><span class="chip">enables O1·O3·O5</span></div>
+      </div>
+
+      <div class="card">
+        <div class="top"><span class="oid">O5</span><h3>Confidence ladder + honest "no"</h3></div>
+        <div class="essence">The resolver says how sure it is → answer directly / ask "sw1 or sw12?" / say "there's no switch 99." Never silently defaults to sw1.</div>
+        <p class="how">One three-rung policy, driven only by "how confident" and "how many matches" — same for a missing switch, an ambiguous "core router," or a shared interface. Also pins the last device so "what's its uptime?" can't drift. Mostly falls out of O1 for free.</p>
+        <div class="trade"><b>Trade-off:</b> thresholds need one-time tuning so it doesn't over-confirm the obvious and annoy you.</div>
+        <div class="chips"><span class="chip eff">effort M</span><span class="chip">latency medium</span><span class="chip">rides on O1</span></div>
+      </div>
+
+      <div class="card">
+        <div class="top"><span class="oid">O4</span><h3>Silent second-checker</h3></div>
+        <div class="essence">The AI answers at full speed; a quiet check runs alongside — if the device or any number it's about to say doesn't match reality, cancel and correct before you hear it.</div>
+        <p class="how">Two universal checks: the question is independently re-resolved and compared to what the AI actually queried; and every number spoken must literally appear in the real output. It's the only layer that catches a made-up fact on an otherwise-correct device. A background safety net.</p>
+        <div class="trade"><b>Trade-off:</b> corrects after the fact, so a real error means a brief "actually—" hiccup; needs number-normalizing ("nine one one" vs "9.1.1").</div>
+        <div class="chips"><span class="chip eff">effort M</span><span class="chip">latency low</span><span class="chip">safety net</span></div>
+      </div>
+
+      <div class="card">
+        <div class="top"><span class="oid">O2</span><h3>Pre-flight fact sheet</h3></div>
+        <div class="essence">The instant it hears you, look up every named thing and hand it a truth note ("switch 99: NOT FOUND; sw1: real") before it starts reasoning.</div>
+        <p class="how">A generic scan pulls out entity-shaped mentions and checks each against the catalog, then injects the verdicts plus one blanket instruction: report NOT FOUND as not found. Same operation for any noun. Lighter to build than the lock.</p>
+        <div class="trade"><b>Trade-off:</b> it's advisory, not a wall — a determined improviser can still ignore it, so it's best paired with O1 or O4.</div>
+        <div class="chips"><span class="chip eff">effort M</span><span class="chip">latency low</span><span class="chip">pairs with O1·O4</span></div>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <h2>The panel's recommendation</h2>
+    <div class="rec-strip">
+      <h3>Not one option — a combination, built in order</h3>
+      <p>The two failures are two different bugs, so the fix layers cleanly. All of it reuses the Phase 1 engine you already have, and every piece is one general contract over the live catalog — no per-case rules anywhere.</p>
+      <div class="flow">
+        <span class="step">O1 + O5<small>lock + honest replies (kills wrong-target)</small></span>
+        <span class="ar">→</span>
+        <span class="step">O3<small>engine writes the fact (kills fumbling)</small></span>
+        <span class="ar">→</span>
+        <span class="step">O6<small>hide the wait, keep the orb</small></span>
+        <span class="ar">→</span>
+        <span class="step">O4<small>background safety net</small></span>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    From a 6-specialist panel (realtime-voice · reliability · enterprise-netauto · conversational-UX · anti-hallucination · first-principles). A ready-to-paste Fable-5 prompt for an independent second opinion was provided alongside this page.
+  </footer>
+</div>
+</content>

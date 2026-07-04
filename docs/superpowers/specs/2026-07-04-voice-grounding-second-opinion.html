@@ -1,0 +1,200 @@
+<title>NetJarvis — Voice Grounding: Fable's Second Opinion</title>
+<style>
+  :root{--bg:#F5F8FA;--surface:#FFFFFF;--surface-2:#EDF3F6;--ink:#0E1A24;--muted:#566A7B;--line:#D9E2E8;--accent:#0C8FA3;--accent-ink:#076576;--accent-soft:#E1F3F6;--good:#1B935D;--good-soft:#E2F3EB;--warn:#B9791A;--warn-soft:#F6ECD8;--crit:#C9455A;--crit-soft:#F8E6E9;--shadow:0 1px 2px rgba(14,26,36,.04),0 6px 20px rgba(14,26,36,.06);--font-sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;--font-mono:ui-monospace,"Cascadia Code","SF Mono",Menlo,Consolas,monospace;--maxw:1040px;}
+  @media (prefers-color-scheme:dark){:root{--bg:#091019;--surface:#0F1B26;--surface-2:#15242F;--ink:#E7EEF4;--muted:#91A5B5;--line:#21343F;--accent:#2BC4D7;--accent-ink:#7FE0EC;--accent-soft:#0E2E38;--good:#38BC80;--good-soft:#10281E;--warn:#E0A244;--warn-soft:#2C2413;--crit:#E8677A;--crit-soft:#2C1519;--shadow:0 1px 2px rgba(0,0,0,.3),0 8px 26px rgba(0,0,0,.35);}}
+  *{box-sizing:border-box;}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;}}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 clamp(18px,4vw,40px);}
+  header.hero{padding:clamp(36px,6vw,60px) 0 8px;}
+  .eyebrow{font-family:var(--font-mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.14em;color:var(--accent-ink);margin:0 0 14px;}
+  h1{font-size:clamp(1.7rem,4.2vw,2.5rem);line-height:1.08;letter-spacing:-.025em;margin:0 0 14px;text-wrap:balance;font-weight:750;}
+  .lede{font-size:clamp(1rem,1.8vw,1.12rem);color:var(--muted);max-width:66ch;margin:0;}
+  section{padding:clamp(26px,4vw,42px) 0;border-top:1px solid var(--line);}
+  header.hero + section{border-top:none;}
+  h2{font-size:clamp(1.25rem,3vw,1.6rem);letter-spacing:-.02em;margin:0 0 6px;font-weight:700;}
+  .sub{color:var(--muted);font-size:.92rem;margin:0 0 18px;max-width:70ch;}
+  .verdict{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--good);border-radius:14px;padding:22px;box-shadow:var(--shadow);margin-top:26px;}
+  .verdict .tag{font-family:var(--font-mono);font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;background:var(--good-soft);color:var(--good);border-radius:999px;padding:4px 10px;font-weight:700;}
+  .verdict h3{margin:10px 0 8px;font-size:1.15rem;letter-spacing:-.01em;}
+  .verdict p{margin:0;color:var(--muted);font-size:.94rem;max-width:76ch;}
+  .verdict p b{color:var(--ink);}
+  .hole{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--crit);border-radius:14px;padding:22px;box-shadow:var(--shadow);}
+  .hole h3{margin:0 0 8px;font-size:1.05rem;}
+  .hole p{margin:0 0 12px;color:var(--muted);font-size:.92rem;max-width:76ch;}
+  .hole p b{color:var(--ink);}
+  .trace{display:flex;flex-direction:column;gap:8px;font-family:var(--font-mono);font-size:.8rem;margin:14px 0 4px;}
+  .trace .row{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;}
+  .trace .who{flex:0 0 84px;font-size:.66rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);padding-top:2px;}
+  .trace .msg{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:7px 11px;flex:1;min-width:220px;}
+  .trace .msg.bad{border-color:var(--crit);background:var(--crit-soft);color:var(--ink);}
+  .trace .msg.okd{border-color:var(--good);background:var(--good-soft);}
+  .trace .note{font-family:var(--font-sans);font-size:.78rem;color:var(--crit);font-weight:600;}
+  table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);font-size:.9rem;}
+  .tblwrap{overflow-x:auto;border-radius:14px;}
+  th{font-family:var(--font-mono);font-size:.66rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);text-align:left;padding:12px 16px;background:var(--surface-2);border-bottom:1px solid var(--line);font-weight:600;}
+  td{padding:13px 16px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tr:last-child td{border-bottom:none;}
+  td .oname{font-weight:650;white-space:nowrap;}
+  td .oname small{display:block;font-family:var(--font-mono);font-size:.66rem;color:var(--accent-ink);font-weight:600;margin-bottom:2px;}
+  td.why{color:var(--muted);font-size:.86rem;max-width:52ch;}
+  td.why b{color:var(--ink);}
+  .badge{font-family:var(--font-mono);font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;border-radius:999px;padding:4px 10px;font-weight:700;white-space:nowrap;}
+  .badge.adopt{background:var(--good-soft);color:var(--good);}
+  .badge.amend{background:var(--warn-soft);color:var(--warn);}
+  .badge.merge{background:var(--accent-soft);color:var(--accent-ink);}
+  .badge.defer{background:var(--surface-2);color:var(--muted);border:1px solid var(--line);}
+  .badge.skip{background:var(--crit-soft);color:var(--crit);}
+  .contract{background:var(--surface);border:1.5px solid var(--accent);border-radius:14px;padding:22px;box-shadow:var(--shadow);}
+  .contract h3{margin:0 0 6px;font-size:1.1rem;}
+  .contract > p{margin:0 0 16px;color:var(--muted);font-size:.92rem;max-width:76ch;}
+  .flow{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap;}
+  .step{font-family:var(--font-mono);font-size:.76rem;background:var(--accent-soft);color:var(--accent-ink);border-radius:8px;padding:9px 12px;font-weight:600;flex:1;min-width:150px;}
+  .step small{display:block;color:var(--muted);font-weight:400;font-size:.68rem;margin-top:3px;font-family:var(--font-sans);}
+  .flow .ar{color:var(--accent);font-weight:700;align-self:center;}
+  .rules{margin:16px 0 0;padding:0;list-style:none;display:grid;gap:8px;}
+  .rules li{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:.88rem;color:var(--muted);}
+  .rules li b{color:var(--ink);}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media (max-width:760px){.two{grid-template-columns:1fr;}}
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;box-shadow:var(--shadow);}
+  .panel h3{margin:0 0 8px;font-size:1rem;}
+  .panel p{margin:0 0 10px;color:var(--muted);font-size:.88rem;}
+  .panel p:last-child{margin-bottom:0;}
+  .panel p b{color:var(--ink);}
+  .panel.badp{border-left:3px solid var(--crit);}
+  .panel.goodp{border-left:3px solid var(--good);}
+  .klabel{font-family:var(--font-mono);font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:700;display:inline-block;margin-bottom:8px;}
+  .badp .klabel{color:var(--crit);}
+  .goodp .klabel{color:var(--good);}
+  footer{border-top:1px solid var(--line);padding:24px 0 56px;color:var(--muted);font-size:.82rem;}
+  code{font-family:var(--font-mono);font-size:.85em;background:var(--surface-2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;}
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <p class="eyebrow">Voice grounding · Independent second opinion · Fable 5 · 2026-07-04</p>
+    <h1>The panel's direction is right. One option has a hole, and the stack is bigger than it needs to be.</h1>
+    <p class="lede">Verdict on the six options, reasoned from one principle: the voice AI hallucinates because it currently holds <b>authority over facts</b>. The fix is to move that authority into the deterministic engine — once — not to constrain the AI's behavior case by case.</p>
+
+    <div class="verdict">
+      <span class="tag">Verdict — agree, with one amendment</span>
+      <h3>Adopt O1 + O3 + O6 as a single contract. O5 is its return values, not a layer. Defer O4. Skip O2.</h3>
+      <p>The panel's layering is sound and genuinely general — no per-case rules anywhere. But <b>O1 as written does not kill Bug 1</b>: "switch 99 → VLAN 99" happened <b>before any tool was called</b>, so a lock on the tool validates the AI's paraphrase, not your words. Amend O1 so the resolver receives the <b>user's verbatim phrase</b>, and the whole plan collapses into one clean structural change instead of five layers.</p>
+    </div>
+  </header>
+
+  <section>
+    <h2>The hole in O1</h2>
+    <p class="sub">Replay the real failure against the lock. Every gate passes — because the substitution happened inside the model, upstream of everything the lock can see.</p>
+    <div class="hole">
+      <h3>"Switch 99" never reaches the catalog</h3>
+      <div class="trace">
+        <div class="row"><span class="who">You</span><span class="msg">"What's on switch 99?"</span></div>
+        <div class="row"><span class="who">Voice AI</span><span class="msg bad">reinterprets → device: <b>sw1</b>, command: <b>show vlan id 99</b></span><span class="note">← substitution happens here</span></div>
+        <div class="row"><span class="who">O1 lock</span><span class="msg okd">sw1 is real ✓ &nbsp; command is read-only ✓ &nbsp; → runs</span></div>
+      </div>
+      <p><b>The lock checked the wrong input.</b> It can only validate what the model chose to ask about — and the model already swapped the entity. The general fix isn't a stronger lock; it's changing <b>whose words get resolved</b>. The Realtime API already gives you the user's transcript. Make the tool contract carry the user's verbatim target phrase ("switch 99"), and let the deterministic resolver — the same one chat uses — map phrase → device. The model's only job on the way in is to <b>quote you, not interpret you</b>. Then "switch 99" hits the catalog, matches nothing, and the only possible reply is the honest one. This also handles mishearing for free: a misheard phrase resolves to not-found or ambiguous, and the ladder answers honestly — ASR noise gets caught in the right place, deterministically.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Option-by-option verdict</h2>
+    <p class="sub">Judged on one test: does it remove the model's authority over facts, or just advise the model to behave?</p>
+    <div class="tblwrap">
+    <table>
+      <thead><tr><th>Option</th><th>Verdict</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="oname"><small>O1</small>Inventory lock</span></td>
+          <td><span class="badge amend">Adopt, amended</span></td>
+          <td class="why"><b>Right idea, wrong input.</b> Resolve the user's verbatim phrase, not the model's paraphrase — otherwise Bug 1 walks straight through (see above). Amended, it's the backbone.</td>
+        </tr>
+        <tr>
+          <td><span class="oname"><small>O3</small>Engine-written answers</span></td>
+          <td><span class="badge adopt">Adopt</span></td>
+          <td class="why"><b>The other half of the same contract.</b> Engine picks the fact and writes the sentence; the model voices it. Bug 2 has no room to exist — there's nothing to fumble through. Let the model add warmth around the line, never facts inside it.</td>
+        </tr>
+        <tr>
+          <td><span class="oname"><small>O6</small>Two-beat speech</span></td>
+          <td><span class="badge adopt">Adopt</span></td>
+          <td class="why"><b>The enabler.</b> This is precisely why the design won't repeat the 07-04 revert. Cheap: the voice model already does mid-turn tool calls today; this is turn design and persona text, not new plumbing.</td>
+        </tr>
+        <tr>
+          <td><span class="oname"><small>O5</small>Confidence ladder</span></td>
+          <td><span class="badge merge">Merge into O1/O3</span></td>
+          <td class="why"><b>Not a layer — a return type.</b> found / ambiguous / not-found is just what the amended resolver returns, and the engine-written sentence for each rung is the honest reply. Building it separately would duplicate the resolver.</td>
+        </tr>
+        <tr>
+          <td><span class="oname"><small>O4</small>Silent second-checker</span></td>
+          <td><span class="badge defer">Defer — telemetry first</span></td>
+          <td class="why"><b>Premature until you measure.</b> Once facts are engine-authored, the checker mostly audits the engine against itself. And "actually—" corrections cost trust. Ship it as silent logging (spoken numbers vs. engine output), and only let it interrupt if the logs prove residual errors exist.</td>
+        </tr>
+        <tr>
+          <td><span class="oname"><small>O2</small>Pre-flight fact sheet</span></td>
+          <td><span class="badge skip">Skip</span></td>
+          <td class="why"><b>The weaker sibling of amended O1.</b> It's advisory — the card admits a determined improviser can ignore it. Everything it catches, the amended lock catches structurally. Don't build the fence when you own the wall.</td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>What to actually build: one grounded tool</h2>
+    <p class="sub">O1 (amended) + O3 + O5 are one contract, not three features. O6 is the conversational wrapper around it. Concretely: one tool spec in <code>tools.cjs</code>, a compose step on top of the query layer you already shipped in Phase 1, and persona rules.</p>
+    <div class="contract">
+      <h3>ask_network( target_phrase, question )</h3>
+      <p>The model passes your words through untouched; the engine does everything that must be true.</p>
+      <div class="flow">
+        <span class="step">1 · Quote<small>model sends your verbatim phrase — "switch 99" — never its guess</small></span>
+        <span class="ar">→</span>
+        <span class="step">2 · Resolve<small>existing query layer: found / ambiguous(candidates) / not-found</small></span>
+        <span class="ar">→</span>
+        <span class="step">3 · Execute<small>read-only, capped, real devices only — already built</small></span>
+        <span class="ar">→</span>
+        <span class="step">4 · Compose<small>engine returns the sentence: "sw1 is running 17.9.4"</small></span>
+        <span class="ar">→</span>
+        <span class="step">5 · Voice<small>model speaks it, wrapped in the two-beat hedge</small></span>
+      </div>
+      <ul class="rules">
+        <li><b>One sentence replaces 100,000 rules:</b> "You may not state any network fact you did not receive from the engine." Rules constrain choices and grow with cases; this removes the choice and stays constant.</li>
+        <li><b>Honesty is structural, not behavioral:</b> for a device that doesn't exist there is no fact to hand over — the only sentence the engine can return is "there's no switch 99." The model can't improvise what it never receives.</li>
+        <li><b>Pin the anaphora in the contract:</b> the engine tracks the last confirmed device, so "and its uptime?" resolves deterministically too — not by the model's memory.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>Why this won't repeat the July 4 revert</h2>
+    <p class="sub">The reverted attempt and this design are different species, even though both "route voice through the engine."</p>
+    <div class="two">
+      <div class="panel badp">
+        <span class="klabel">Reverted — engine replaced the voice</span>
+        <p>Transcribe → run engine → synthesize speech. A serial pipeline where the speech model was <b>swapped out</b> as the conversational surface. Nothing could speak until the whole chain finished — hence the latency, and an orb with no live audio session to animate against.</p>
+      </div>
+      <div class="panel goodp">
+        <span class="klabel">This — engine serves the voice</span>
+        <p>The speech-to-speech model <b>stays the surface</b>: it hears you, speaks the instant hedge ("checking sw1…"), and calls the engine as a tool mid-turn — the exact mechanism voice uses in production today. The orb never stops because the speaker never stops. Only the fact waits; the ~1s wait hides under the hedge.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Residual risks — named, not hidden</h2>
+    <div class="two">
+      <div class="panel">
+        <h3>The model could still ignore the sentence</h3>
+        <p>No prompt makes a probabilistic model 100% obedient. Two mitigations: the contract gives it <b>nothing else to read</b> (the engine returns the sentence, not raw output to dig through), and deferred O4 runs as telemetry to <b>measure</b> compliance instead of assuming it. If logs show drift, promote O4 to active.</p>
+      </div>
+      <div class="panel">
+        <h3>Composed answers could sound robotic</h3>
+        <p>Real risk, cosmetic severity. The model may own tone and lead-ins ("looks like…") — just not facts. Broad questions ("how's my network?") need a summary compose mode; that's a compose-step feature, not a new architecture.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Independent second opinion by Claude Fable 5 · grounded against the live codebase (query layer <code>electron/core/query-layer.cjs</code>, voice path <code>src/lib/realtime.ts</code> → <code>tools.cjs</code>) · companion to <i>Voice Grounding: 6 Options</i> (2026-07-04).
+  </footer>
+</div>
