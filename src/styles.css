@@ -1512,9 +1512,10 @@ td {
   animation: status-blink 2.4s infinite ease-in-out;
 }
 
-.dash-mode-sim {
-  color: #06130d;
-  background: #ffd166;
+.dash-mode-unreachable {
+  color: #2a0a0a;
+  background: #ff6b6b;
+  animation: status-blink 1.2s infinite ease-in-out;
 }
 
 .dash-header-right {

@@ -5,22 +5,21 @@
 //
 //   - "live": the Cisco Catalyst Center Intent API (defaults to the DevNet
 //     Always-On sandbox, a real four-switch Catalyst 9000v network).
-//   - "sim":  the built-in deterministic simulator (electron/network-data.cjs).
+//   - "unreachable": the live source could not be reached. NetJarvis never
+//     fabricates data - it reports honestly instead.
 //
-// NETJARVIS_SOURCE in .env.local controls the mode: "live", "sim", or "auto"
-// (default). Auto probes Catalyst Center once and falls back to the simulator
-// if it is unreachable.
+// NETJARVIS_SOURCE in .env.local controls the mode: "live" or "auto"
+// (default). Auto probes Catalyst Center once and marks the source
+// unreachable if it does not respond.
 
 const catc = require("./sources/catalyst-center.cjs");
-const sim = require("./network-data.cjs");
 
 const configuredMode = (process.env.NETJARVIS_SOURCE || "auto").toLowerCase();
 
-let resolvedMode = null; // "live" | "sim"
+let resolvedMode = null; // "live" | "unreachable"
 let lastProbeAt = 0;
 
 async function resolveMode() {
-  if (configuredMode === "sim") return "sim";
   if (configuredMode === "live") return "live";
   const probeTtl = 5 * 60 * 1000;
   if (resolvedMode && Date.now() - lastProbeAt < probeTtl) return resolvedMode;
@@ -28,14 +27,14 @@ async function resolveMode() {
     await catc.checkReachable();
     resolvedMode = "live";
   } catch {
-    resolvedMode = "sim";
+    resolvedMode = "unreachable";
   }
   lastProbeAt = Date.now();
   return resolvedMode;
 }
 
 function sourceLabel(mode) {
-  return mode === "live" ? `Cisco Catalyst Center (${catc.config.baseUrl.replace(/^https?:\/\//, "")})` : "Built-in simulator";
+  return mode === "live" ? `Cisco Catalyst Center (${catc.config.baseUrl.replace(/^https?:\/\//, "")})` : "Unreachable";
 }
 
 function hhmm(date = new Date()) {
@@ -120,48 +119,21 @@ async function liveSnapshot() {
   };
 }
 
-function simSnapshot() {
-  const board = sim.getStatusBoard([]);
-  const events = sim.getEvents(12);
-  const overallByBoard = { healthy: "healthy", watch: "watch", degraded: "degraded" };
+// Honest fallback when the live source cannot be reached. Never fabricates
+// device/link/issue/event data - an empty, clearly-marked "unreachable" state.
+function unreachableSnapshot(error) {
   return {
-    mode: "sim",
-    source: sourceLabel("sim"),
-    updatedAt: hhmm(),
-    overall: overallByBoard[board.overall] || "healthy",
-    health: {
-      score: board.overall === "healthy" ? 100 : board.overall === "watch" ? 86 : 55,
-      totalDevices: board.summary.devices,
-      healthyDevices: board.tiles.filter((tile) => tile.status === "ok").length,
-      unhealthyDevices: board.tiles.filter((tile) => tile.status !== "ok").length,
-    },
-    issues: {
-      active: board.summary.activeAlerts,
-      items: sim.getAlerts(false, []).map((alert) => ({
-        issueId: alert.id,
-        name: alert.title,
-        priority: alert.severity,
-        status: alert.state,
-      })),
-    },
-    devices: board.tiles.map((tile) => ({
-      id: tile.id,
-      name: tile.name,
-      role: tile.role,
-      platform: "",
-      ip: "",
-      site: tile.site,
-      reachability: "Reachable",
-      status: tile.status === "watch" ? "warning" : tile.status,
-      healthScore: null,
-      cpu: tile.cpu,
-      memory: "",
-      uptime: tile.uptime,
-      software: "",
-      note: tile.note,
-    })),
+    reachable: false,
+    mode: "unreachable",
+    source: sourceLabel("unreachable"),
+    error: String((error && error.message) || error || "Network source is unreachable."),
+    updatedAt: new Date().toISOString(),
+    overall: "unknown",
+    devices: [],
     links: [],
-    events,
+    issues: { active: 0, items: [] },
+    events: [],
+    health: { score: null },
   };
 }
 
@@ -176,10 +148,10 @@ async function getSnapshot(force = false) {
       data = await liveSnapshot();
     } catch (error) {
       if (snapshotCache) return { ...snapshotCache.data, staleError: String(error && error.message) };
-      data = { ...simSnapshot(), liveError: String(error && error.message) };
+      data = unreachableSnapshot(error);
     }
   } else {
-    data = simSnapshot();
+    data = unreachableSnapshot("Live network source is not reachable.");
   }
   snapshotCache = { at: Date.now(), data };
   return data;
@@ -196,30 +168,18 @@ async function getMode() {
 
 async function getInventoryRows() {
   const mode = await resolveMode();
-  if (mode === "live") {
-    const rows = await catc.getInventoryCached();
-    return rows.map((device) => ({
-      hostname: device.hostname,
-      managementIp: device.managementIp,
-      role: device.role,
-      family: device.family,
-      platform: device.platform,
-      software: `${device.softwareType || ""} ${device.softwareVersion || ""}`.trim(),
-      serial: device.serialNumber,
-      reachability: device.reachability,
-      uptime: device.uptime,
-    }));
-  }
-  return sim.DEVICES.map((device) => ({
-    hostname: device.name,
-    managementIp: device.loopback,
+  if (mode !== "live") return [];
+  const rows = await catc.getInventoryCached();
+  return rows.map((device) => ({
+    hostname: device.hostname,
+    managementIp: device.managementIp,
     role: device.role,
-    family: device.role === "firewall" ? "Firewalls" : "Routers and Switches",
+    family: device.family,
     platform: device.platform,
-    software: device.os,
-    serial: "",
-    reachability: "Reachable",
-    uptime: `${device.uptimeDays} days`,
+    software: `${device.softwareType || ""} ${device.softwareVersion || ""}`.trim(),
+    serial: device.serialNumber,
+    reachability: device.reachability,
+    uptime: device.uptime,
   }));
 }
 
@@ -314,5 +274,4 @@ module.exports = {
   getLiveTopologyMermaid,
   findLiveDevices,
   catc,
-  sim,
 };

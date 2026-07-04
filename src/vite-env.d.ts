@@ -155,7 +155,8 @@ export type DashboardIssue = {
 };
 
 export type DashboardSnapshot = {
-  mode?: "live" | "sim";
+  mode?: "live" | "unreachable";
+  reachable?: boolean;
   source?: string;
   updatedAt?: string;
   overall?: string;

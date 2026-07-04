@@ -99,14 +99,8 @@ async function captureSnapshot(label) {
       snapshot.errorCountersError = String(error && error.message);
     }
   } else {
-    snapshot.interfaces = source.sim.getInterfaceReport(undefined, false).interfaces.map((row) => ({
-      device: row.device,
-      interface: row.interface,
-      status: row.status,
-      adminStatus: "UP",
-      vlan: "",
-      ipv4: "",
-    }));
+    // Network source is unreachable - never fabricate interface data.
+    snapshot.interfaces = [];
   }
 
   await fs.mkdir(checksDir, { recursive: true });

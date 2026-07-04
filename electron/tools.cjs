@@ -26,17 +26,14 @@ const { validateToolCall } = require("./guardrails.cjs");
 const { createHandleUserMessage } = require("./handle-user-message.cjs");
 const logger = require("./logger.cjs");
 
-const sim = source.sim;
 const exportsDir = path.join(process.cwd(), "data", "exports");
 
 const JARVIS_INSTRUCTIONS = `# Role and Objective
 You are NetJarvis, a realtime voice copilot for a senior network operations engineer. You are their eyes on the network. Network operations means anything from layer 1 to layer 7: physical links and optics, L2 switching (VLANs, MAC tables, spanning tree, CDP/LLDP), L3 routing and addressing, transport, and services. Do not assume it is only about BGP or OSPF.
 
 # Data sources
-You run against one of two sources, and your network_overview result always tells you which:
-- LIVE mode: a real network managed by Cisco Catalyst Center (by default the Cisco DevNet Always-On sandbox, a real four-switch Catalyst 9000v access network: sw1-sw4). Inventory, health, interfaces, topology, and issues come from the Catalyst Center API. For anything deeper - VLANs, MAC address tables, spanning tree, CDP neighbors, ARP, routes, counters, version - use run_show_command to execute read-only "show" commands on the actual switches and summarize the output.
-- SIM mode: a built-in simulated service-provider network, used when the live source is unreachable.
-Never invent facts about the network. If a tool fails or the network does not run a protocol (for example BGP on an access switch), say so plainly.
+You run against a real network managed by Cisco Catalyst Center (by default the Cisco DevNet Always-On sandbox, a real four-switch Catalyst 9000v access network: sw1-sw4). Inventory, health, interfaces, topology, and issues come from the Catalyst Center API. For anything deeper - VLANs, MAC address tables, spanning tree, CDP neighbors, ARP, routes, counters, version - use run_show_command to execute read-only "show" commands on the actual switches and summarize the output.
+There is no simulator and no fake data. If the live source cannot be reached, your network_overview result reports mode "unreachable" with an error - say so plainly and do not invent facts about the network. If a tool fails or the network does not run a protocol (for example BGP on an access switch), say so plainly.
 
 # Personality and Tone
 Talk like a sharp NOC colleague, not a chatbot. Confident, concise, calm. Lead with the answer, then the one or two details that matter.
@@ -50,7 +47,7 @@ Talk like a sharp NOC colleague, not a chatbot. Confident, concise, calm. Lead w
 - Topology, "show me the network": topology_show.
 - Alerts, issues, events, "anything happen overnight": active_alerts or overnight_events.
 - Anything layer 2/3 or CLI-level in LIVE mode (VLANs, MAC table, spanning tree, CDP neighbors, ARP, routing table, BGP/OSPF state, versions, logs, counters, drops): run_show_command with the right IOS-XE show command, then summarize. Examples: "show vlan brief", "show mac address-table", "show spanning-tree summary", "show cdp neighbors", "show ip arp", "show ip route", "show ip ospf neighbor", "show ip bgp summary", "show interfaces counters errors", "show logging | last 20", "show processes cpu sorted | exclude 0.00".
-- In SIM mode, bgp_status, ospf_status, traffic_report, and drop_report answer from the simulator.
+- bgp_status, ospf_status, traffic_report, and drop_report run live CLI show commands; if the network source is unreachable, they say so instead of guessing.
 - Use web_search only for outside-world questions (vendor advisories, outage news).
 - Use note_add for shift or handoff notes.
 
@@ -96,7 +93,7 @@ const toolSpecs = [
   {
     type: "function",
     name: "network_overview",
-    description: "Start-of-shift overview of the whole network: source mode (live Catalyst Center or simulator), overall health, per-device state, links, active issues, and recent events. Call for 'how is my network doing', 'give me the rundown', or at shift start.",
+    description: "Start-of-shift overview of the whole network: source mode (live Catalyst Center, or unreachable), overall health, per-device state, links, active issues, and recent events. Call for 'how is my network doing', 'give me the rundown', or at shift start.",
     parameters: { type: "object", properties: {}, additionalProperties: false },
   },
   {
@@ -114,7 +111,7 @@ const toolSpecs = [
   {
     type: "function",
     name: "device_health",
-    description: "Health for devices: reachability, health score, CPU, memory, uptime. Scope can be a device name, or a role in SIM mode (core, edge, distribution, firewall). Omit for all devices.",
+    description: "Health for devices: reachability, health score, CPU, memory, uptime. Scope can be a device name. Omit for all devices.",
     parameters: {
       type: "object",
       properties: {
@@ -159,7 +156,7 @@ const toolSpecs = [
   {
     type: "function",
     name: "active_alerts",
-    description: "Active alerts/issues with severity and detail. In LIVE mode these are Catalyst Center issues; in SIM mode, simulator alerts.",
+    description: "Active alerts/issues with severity and detail, sourced from Catalyst Center issues.",
     parameters: {
       type: "object",
       properties: {
@@ -183,7 +180,7 @@ const toolSpecs = [
   {
     type: "function",
     name: "acknowledge_alert",
-    description: "Acknowledge a simulator alert by id (e.g. ALM-2483). Summarize the alert and get explicit confirmation first, then call with confirmed true. In LIVE mode issues are managed in Catalyst Center and cannot be acknowledged from here.",
+    description: "Acknowledge an alert by id. Issues are managed in Catalyst Center and cannot be acknowledged from here; this tool reports that plainly.",
     parameters: {
       type: "object",
       properties: {
@@ -197,7 +194,7 @@ const toolSpecs = [
   {
     type: "function",
     name: "bgp_status",
-    description: "BGP status. LIVE mode runs 'show ip bgp summary' on the devices; SIM mode reports the simulated eBGP/iBGP sessions.",
+    description: "BGP status. Runs 'show ip bgp summary' on the devices via the live source. Reports an error if the network source is unreachable.",
     parameters: {
       type: "object",
       properties: {
@@ -209,7 +206,7 @@ const toolSpecs = [
   {
     type: "function",
     name: "ospf_status",
-    description: "OSPF status. LIVE mode runs 'show ip ospf neighbor' and 'show ip protocols' on the devices; SIM mode reports simulated adjacencies.",
+    description: "OSPF status. Runs 'show ip ospf neighbor' and 'show ip protocols' on the devices via the live source. Reports an error if the network source is unreachable.",
     parameters: {
       type: "object",
       properties: {
@@ -221,7 +218,7 @@ const toolSpecs = [
   {
     type: "function",
     name: "traffic_report",
-    description: "Traffic picture. LIVE mode runs 'show interfaces counters' on the device(s); SIM mode reports utilization, anomalies, and busiest links.",
+    description: "Traffic picture. Runs 'show interfaces counters' on the device(s) via the live source. Reports an error if the network source is unreachable.",
     parameters: {
       type: "object",
       properties: {
@@ -233,7 +230,7 @@ const toolSpecs = [
   {
     type: "function",
     name: "drop_report",
-    description: "Packet drop and error report. LIVE mode runs 'show interfaces counters errors' on the device(s); SIM mode reports simulated drops over a window.",
+    description: "Packet drop and error report. Runs 'show interfaces counters errors' on the device(s) via the live source. Reports an error if the network source is unreachable.",
     parameters: {
       type: "object",
       properties: {
@@ -737,65 +734,50 @@ function createTools({ readDb, updateDb }) {
 
   async function deviceHealth(args) {
     const { mode } = await source.getMode();
-    if (mode === "live") {
-      const snapshot = await source.getSnapshot();
-      const query = String(args.scope || "").trim().toLowerCase();
-      let rows = snapshot.devices;
-      if (query && query !== "all") rows = rows.filter((device) => device.name.toLowerCase().includes(query));
-      const table = rows.map((device) => ({
-        device: device.name,
-        ip: device.ip,
-        role: device.role,
-        status: device.status,
-        healthScore: device.healthScore != null ? `${device.healthScore}/10` : "",
-        reachability: device.reachability,
-        cpu: device.cpu,
-        memory: device.memory,
-        uptime: device.uptime,
-        software: device.software,
-      }));
-      return {
-        ok: true,
-        mode,
-        devices: table,
-        artifact: { title: `Device Health (${query || "all"})`, kind: "table", content: JSON.stringify(table) },
-      };
+    if (mode !== "live") {
+      return { ok: false, mode, error: "Network source is unreachable." };
     }
-    const db = await readDb();
-    const health = sim.getDeviceHealth(args.scope, db.ackedAlerts);
+    const snapshot = await source.getSnapshot();
+    const query = String(args.scope || "").trim().toLowerCase();
+    let rows = snapshot.devices;
+    if (query && query !== "all") rows = rows.filter((device) => device.name.toLowerCase().includes(query));
+    const table = rows.map((device) => ({
+      device: device.name,
+      ip: device.ip,
+      role: device.role,
+      status: device.status,
+      healthScore: device.healthScore != null ? `${device.healthScore}/10` : "",
+      reachability: device.reachability,
+      cpu: device.cpu,
+      memory: device.memory,
+      uptime: device.uptime,
+      software: device.software,
+    }));
     return {
       ok: true,
       mode,
-      scope: health.scope,
-      devices: health.devices,
-      artifact: { title: `Device Health (${health.scope})`, kind: "table", content: JSON.stringify(health.devices) },
+      devices: table,
+      artifact: { title: `Device Health (${query || "all"})`, kind: "table", content: JSON.stringify(table) },
     };
   }
 
   async function interfaceReport(args) {
     const { mode } = await source.getMode();
-    if (mode === "live") {
-      let rows = await source.getLiveInterfaces(args.device);
-      let scope = args.device ? String(args.device) : "all devices";
-      if (args.problemsOnly === true) {
-        rows = rows.filter((row) => row.status !== "up" || String(row.adminStatus).toUpperCase() !== "UP");
-        scope += " (problems only)";
-      }
-      return {
-        ok: true,
-        mode,
-        count: rows.length,
-        interfaces: rows,
-        artifact: { title: `Interfaces (${scope})`, kind: "table", content: JSON.stringify(rows) },
-      };
+    if (mode !== "live") {
+      return { ok: false, mode, error: "Network source is unreachable." };
     }
-    const report = sim.getInterfaceReport(args.device, args.problemsOnly === true);
+    let rows = await source.getLiveInterfaces(args.device);
+    let scope = args.device ? String(args.device) : "all devices";
+    if (args.problemsOnly === true) {
+      rows = rows.filter((row) => row.status !== "up" || String(row.adminStatus).toUpperCase() !== "UP");
+      scope += " (problems only)";
+    }
     return {
       ok: true,
       mode,
-      scope: report.scope,
-      interfaces: report.interfaces,
-      artifact: { title: `Interfaces (${report.scope})`, kind: "table", content: JSON.stringify(report.interfaces) },
+      count: rows.length,
+      interfaces: rows,
+      artifact: { title: `Interfaces (${scope})`, kind: "table", content: JSON.stringify(rows) },
     };
   }
 
@@ -809,7 +791,7 @@ function createTools({ readDb, updateDb }) {
       return {
         ok: false,
         mode,
-        error: "run_show_command needs the live Catalyst Center source, which is not reachable right now. Answer from the simulator tools instead.",
+        error: "run_show_command needs the live Catalyst Center source, which is not reachable right now.",
       };
     }
     const result = await source.runLiveShowCommands(args.device, commands);
@@ -827,21 +809,17 @@ function createTools({ readDb, updateDb }) {
 
   async function topologyShow() {
     const { mode } = await source.getMode();
-    if (mode === "live") {
-      const { mermaid, topology } = await source.getLiveTopologyMermaid();
-      return {
-        ok: true,
-        mode,
-        nodes: topology.nodes.map((node) => node.label),
-        linkCount: topology.links.length,
-        links: topology.links.map((link) => `${link.source} ${link.sourcePort} <-> ${link.target} ${link.targetPort} (${link.status})`),
-        artifact: { title: "Network Topology (live)", kind: "mermaid", content: mermaid },
-      };
+    if (mode !== "live") {
+      return { ok: false, mode, error: "Network source is unreachable." };
     }
+    const { mermaid, topology } = await source.getLiveTopologyMermaid();
     return {
       ok: true,
       mode,
-      artifact: { title: "Network Topology (simulated)", kind: "mermaid", content: sim.topologyMermaid() },
+      nodes: topology.nodes.map((node) => node.label),
+      linkCount: topology.links.length,
+      links: topology.links.map((link) => `${link.source} ${link.sourcePort} <-> ${link.target} ${link.targetPort} (${link.status})`),
+      artifact: { title: "Network Topology (live)", kind: "mermaid", content: mermaid },
     };
   }
 
@@ -851,48 +829,31 @@ function createTools({ readDb, updateDb }) {
 
   async function activeAlerts(args) {
     const { mode } = await source.getMode();
-    if (mode === "live") {
-      const snapshot = await source.getSnapshot();
-      const items = snapshot.issues.items || [];
-      const markdown =
-        items.length === 0
-          ? "# Alerts\n\nCatalyst Center reports no active issues. The board is green."
-          : ["# Alerts (Catalyst Center issues)", "", ...items.map((issue) => `- **${issue.name || issue.issueId}** - priority ${issue.priority || "n/a"}, status ${issue.status || "active"}`)].join("\n");
-      return { ok: true, mode, count: items.length, issues: items, artifact: { title: "Alerts", kind: "markdown", content: markdown } };
+    if (mode !== "live") {
+      return { ok: false, mode, error: "Network source is unreachable." };
     }
-    const db = await readDb();
-    const alerts = sim.getAlerts(args.includeCleared === true, db.ackedAlerts);
-    return {
-      ok: true,
-      mode,
-      count: alerts.length,
-      alerts: alerts.map(({ detail, ...rest }) => rest),
-      artifact: { title: "Alerts", kind: "markdown", content: alertsMarkdown(alerts) },
-    };
+    const snapshot = await source.getSnapshot();
+    const items = snapshot.issues.items || [];
+    const markdown =
+      items.length === 0
+        ? "# Alerts\n\nCatalyst Center reports no active issues. The board is green."
+        : ["# Alerts (Catalyst Center issues)", "", ...items.map((issue) => `- **${issue.name || issue.issueId}** - priority ${issue.priority || "n/a"}, status ${issue.status || "active"}`)].join("\n");
+    return { ok: true, mode, count: items.length, issues: items, artifact: { title: "Alerts", kind: "markdown", content: markdown } };
   }
 
   async function overnightEvents(args) {
     const { mode } = await source.getMode();
-    const windowHours = Number(args.windowHours) > 0 ? Number(args.windowHours) : 12;
-    if (mode === "live") {
-      const snapshot = await source.getSnapshot();
-      const events = snapshot.events;
-      return {
-        ok: true,
-        mode,
-        count: events.length,
-        events,
-        artifact: { title: "Recent Events (Catalyst Center)", kind: "table", content: JSON.stringify(events) },
-      };
+    if (mode !== "live") {
+      return { ok: false, mode, error: "Network source is unreachable." };
     }
-    const events = sim.getEvents(windowHours);
+    const snapshot = await source.getSnapshot();
+    const events = snapshot.events;
     return {
       ok: true,
       mode,
-      windowHours,
       count: events.length,
       events,
-      artifact: { title: `Event Log (last ${windowHours}h)`, kind: "table", content: JSON.stringify(events) },
+      artifact: { title: "Recent Events (Catalyst Center)", kind: "table", content: JSON.stringify(events) },
     };
   }
 
@@ -901,21 +862,7 @@ function createTools({ readDb, updateDb }) {
     if (mode === "live") {
       return { ok: false, mode, error: "Live issues are managed in Catalyst Center and cannot be acknowledged from NetJarvis yet." };
     }
-    const alert = sim.findAlert(args.alertId);
-    if (!alert) return { ok: false, error: `No alert found with id ${args.alertId}.` };
-    if (args.confirmed !== true) {
-      return {
-        ok: false,
-        requiresConfirmation: true,
-        alert: { id: alert.id, severity: alert.severity, device: alert.device, title: alert.title },
-        message: `Confirmation required before acknowledging ${alert.id} (${alert.title}). Ask the engineer to confirm, then call again with confirmed true.`,
-      };
-    }
-    const { db } = await updateDb(async (current) => {
-      if (!current.ackedAlerts.includes(alert.id)) current.ackedAlerts.push(alert.id);
-    });
-    const alerts = sim.getAlerts(false, db.ackedAlerts);
-    return { ok: true, acknowledged: alert.id, artifact: { title: "Alerts", kind: "markdown", content: alertsMarkdown(alerts) } };
+    return { ok: false, mode, error: "Network source is unreachable." };
   }
 
   // -------------------------------------------------------------------------
@@ -924,86 +871,49 @@ function createTools({ readDb, updateDb }) {
 
   async function protocolStatus(args, protocol) {
     const { mode } = await source.getMode();
-    if (mode === "live") {
-      const commands = protocol === "bgp" ? ["show ip bgp summary"] : ["show ip ospf neighbor", "show ip protocols"];
-      const result = await source.runLiveShowCommands(args.device, commands);
-      return {
-        ok: true,
-        mode,
-        scope: result.scope,
-        outputs: trimOutputs(result.outputs),
-        note: "Raw CLI output; summarize honestly. If the device does not run this protocol, say so.",
-        artifact: { title: `${protocol.toUpperCase()} Status (live CLI)`, kind: "code", content: formatCliOutputs(result.outputs) },
-      };
+    if (mode !== "live") {
+      return { ok: false, mode, error: "Network source is unreachable." };
     }
-    if (protocol === "bgp") {
-      const status = sim.getBgpStatus(args.device);
-      return {
-        ok: true,
-        mode,
-        scope: status.scope,
-        established: status.established,
-        totalSessions: status.totalSessions,
-        down: status.down,
-        flapsLast24h: status.flapsLast24h,
-        flappedSessions: status.flappedSessions,
-        artifact: { title: `BGP Status (${status.scope})`, kind: "table", content: JSON.stringify(status.sessions) },
-      };
-    }
-    const status = sim.getOspfStatus();
+    const commands = protocol === "bgp" ? ["show ip bgp summary"] : ["show ip ospf neighbor", "show ip protocols"];
+    const result = await source.runLiveShowCommands(args.device, commands);
     return {
       ok: true,
       mode,
-      full: status.full,
-      totalAdjacencies: status.totalAdjacencies,
-      down: status.down,
-      adjacencyChanges24h: status.adjacencyChanges24h,
-      areas: status.areas,
-      artifact: { title: "OSPF Adjacencies", kind: "table", content: JSON.stringify(status.neighbors) },
+      scope: result.scope,
+      outputs: trimOutputs(result.outputs),
+      note: "Raw CLI output; summarize honestly. If the device does not run this protocol, say so.",
+      artifact: { title: `${protocol.toUpperCase()} Status (live CLI)`, kind: "code", content: formatCliOutputs(result.outputs) },
     };
   }
 
   async function trafficReport(args) {
     const { mode } = await source.getMode();
-    if (mode === "live") {
-      const result = await source.runLiveShowCommands(args.device, ["show interfaces counters"]);
-      return {
-        ok: true,
-        mode,
-        scope: result.scope,
-        outputs: trimOutputs(result.outputs),
-        artifact: { title: "Traffic Counters (live CLI)", kind: "code", content: formatCliOutputs(result.outputs) },
-      };
+    if (mode !== "live") {
+      return { ok: false, mode, error: "Network source is unreachable." };
     }
-    const report = sim.getTrafficReport();
+    const result = await source.runLiveShowCommands(args.device, ["show interfaces counters"]);
     return {
       ok: true,
       mode,
-      ...report,
-      artifact: { title: "Traffic Report", kind: "markdown", content: trafficMarkdown(report) },
+      scope: result.scope,
+      outputs: trimOutputs(result.outputs),
+      artifact: { title: "Traffic Counters (live CLI)", kind: "code", content: formatCliOutputs(result.outputs) },
     };
   }
 
   async function dropReport(args) {
     const { mode } = await source.getMode();
-    if (mode === "live") {
-      const result = await source.runLiveShowCommands(args.device, ["show interfaces counters errors"]);
-      return {
-        ok: true,
-        mode,
-        scope: result.scope,
-        outputs: trimOutputs(result.outputs),
-        note: "Raw error counters; call out any non-zero columns.",
-        artifact: { title: "Interface Errors (live CLI)", kind: "code", content: formatCliOutputs(result.outputs) },
-      };
+    if (mode !== "live") {
+      return { ok: false, mode, error: "Network source is unreachable." };
     }
-    const report = sim.getDropReport(args.windowHours);
+    const result = await source.runLiveShowCommands(args.device, ["show interfaces counters errors"]);
     return {
       ok: true,
       mode,
-      windowHours: report.windowHours,
-      drops: report.drops,
-      artifact: { title: `Drops (last ${report.windowHours}h)`, kind: "table", content: JSON.stringify(report.drops) },
+      scope: result.scope,
+      outputs: trimOutputs(result.outputs),
+      note: "Raw error counters; call out any non-zero columns.",
+      artifact: { title: "Interface Errors (live CLI)", kind: "code", content: formatCliOutputs(result.outputs) },
     };
   }
 
@@ -1156,7 +1066,7 @@ function createTools({ readDb, updateDb }) {
           "",
           `- Id: ${snapshot.id}`,
           `- Taken: ${snapshot.at}`,
-          `- Source: ${snapshot.mode === "live" ? "live network" : "simulator"}`,
+          `- Source: ${snapshot.mode === "live" ? "live network" : "unreachable"}`,
           `- Devices captured: ${snapshot.devices.length}`,
           `- Interfaces captured: ${snapshot.interfaces.length}`,
           `- Error counters captured: ${Object.keys(snapshot.errorCounters || {}).length > 0 ? "yes" : "no"}`,
@@ -1373,7 +1283,7 @@ function createTools({ readDb, updateDb }) {
     const lines = [
       "# Multi-source status",
       "",
-      `## Catalyst Center (${snapshot.mode === "live" ? "LIVE" : "SIM"})`,
+      `## Catalyst Center (${snapshot.mode === "live" ? "LIVE" : "UNREACHABLE"})`,
       `- Overall: ${snapshot.overall}`,
       `- Devices: ${snapshot.devices?.length || 0}`,
       `- Active issues: ${snapshot.issues?.active || 0}`,
@@ -1472,8 +1382,18 @@ function createTools({ readDb, updateDb }) {
 // ---------------------------------------------------------------------------
 
 function overviewMarkdown(snapshot) {
+  if (snapshot.reachable === false) {
+    return [
+      `# Network Overview - ${snapshot.updatedAt}`,
+      "",
+      "Source: UNREACHABLE",
+      "",
+      `The live network source could not be reached: ${snapshot.error || "unknown error"}.`,
+      "No device, link, issue, or event data is available. This is not a fabricated result - NetJarvis never shows simulated data.",
+    ].join("\n");
+  }
   const lines = [];
-  const modeLabel = snapshot.mode === "live" ? "LIVE" : "SIMULATED";
+  const modeLabel = snapshot.mode === "live" ? "LIVE" : "UNREACHABLE";
   lines.push(`# Network Overview - ${snapshot.updatedAt}`);
   lines.push("");
   lines.push(`Source: ${modeLabel} - ${snapshot.source}`);
@@ -1549,50 +1469,13 @@ function formatCliOutputs(outputs) {
   return blocks.join("\n\n" + "=".repeat(64) + "\n\n") || "No output returned.";
 }
 
-function trafficMarkdown(report) {
-  const lines = [];
-  lines.push(`# Traffic Report - ${report.measuredAt}`);
-  lines.push("");
-  lines.push(`Aggregate across key links: ${report.aggregateInGbps} Gbps in / ${report.aggregateOutGbps} Gbps out (${report.vsSameHourYesterday}).`);
-  lines.push("");
-  if (report.anomalies.length > 0) {
-    lines.push("## Anomalies");
-    for (const anomaly of report.anomalies) {
-      lines.push(`- ${anomaly.device} (${anomaly.alert}): ${anomaly.summary}`);
-    }
-    lines.push("");
-  }
-  lines.push("## Busiest links");
-  for (const link of report.busiestLinks) {
-    lines.push(`- ${link.device} ${link.interface} at ${link.utilization} (${link.inGbps} Gbps in / ${link.outGbps} Gbps out) - ${link.description}`);
-  }
-  return lines.join("\n");
-}
-
-function alertsMarkdown(alerts) {
-  if (alerts.length === 0) {
-    return "# Alerts\n\nNo active alerts. The board is green.";
-  }
-  const lines = ["# Alerts", ""];
-  for (const alert of alerts) {
-    const ack = alert.acknowledged ? " - acknowledged" : "";
-    lines.push(`## ${alert.id} - ${alert.title}`);
-    lines.push(`- Severity: ${alert.severity} (${alert.state}${ack})`);
-    lines.push(`- Device: ${alert.device}`);
-    lines.push(`- Raised: ${alert.raised}`);
-    lines.push("");
-    lines.push(alert.detail);
-    lines.push("");
-  }
-  return lines.join("\n");
-}
 
 function buildMenuMarkdown(mode, sourceLabel) {
   return `# NetJarvis Menu
 
 Your voice copilot for network operations, layer 1 through layer 7.
 
-Current source: **${mode === "live" ? "LIVE" : "SIMULATED"}** - ${sourceLabel}
+Current source: **${mode === "live" ? "LIVE" : "UNREACHABLE"}** - ${sourceLabel}
 
 ## Start of shift
 

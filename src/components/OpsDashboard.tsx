@@ -23,7 +23,11 @@ export function OpsDashboard({ sessionLog = [], expanded = false }: OpsDashboard
     setLoading(true);
     try {
       const data = await window.jarvis.getDashboard({ force });
-      if (data.error) {
+      if (data.error && !data.mode) {
+        // Transport/IPC-level failure with no usable snapshot at all. A
+        // snapshot that honestly reports itself unreachable still has a
+        // `mode` and should render normally (badge + empty state), not be
+        // swallowed here.
         setError(data.error);
       } else {
         setSnapshot(data);
@@ -56,6 +60,7 @@ export function OpsDashboard({ sessionLog = [], expanded = false }: OpsDashboard
     );
   }
 
+  const unreachable = snapshot.reachable === false;
   const devices = snapshot.devices || [];
   const links = snapshot.links || [];
   const events = snapshot.events || [];
@@ -68,7 +73,7 @@ export function OpsDashboard({ sessionLog = [], expanded = false }: OpsDashboard
     <div className={`dashboard noc-dashboard ${expanded ? "noc-dashboard-expanded" : ""}`}>
       <header className={`noc-command-bar dash-overall-${overall}`}>
         <div className="noc-command-left">
-          <span className={`dash-mode dash-mode-${snapshot.mode || "sim"}`}>{snapshot.mode === "live" ? "LIVE" : "SIM"}</span>
+          <span className={`dash-mode dash-mode-${unreachable ? "unreachable" : "live"}`}>{unreachable ? "UNREACHABLE" : "LIVE"}</span>
           <div>
             <strong>Network Operations Center</strong>
             <p>
@@ -86,6 +91,12 @@ export function OpsDashboard({ sessionLog = [], expanded = false }: OpsDashboard
           </button>
         </div>
       </header>
+
+      {unreachable ? (
+        <p className="dash-error">
+          Network source unreachable: {snapshot.error || "no error detail"}. Retrying…
+        </p>
+      ) : null}
 
       <div className="noc-kpi-ribbon">
         <article className="noc-kpi">
@@ -112,25 +123,27 @@ export function OpsDashboard({ sessionLog = [], expanded = false }: OpsDashboard
 
       {error ? <p className="dash-error">Live source problem: {error}</p> : null}
 
-      <CollapsibleSection title="Devices" count={devices.length} defaultOpen={expanded}>
-        <div className="status-grid noc-device-grid">
-          {devices.map((device) => (
-            <article className={`status-tile status-${device.status}`} key={device.id || device.name}>
-              <header>
-                <strong>{device.name}</strong>
-                <span className="status-dot" aria-label={device.status} />
-              </header>
-              <p className="status-role">{[device.role, device.ip || device.site].filter(Boolean).join(" · ")}</p>
-              <p className="status-stats">
-                {[device.cpu ? `CPU ${device.cpu}` : null, device.memory ? `mem ${device.memory}` : null, device.healthScore != null ? `health ${device.healthScore}/10` : null]
-                  .filter(Boolean)
-                  .join(" · ") || device.reachability}
-              </p>
-              {device.note ? <p className="status-note">{device.note}</p> : <p className="status-note status-note-clear">{device.uptime ? `up ${device.uptime}` : "Clear"}</p>}
-            </article>
-          ))}
-        </div>
-      </CollapsibleSection>
+      {unreachable ? null : (
+        <CollapsibleSection title="Devices" count={devices.length} defaultOpen={expanded}>
+          <div className="status-grid noc-device-grid">
+            {devices.map((device) => (
+              <article className={`status-tile status-${device.status}`} key={device.id || device.name}>
+                <header>
+                  <strong>{device.name}</strong>
+                  <span className="status-dot" aria-label={device.status} />
+                </header>
+                <p className="status-role">{[device.role, device.ip || device.site].filter(Boolean).join(" · ")}</p>
+                <p className="status-stats">
+                  {[device.cpu ? `CPU ${device.cpu}` : null, device.memory ? `mem ${device.memory}` : null, device.healthScore != null ? `health ${device.healthScore}/10` : null]
+                    .filter(Boolean)
+                    .join(" · ") || device.reachability}
+                </p>
+                {device.note ? <p className="status-note">{device.note}</p> : <p className="status-note status-note-clear">{device.uptime ? `up ${device.uptime}` : "Clear"}</p>}
+              </article>
+            ))}
+          </div>
+        </CollapsibleSection>
+      )}
 
       <CollapsibleSection title="Active issues" count={issues.length} badge={issues.length > 0 ? "alert" : undefined} defaultOpen={issues.length > 0 && expanded}>
         {issues.length === 0 ? <p className="noc-empty">No active issues.</p> : (
