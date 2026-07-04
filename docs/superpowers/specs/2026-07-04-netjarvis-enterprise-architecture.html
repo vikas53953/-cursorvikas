@@ -1,0 +1,475 @@
+<title>NetJarvis — Enterprise Architecture</title>
+<style>
+  :root {
+    --bg: #F5F8FA;
+    --surface: #FFFFFF;
+    --surface-2: #EDF3F6;
+    --ink: #0E1A24;
+    --muted: #566A7B;
+    --line: #D9E2E8;
+    --accent: #0C8FA3;
+    --accent-ink: #076576;
+    --accent-soft: #E1F3F6;
+    --good: #1B935D;
+    --good-soft: #E2F3EB;
+    --warn: #B9791A;
+    --warn-soft: #F6ECD8;
+    --crit: #C9455A;
+    --crit-soft: #F8E6E9;
+    --shadow: 0 1px 2px rgba(14,26,36,.04), 0 6px 20px rgba(14,26,36,.06);
+    --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --maxw: 960px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #091019;
+      --surface: #0F1B26;
+      --surface-2: #15242F;
+      --ink: #E7EEF4;
+      --muted: #91A5B5;
+      --line: #21343F;
+      --accent: #2BC4D7;
+      --accent-ink: #7FE0EC;
+      --accent-soft: #0E2E38;
+      --good: #38BC80;
+      --good-soft: #10281E;
+      --warn: #E0A244;
+      --warn-soft: #2C2413;
+      --crit: #E8677A;
+      --crit-soft: #2C1519;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 26px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F5F8FA; --surface: #FFFFFF; --surface-2: #EDF3F6; --ink: #0E1A24;
+    --muted: #566A7B; --line: #D9E2E8; --accent: #0C8FA3; --accent-ink: #076576;
+    --accent-soft: #E1F3F6; --good: #1B935D; --good-soft: #E2F3EB; --warn: #B9791A;
+    --warn-soft: #F6ECD8; --crit: #C9455A; --crit-soft: #F8E6E9;
+    --shadow: 0 1px 2px rgba(14,26,36,.04), 0 6px 20px rgba(14,26,36,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #091019; --surface: #0F1B26; --surface-2: #15242F; --ink: #E7EEF4;
+    --muted: #91A5B5; --line: #21343F; --accent: #2BC4D7; --accent-ink: #7FE0EC;
+    --accent-soft: #0E2E38; --good: #38BC80; --good-soft: #10281E; --warn: #E0A244;
+    --warn-soft: #2C2413; --crit: #E8677A; --crit-soft: #2C1519;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 26px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; animation: none !important; } }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--font-sans); font-size: 16px; line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 clamp(18px, 4vw, 40px); }
+
+  /* top bar */
+  .topbar {
+    position: sticky; top: 0; z-index: 50;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar-inner { display: flex; align-items: center; gap: 16px; padding: 12px clamp(18px,4vw,40px); max-width: var(--maxw); margin: 0 auto; }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 700; letter-spacing: -.01em; }
+  .brand .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); flex: none; }
+  .brand small { font-family: var(--font-mono); font-weight: 500; font-size: .7rem; color: var(--muted); letter-spacing: .04em; }
+  .topnav { margin-left: auto; display: flex; gap: 4px; flex-wrap: wrap; }
+  .topnav a {
+    font-family: var(--font-mono); font-size: .74rem; letter-spacing: .02em;
+    color: var(--muted); text-decoration: none; padding: 6px 10px; border-radius: 7px;
+  }
+  .topnav a:hover, .topnav a.active { color: var(--accent-ink); background: var(--accent-soft); }
+  @media (max-width: 720px) { .topnav { display: none; } }
+
+  /* hero */
+  header.hero { padding: clamp(38px, 7vw, 76px) 0 8px; }
+  .eyebrow { font-family: var(--font-mono); font-size: .74rem; text-transform: uppercase; letter-spacing: .14em; color: var(--accent-ink); margin: 0 0 14px; }
+  h1 { font-size: clamp(2rem, 5vw, 3.1rem); line-height: 1.04; letter-spacing: -.025em; margin: 0 0 18px; text-wrap: balance; font-weight: 750; }
+  .lede { font-size: clamp(1.05rem, 2vw, 1.28rem); color: var(--muted); max-width: 60ch; margin: 0 0 8px; line-height: 1.5; }
+  .lede b { color: var(--ink); font-weight: 650; }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: .72rem; letter-spacing: .02em; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); }
+  .chip.accent { color: var(--accent-ink); background: var(--accent-soft); border-color: transparent; }
+  .chip .sq { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+
+  /* sections */
+  section { padding: clamp(34px, 6vw, 62px) 0; border-top: 1px solid var(--line); }
+  .sec-head { margin-bottom: 26px; }
+  .sec-head .eyebrow { margin-bottom: 8px; }
+  h2 { font-size: clamp(1.35rem, 3vw, 1.85rem); letter-spacing: -.02em; margin: 0 0 6px; font-weight: 700; text-wrap: balance; }
+  .sec-head p { margin: 0; color: var(--muted); max-width: 64ch; }
+  p { max-width: 68ch; }
+
+  /* scale stat tiles */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  @media (max-width: 640px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+  .stat { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px 18px 16px; box-shadow: var(--shadow); position: relative; overflow: hidden; }
+  .stat::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent); opacity: .8; }
+  .stat .num { font-family: var(--font-mono); font-size: clamp(1.6rem, 4vw, 2.1rem); font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; line-height: 1; }
+  .stat .lbl { display: block; margin-top: 10px; font-size: .82rem; color: var(--muted); }
+  .stat .dom { display: block; font-family: var(--font-mono); font-size: .68rem; text-transform: uppercase; letter-spacing: .1em; color: var(--accent-ink); margin-top: 3px; }
+
+  /* generic cards grid */
+  .grid { display: grid; gap: 14px; }
+  .grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 780px) { .grid.cols-3 { grid-template-columns: 1fr; } .grid.cols-2 { grid-template-columns: 1fr; } }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; box-shadow: var(--shadow); }
+  .card h3 { margin: 0 0 8px; font-size: 1.02rem; letter-spacing: -.01em; display: flex; align-items: center; gap: 9px; }
+  .card p { margin: 0; color: var(--muted); font-size: .92rem; }
+  .card .idx { font-family: var(--font-mono); font-size: .72rem; color: var(--accent-ink); background: var(--accent-soft); border-radius: 6px; padding: 3px 7px; flex: none; }
+
+  /* two-plane diagram */
+  .diagram { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: clamp(18px, 3vw, 30px); box-shadow: var(--shadow); overflow-x: auto; }
+  .flow { display: flex; flex-direction: column; align-items: center; min-width: 520px; }
+  .node { width: 100%; max-width: 620px; border-radius: 12px; padding: 14px 18px; text-align: center; border: 1px solid var(--line); background: var(--surface-2); }
+  .node .k { font-family: var(--font-mono); font-size: .68rem; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); }
+  .node .v { font-weight: 650; margin-top: 3px; }
+  .node .sub { font-size: .84rem; color: var(--muted); margin-top: 4px; }
+  .node.q { background: var(--accent-soft); border-color: transparent; }
+  .node.q .k { color: var(--accent-ink); }
+  .node.layer { border: 1.5px solid var(--accent); background: var(--surface); }
+  .pillrow { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 10px; }
+  .miniPill { font-family: var(--font-mono); font-size: .74rem; padding: 4px 10px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); }
+  .stepnums { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-top: 8px; }
+  .stepnums span { font-size: .82rem; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .stepnums b { font-family: var(--font-mono); color: var(--accent-ink); font-weight: 600; }
+  .conn { width: 2px; height: 26px; background: linear-gradient(var(--accent), color-mix(in srgb, var(--accent) 25%, transparent)); }
+  .planes { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; width: 100%; max-width: 620px; }
+  @media (max-width: 560px) { .planes { grid-template-columns: 1fr; } .flow { min-width: 380px; } }
+  .plane { border-radius: 12px; padding: 16px; border: 1px solid var(--line); background: var(--surface); }
+  .plane .tag { font-family: var(--font-mono); font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; color: var(--accent-ink); }
+  .plane h4 { margin: 4px 0 6px; font-size: .98rem; }
+  .plane p { margin: 0 0 10px; font-size: .86rem; color: var(--muted); }
+  .plane ul { margin: 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+  .plane li { font-family: var(--font-mono); font-size: .78rem; background: var(--surface-2); border: 1px solid var(--line); border-radius: 7px; padding: 6px 9px; }
+  .plane li .n { color: var(--muted); }
+
+  /* caps */
+  .caps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  @media (max-width: 640px) { .caps { grid-template-columns: 1fr; } }
+  .cap { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; box-shadow: var(--shadow); }
+  .cap .big { font-family: var(--font-mono); font-size: 2.2rem; font-weight: 600; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+  .cap .t { font-weight: 650; margin-top: 6px; }
+  .cap .d { color: var(--muted); font-size: .88rem; margin-top: 4px; }
+
+  /* today vs later */
+  .twocol { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 720px) { .twocol { grid-template-columns: 1fr; } }
+  .panel { border-radius: 14px; border: 1px solid var(--line); padding: 20px; background: var(--surface); box-shadow: var(--shadow); }
+  .panel .head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .panel h3 { margin: 0; font-size: 1.05rem; }
+  .tick { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .tick li { display: flex; gap: 10px; font-size: .92rem; align-items: flex-start; }
+  .tick li .m { flex: none; width: 18px; height: 18px; border-radius: 5px; display: grid; place-items: center; font-size: .7rem; font-weight: 700; margin-top: 2px; }
+  .m.g { background: var(--good-soft); color: var(--good); }
+  .m.w { background: var(--warn-soft); color: var(--warn); }
+  .tick li code { font-family: var(--font-mono); font-size: .82em; background: var(--surface-2); padding: 1px 5px; border-radius: 5px; }
+
+  /* code mapping */
+  .maptrio { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  @media (max-width: 780px) { .maptrio { grid-template-columns: 1fr; } }
+  .mapcard { border-radius: 14px; border: 1px solid var(--line); background: var(--surface); overflow: hidden; box-shadow: var(--shadow); }
+  .mapcard .bar { padding: 12px 16px; font-weight: 650; font-size: .92rem; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--line); }
+  .mapcard .bar .s { width: 9px; height: 9px; border-radius: 2px; flex: none; }
+  .mapcard.reuse .bar { background: var(--good-soft); color: var(--good); }
+  .mapcard.refac .bar { background: var(--warn-soft); color: var(--warn); }
+  .mapcard.remove .bar { background: var(--crit-soft); color: var(--crit); }
+  .mapcard ul { list-style: none; margin: 0; padding: 12px 16px; display: flex; flex-direction: column; gap: 9px; }
+  .mapcard li { font-size: .86rem; color: var(--muted); }
+  .mapcard li code { font-family: var(--font-mono); font-size: .82em; color: var(--ink); }
+
+  /* roadmap */
+  .road { display: flex; flex-direction: column; gap: 0; }
+  .phase { display: grid; grid-template-columns: 44px 1fr; gap: 16px; }
+  .phase .rail { display: flex; flex-direction: column; align-items: center; }
+  .phase .marker { width: 42px; height: 42px; border-radius: 11px; display: grid; place-items: center; font-family: var(--font-mono); font-weight: 700; font-size: .9rem; background: var(--surface-2); border: 1px solid var(--line); color: var(--muted); flex: none; }
+  .phase.now .marker { background: var(--accent); color: #fff; border-color: transparent; box-shadow: 0 0 0 4px var(--accent-soft); }
+  .phase .line { width: 2px; flex: 1; background: var(--line); margin: 6px 0; min-height: 12px; }
+  .phase:last-child .line { display: none; }
+  .phase .body { padding-bottom: 22px; }
+  .phase .body h3 { margin: 6px 0 6px; font-size: 1.06rem; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .phase .body p { margin: 0; color: var(--muted); font-size: .92rem; }
+  .badge { font-family: var(--font-mono); font-size: .64rem; letter-spacing: .1em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; }
+  .badge.next { background: var(--accent); color: #fff; }
+  .badge.later { background: var(--surface-2); color: var(--muted); border: 1px solid var(--line); }
+
+  /* open questions */
+  .oq { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .oq li { background: var(--surface); border: 1px solid var(--line); border-radius: 11px; padding: 14px 16px; display: flex; gap: 12px; align-items: flex-start; box-shadow: var(--shadow); }
+  .oq .q { font-family: var(--font-mono); font-size: .74rem; color: var(--accent-ink); background: var(--accent-soft); border-radius: 6px; padding: 4px 8px; flex: none; }
+  .oq .txt { font-size: .92rem; }
+  .oq .txt b { display: block; margin-bottom: 2px; }
+  .oq .txt span { color: var(--muted); font-size: .88rem; }
+
+  footer { border-top: 1px solid var(--line); padding: 30px 0 60px; color: var(--muted); font-size: .82rem; }
+  footer code { font-family: var(--font-mono); background: var(--surface-2); padding: 1px 6px; border-radius: 5px; }
+  a.src { color: var(--accent-ink); text-decoration: none; border-bottom: 1px solid var(--accent-soft); }
+</style>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <span class="brand"><span class="dot"></span>NetJarvis <small>ARCHITECTURE · v0 DRAFT</small></span>
+    <nav class="topnav">
+      <a href="#why">Why</a>
+      <a href="#model">Model</a>
+      <a href="#scale">Scale</a>
+      <a href="#real">Real vs later</a>
+      <a href="#code">Code map</a>
+      <a href="#roadmap">Roadmap</a>
+      <a href="#open">Open</a>
+    </nav>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero" id="why">
+    <p class="eyebrow">Enterprise architecture · 2026-07-04</p>
+    <h1>A real NetOps copilot, built for the whole estate.</h1>
+    <p class="lede">Ask any network question in plain language. NetJarvis finds the <b>real</b> devices, runs the <b>real read-only command</b> on them, and answers with <b>real output</b> — by voice or text. No fabricated data. No config changes. Ever.</p>
+    <div class="meta-row">
+      <span class="chip accent"><span class="sq" style="background:var(--accent)"></span>Real data only</span>
+      <span class="chip"><span class="sq" style="background:var(--good)"></span>Read-only forever</span>
+      <span class="chip"><span class="sq" style="background:var(--accent)"></span>Scope-first, capped fan-out</span>
+      <span class="chip">Cisco sandbox = first real backend</span>
+    </div>
+  </header>
+
+  <section id="scale-why" style="border-top:none; padding-top:14px;">
+    <div class="sec-head">
+      <p class="eyebrow">Why it must scale</p>
+      <h2>The target is Bank of America scale</h2>
+      <p>The four Cisco sandbox switches are just what's reachable today. The architecture is designed for the real estate — tens of thousands of devices across four domains — so nothing is hardcoded to a handful of boxes.</p>
+    </div>
+    <div class="stats">
+      <div class="stat"><span class="num">~70k</span><span class="dom">Data network</span><span class="lbl">switches &amp; routers</span></div>
+      <div class="stat"><span class="num">1,000+</span><span class="dom">Firewall</span><span class="lbl">firewall devices</span></div>
+      <div class="stat"><span class="num">800+</span><span class="dom">Proxy</span><span class="lbl">forward / reverse proxies</span></div>
+      <div class="stat"><span class="num">2,000+</span><span class="dom">Load balancer</span><span class="lbl">VIPs &amp; appliances</span></div>
+    </div>
+  </section>
+
+  <section id="model">
+    <div class="sec-head">
+      <p class="eyebrow">The core idea</p>
+      <h2>Two planes: look it up, then act on it</h2>
+      <p>This mirrors how the enterprise actually works — you find a device in the CMDB, then SSH to it through the jump host to run a command. Discovery and action are kept separate and pluggable.</p>
+    </div>
+
+    <div class="diagram" role="img" aria-label="Flow: a plain-language question goes to the answer pipelines, both call the shared Network Query Layer, which splits into Plane 1 Inventory (CMDB) and Plane 2 Execution (pluggable executor).">
+      <div class="flow">
+        <div class="node q">
+          <div class="k">Plain-language question</div>
+          <div class="v">"show version on the core switches in DC3"</div>
+        </div>
+        <div class="conn"></div>
+        <div class="node">
+          <div class="k">Answer pipelines · kept separate</div>
+          <div class="pillrow">
+            <span class="miniPill">Voice · Realtime + tools</span>
+            <span class="miniPill">Chat · classify → plan → skill</span>
+          </div>
+          <div class="sub">both call the same layer below ↓</div>
+        </div>
+        <div class="conn"></div>
+        <div class="node layer">
+          <div class="k">Network Query Layer · shared</div>
+          <div class="stepnums">
+            <span><b>1</b> Resolve scope</span>
+            <span><b>2</b> Dispatch</span>
+            <span><b>3</b> Normalize</span>
+          </div>
+          <div class="sub">enforces scope caps · concurrency · read-only · timeouts</div>
+        </div>
+        <div class="conn"></div>
+        <div class="planes">
+          <div class="plane">
+            <div class="tag">Plane 1 · which devices</div>
+            <h4>Inventory / Scope</h4>
+            <p>Search the CMDB (source of truth) for a bounded device set. Reference only — never a path to reach a device.</p>
+            <ul>
+              <li>InventoryProvider<span class="n"> · search / get</span></li>
+              <li><span class="n">today:</span> Catalyst Center</li>
+              <li><span class="n">later:</span> NetBox / ServiceNow</li>
+            </ul>
+          </div>
+          <div class="plane">
+            <div class="tag">Plane 2 · run it</div>
+            <h4>Execution</h4>
+            <p>Run the read-only command directly on each real device's CLI, via a pluggable executor.</p>
+            <ul>
+              <li>SSH<span class="n"> · jump host → device</span></li>
+              <li>Catalyst Center<span class="n"> · Command Runner</span></li>
+              <li><span class="n">read-only, per platform</span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid cols-3" style="margin-top:16px;">
+      <div class="card"><h3><span class="idx">CMDB</span> Inventory only</h3><p>The catalog says which devices exist and how to reach them. You look things up in it; you never tunnel through it.</p></div>
+      <div class="card"><h3><span class="idx">SSH</span> Jump-host execution</h3><p>Switches, firewalls, proxies and load balancers all have CLIs — one execution model (SSH via bastion), not four vendor APIs.</p></div>
+      <div class="card"><h3><span class="idx">Plug</span> Add a network, not a rewrite</h3><p>New backend = register a source behind the same interfaces. Firewall / proxy / LB domains sit as empty slots until reachable — never faked.</p></div>
+    </div>
+  </section>
+
+  <section id="scale">
+    <div class="sec-head">
+      <p class="eyebrow">Safety at scale</p>
+      <h2>Nothing ever runs against the whole estate</h2>
+      <p>A question is resolved to a bounded set first; execution is capped and concurrency-limited. These are the proposed defaults — sanity-check them against real ops.</p>
+    </div>
+    <div class="caps">
+      <div class="cap"><div class="big" style="color:var(--accent-ink)">25</div><div class="t">Interactive cap</div><div class="d">Above this many matched devices, summarize the count and require explicit confirmation before running.</div></div>
+      <div class="cap"><div class="big" style="color:var(--crit)">500</div><div class="t">Hard ceiling</div><div class="d">Above this, refuse outright and ask the engineer to narrow the scope. No accidental 10,000-device fan-outs.</div></div>
+      <div class="cap"><div class="big" style="color:var(--good)">10</div><div class="t">Max concurrency</div><div class="d">At most this many simultaneous sessions; the rest queue. Per-device timeout returns partial results honestly.</div></div>
+    </div>
+  </section>
+
+  <section id="real">
+    <div class="sec-head">
+      <p class="eyebrow">Honest by construction</p>
+      <h2>What's real today, what comes later</h2>
+      <p>Everything built now is validated against the one real backend we can reach. Domains without a reachable source stay empty — never simulated.</p>
+    </div>
+    <div class="twocol">
+      <div class="panel">
+        <div class="head"><span class="chip accent" style="font-size:.68rem"><span class="sq" style="background:var(--accent)"></span>BUILT &amp; VALIDATED NOW</span></div>
+        <ul class="tick">
+          <li><span class="m g">✓</span><span>Source registry, domain model, InventoryProvider + Executor interfaces</span></li>
+          <li><span class="m g">✓</span><span>Network Query Layer with scope resolution + fan-out / concurrency caps</span></li>
+          <li><span class="m g">✓</span><span>Two real data-network sources proving the pluggable executor: <code>catalyst-center</code> + an SSH sandbox</span></li>
+          <li><span class="m g">✓</span><span>Fake simulator removed; honest "unreachable" + auto-retry</span></li>
+          <li><span class="m g">✓</span><span>Inventory-driven device resolver replaces the hardcoded <code>swN</code> parser</span></li>
+        </ul>
+      </div>
+      <div class="panel">
+        <div class="head"><span class="chip" style="font-size:.68rem"><span class="sq" style="background:var(--warn)"></span>LATER · NEEDS REAL BACKENDS</span></div>
+        <ul class="tick">
+          <li><span class="m w">›</span><span>Firewall / proxy / load-balancer domains — registered but empty until reachable</span></li>
+          <li><span class="m w">›</span><span>Real CMDB (NetBox / ServiceNow) as the InventoryProvider</span></li>
+          <li><span class="m w">›</span><span>Real BofA jump host + per-source credentials</span></li>
+          <li><span class="m w">›</span><span>Enterprise user auth / RBAC and deployment model</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="code">
+    <div class="sec-head">
+      <p class="eyebrow">Grounded in the current code</p>
+      <h2>What we keep, change, and delete</h2>
+      <p>The existing app is the starting point, not a throwaway. Most of the real integration survives; the fake fallback goes.</p>
+    </div>
+    <div class="maptrio">
+      <div class="mapcard reuse">
+        <div class="bar"><span class="s" style="background:var(--good)"></span>Reuse</div>
+        <ul>
+          <li><code>sources/catalyst-center.cjs</code> — split into inventory provider + executor</li>
+          <li><code>sources/nvd.cjs</code> — real CVE lookup, unchanged</li>
+          <li><code>guardrails.cjs</code> — generalized to per-platform read-only</li>
+          <li>Both answer pipelines &amp; the agent org chart</li>
+        </ul>
+      </div>
+      <div class="mapcard refac">
+        <div class="bar"><span class="s" style="background:var(--warn)"></span>Refactor</div>
+        <ul>
+          <li><code>network-source.cjs</code> → Source Registry + Query Layer</li>
+          <li><code>device-facts.cjs</code> <code>swN</code> parser → inventory-driven resolver</li>
+          <li>Tools &amp; skills rewired to call the Query Layer</li>
+        </ul>
+      </div>
+      <div class="mapcard remove">
+        <div class="bar"><span class="s" style="background:var(--crit)"></span>Remove</div>
+        <ul>
+          <li><code>network-data.cjs</code> — the fake simulator</li>
+          <li>All <code>mode === "live" ? … : sim…</code> branches</li>
+          <li>Dead artifact-render code in <code>ArtifactPanel.tsx</code></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="roadmap">
+    <div class="sec-head">
+      <p class="eyebrow">How we get there</p>
+      <h2>Four phases, each shippable</h2>
+      <p>Every phase is validated on the sandbox before the next. Phase 1 becomes the first detailed implementation plan.</p>
+    </div>
+    <div class="road">
+      <div class="phase now">
+        <div class="rail"><div class="marker">1</div><div class="line"></div></div>
+        <div class="body">
+          <h3>Foundation <span class="badge next">Next up</span></h3>
+          <p>Source registry + domain model; InventoryProvider &amp; Executor interfaces; Catalyst Center inventory+executor; SshExecutor proven on an SSH sandbox; Query Layer with scope + caps; remove the fake simulator; honest-unreachable; inventory-driven resolver; both pipelines call the Query Layer. Frontend: reachability badge, dead-code cleanup, topology rendering.</p>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="rail"><div class="marker">2</div><div class="line"></div></div>
+        <div class="body">
+          <h3>Scale hardening <span class="badge later">Later</span></h3>
+          <p>Search / pagination / caching for large inventories; concurrency and cap behavior validated with synthetic scale; multi-platform read-only allowlists fleshed out.</p>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="rail"><div class="marker">3</div><div class="line"></div></div>
+        <div class="body">
+          <h3>Multi-domain readiness <span class="badge later">Later</span></h3>
+          <p>Firewall / proxy / LB domain scaffolding, plus a pluggable InventoryProvider for a real CMDB (NetBox / ServiceNow) behind the interface — ready for real sources.</p>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="rail"><div class="marker">4</div><div class="line"></div></div>
+        <div class="body">
+          <h3>Enterprise connect <span class="badge later">Needs real backends</span></h3>
+          <p>Real BofA CMDB + jump host + management systems; RBAC / user auth; deployment.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="open">
+    <div class="sec-head">
+      <p class="eyebrow">Deferred, not forgotten</p>
+      <h2>Open questions</h2>
+      <p>None of these block Phase 1 — the interfaces stay generic until the answers arrive.</p>
+    </div>
+    <ul class="oq">
+      <li><span class="q">Q1</span><span class="txt"><b>Which concrete CMDB does BofA use?</b><span>ServiceNow CMDB / NetBox / Infoblox / other — shapes the Phase 3 inventory adapter.</span></span></li>
+      <li><span class="q">Q2</span><span class="txt"><b>Jump-host ("Patti") specifics</b><span>Plain SSH proxy jump, or an agent/API in front of it — shapes the SSH executor's connection model.</span></span></li>
+      <li><span class="q">Q3</span><span class="txt"><b>Exact SSH sandbox for Phase 1</b><span>A Cisco DevNet always-on IOS-XE sandbox that exposes SSH, to validate the SshExecutor.</span></span></li>
+      <li><span class="q">Q4</span><span class="txt"><b>Deployment &amp; user auth</b><span>Single-engineer desktop vs team web behind SSO; who may use it; RBAC.</span></span></li>
+    </ul>
+  </section>
+
+  <footer>
+    Visual companion to the full written spec at <code>docs/superpowers/specs/2026-07-04-netjarvis-enterprise-architecture-design.md</code>. Decisions here are locked; scale numbers in “Safety at scale” are proposed defaults awaiting your review. Next step after sign-off: turn <b>Phase 1</b> into a task-by-task implementation plan.
+  </footer>
+</div>
+
+<script>
+  // Scrollspy: highlight the active section in the top nav.
+  (function () {
+    var links = Array.prototype.slice.call(document.querySelectorAll('.topnav a'));
+    var map = {};
+    links.forEach(function (a) { var id = a.getAttribute('href').slice(1); var el = document.getElementById(id); if (el) map[id] = a; });
+    var ids = Object.keys(map);
+    if (!ids.length || !('IntersectionObserver' in window)) return;
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) {
+          links.forEach(function (l) { l.classList.remove('active'); });
+          if (map[e.target.id]) map[e.target.id].classList.add('active');
+        }
+      });
+    }, { rootMargin: '-45% 0px -50% 0px', threshold: 0 });
+    ids.forEach(function (id) { io.observe(document.getElementById(id)); });
+  })();
+</script>
+</content>
