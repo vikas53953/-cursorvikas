@@ -1,5 +1,7 @@
 // Enterprise guardrails — read-only enforcement, blocked operations.
 
+const { assertReadOnly } = require("./core/read-only-policy.cjs");
+
 const BLOCKED_CLI_PATTERNS = [
   /\bconfig(?:ure)?\b/i,
   /\bconf\s*t\b/i,
@@ -22,15 +24,8 @@ function validateToolCall(name, args = {}) {
   if (name === "run_show_command") {
     const commands = Array.isArray(args.commands) ? args.commands.map(String) : [];
     for (const command of commands) {
-      const trimmed = command.trim();
-      if (!/^show\s+/i.test(trimmed)) {
-        return { ok: false, error: `Read-only policy: only "show" commands allowed. Blocked: ${trimmed}` };
-      }
-      for (const pattern of BLOCKED_CLI_PATTERNS) {
-        if (pattern.test(trimmed)) {
-          return { ok: false, error: `Read-only policy: command blocked — ${trimmed}` };
-        }
-      }
+      const verdict = assertReadOnly(args.platform || "ios-xe", command);
+      if (!verdict.ok) return verdict;
     }
   }
 
