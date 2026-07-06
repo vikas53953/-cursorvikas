@@ -170,6 +170,81 @@ test("non-fact question with a commandFormer wired: engine forms the command and
   assert.deepEqual(calledWith.commands, ["show mac address-table"]);
 });
 
+// --- Task E4: the engine calls the injected answerComposer to re-word the
+// REAL output the engine-formed command produced into a short sentence. The
+// composer is optional (like commandFormer above) so callers/tests that omit
+// it keep getting the old shape (no `sentence`) -- the test above,
+// "non-fact question with a commandFormer wired...", proves that back-compat
+// path still passes with no answerComposer wired at all.
+
+function makeAnswerComposer(result) {
+  return { compose: async () => result };
+}
+
+test("engine-formed output path: answerComposer's sentence is attached and rawOutput is retained", async () => {
+  const queryLayer = makeQueryLayer(async () => ({
+    ok: true,
+    devices: [{ name: "sw1" }],
+    results: [{ host: "sw1", ok: true, outputs: { "show mac address-table": "Vlan 1  aabb.ccdd.eeff  DYNAMIC  Gi1/0/1" } }],
+  }));
+  const commandFormer = makeCommandFormer({ ok: true, commands: ["show mac address-table"] });
+  let composeCalledWith = null;
+  const answerComposer = {
+    compose: async (question, device, output) => {
+      composeCalledWith = { question, device, output };
+      return { sentence: "sw1's MAC address table shows one dynamic entry on Gi1/0/1." };
+    },
+  };
+  const grounding = createGrounding({
+    registry: makeRegistry(),
+    queryLayer,
+    getDeviceFacts: () => null,
+    session: {},
+    commandFormer,
+    answerComposer,
+  });
+
+  const result = await grounding.ask({ targetPhrase: "sw1", question: "mac address table on sw1" });
+
+  assert.equal(result.status, "answered");
+  assert.equal(result.answerKind, "output");
+  assert.equal(result.sentence, "sw1's MAC address table shows one dynamic entry on Gi1/0/1.");
+  assert.ok(result.rawOutput);
+  assert.deepEqual(result.rawOutput, result.output);
+  assert.ok(composeCalledWith);
+  assert.equal(composeCalledWith.question, "mac address table on sw1");
+  assert.equal(composeCalledWith.device.name, "sw1");
+});
+
+test("engine-formed output path: a failing answerComposer degrades gracefully (no sentence, no crash)", async () => {
+  const queryLayer = makeQueryLayer(async () => ({
+    ok: true,
+    devices: [{ name: "sw1" }],
+    results: [{ host: "sw1", ok: true, outputs: { "show mac address-table": "Vlan 1  aabb.ccdd.eeff  DYNAMIC  Gi1/0/1" } }],
+  }));
+  const commandFormer = makeCommandFormer({ ok: true, commands: ["show mac address-table"] });
+  const answerComposer = {
+    compose: async () => {
+      throw new Error("brain call failed");
+    },
+  };
+  const grounding = createGrounding({
+    registry: makeRegistry(),
+    queryLayer,
+    getDeviceFacts: () => null,
+    session: {},
+    commandFormer,
+    answerComposer,
+  });
+
+  const result = await grounding.ask({ targetPhrase: "sw1", question: "mac address table on sw1" });
+
+  assert.equal(result.status, "answered");
+  assert.equal(result.answerKind, "output");
+  assert.equal(result.sentence, undefined);
+  assert.ok(result.rawOutput);
+});
+
 test("commandFormer unable to form a safe command returns status cannot_form", async () => {
   const commandFormer = makeCommandFormer({ ok: false, error: "no valid read-only show command" });
   const grounding = createGrounding({

@@ -11,6 +11,7 @@ const { createRegistry } = require("./core/source-registry.cjs");
 const { createQueryLayer } = require("./core/query-layer.cjs");
 const { createGrounding } = require("./core/grounding.cjs");
 const { createCommandFormer } = require("./core/command-former.cjs");
+const { createAnswerComposer } = require("./core/answer-composer.cjs");
 const { logFactAudit } = require("./core/fact-telemetry.cjs");
 const { createCatalystCenterInventory } = require("./sources/providers/catalyst-center-inventory.cjs");
 const { createCatalystCenterExecutor } = require("./sources/executors/catalyst-center-executor.cjs");
@@ -690,12 +691,23 @@ function createTools({ readDb, updateDb }) {
   // on every `formCommand`.
   const brainModel = process.env.NETJARVIS_BRAIN_MODEL || "gpt-5.5";
   const commandFormer = createCommandFormer({
-    chat: (messages) => chatCompletion(messages),
+    chat: (msgs) => chatCompletion(msgs, undefined, { model: brainModel }),
     model: brainModel,
     legitVerbs: () => catc.getLegitReads(),
   });
 
-  const grounding = createGrounding({ registry, queryLayer, getDeviceFacts, session: groundingSession, commandFormer });
+  // Task E4: same strong brain re-words REAL command output into a short
+  // grounded sentence (electron/core/answer-composer.cjs). Fixed alongside
+  // commandFormer above: both must actually pass `model` through to
+  // chatCompletion's `opts.model` -- previously the brain model never
+  // reached the OpenAI request body at all (defaulted silently to
+  // "gpt-5-mini"), so NETJARVIS_BRAIN_MODEL had no effect in production.
+  const answerComposer = createAnswerComposer({
+    chat: (msgs) => chatCompletion(msgs, undefined, { model: brainModel }),
+    model: brainModel,
+  });
+
+  const grounding = createGrounding({ registry, queryLayer, getDeviceFacts, session: groundingSession, commandFormer, answerComposer });
 
   async function execute(name, args, context = {}) {
     const guard = validateToolCall(name, args);

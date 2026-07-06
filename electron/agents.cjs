@@ -236,23 +236,30 @@ function compactToolResult(result) {
   return text.length > 9000 ? `${text.slice(0, 9000)}...` : text;
 }
 
-async function chatCompletion(messages, tools) {
+// `opts.model` lets a caller (e.g. the One-Brain command-former/answer-composer,
+// electron/core/command-former.cjs + answer-composer.cjs) route this call to
+// the strong brain model (NETJARVIS_BRAIN_MODEL, default "gpt-5.5") instead of
+// the default specialist-agent model. Existing callers that pass no opts (or
+// no opts.model) are unaffected -- they keep hitting "gpt-5-mini" exactly as
+// before.
+async function chatCompletion(messages, tools, opts = {}) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY is missing in .env.local");
+  const model = opts.model || "gpt-5-mini";
   const started = Date.now();
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "gpt-5-mini", messages, tools, tool_choice: "auto" }),
+    body: JSON.stringify({ model, messages, tools, tool_choice: "auto" }),
     signal: AbortSignal.timeout(90000),
   });
   if (!response.ok) {
     const text = await response.text();
-    logger.log("agent.llm.error", { status: response.status, body: text.slice(0, 300), ms: Date.now() - started });
+    logger.log("agent.llm.error", { model, status: response.status, body: text.slice(0, 300), ms: Date.now() - started });
     throw new Error(`Specialist model call failed: ${response.status} ${text.slice(0, 200)}`);
   }
   const data = await response.json();
-  logger.log("agent.llm.ok", { ms: Date.now() - started, usage: data.usage });
+  logger.log("agent.llm.ok", { model, ms: Date.now() - started, usage: data.usage });
   return data.choices?.[0]?.message || {};
 }
 

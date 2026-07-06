@@ -11,6 +11,15 @@
 // as an explicit override / back-compat path, unchanged above), but the
 // default path for "mac address table on sw1"-style questions is now
 // engine-formed, not caller-formed.
+//
+// Task E4 ("One Brain, Two Mouths"): on the engine-formed path, once
+// queryLayer has run the real command, the engine calls the injected
+// `answerComposer` (electron/core/answer-composer.cjs, the same strong brain
+// as the command-former) to re-word that REAL output into a short sentence -
+// grounded, never inventing a fact not present in the output. This is a
+// second brain call per output question (logged latency deviation - see
+// answer-composer.cjs). The caller-supplied-commands path above is left
+// unchanged (no composer call) per the existing back-compat note.
 const { resolveScope } = require("./scope-resolver.cjs");
 const { composeFact } = require("./fact-compose.cjs");
 
@@ -25,7 +34,7 @@ function isBarePronoun(phrase) {
   return PRONOUNS.has(first);
 }
 
-function createGrounding({ registry, queryLayer, getDeviceFacts, session, commandFormer }) {
+function createGrounding({ registry, queryLayer, getDeviceFacts, session, commandFormer, answerComposer }) {
   const state = session || {};
 
   async function ask({ targetPhrase, question, commands } = {}) {
@@ -108,12 +117,31 @@ function createGrounding({ registry, queryLayer, getDeviceFacts, session, comman
     }
 
     const runResult = await queryLayer.run(device.name, formed.commands);
+
+    // Task E4: re-word the REAL output into a short grounded sentence via the
+    // strong brain. answerComposer is optional (mirrors commandFormer's
+    // optionality above) so a caller that predates E4, or a composer call
+    // that fails, degrades gracefully to no `sentence` rather than crashing
+    // or blocking the answer -- the raw output (kept below) is still honest
+    // and usable by the caller/Reports panel on its own.
+    let sentence;
+    if (answerComposer && typeof answerComposer.compose === "function") {
+      try {
+        const composed = await answerComposer.compose(question, device, runResult);
+        if (composed && composed.sentence) sentence = composed.sentence;
+      } catch {
+        // Composer must never block or invalidate a real, already-run answer.
+      }
+    }
+
     return {
       status: "answered",
       device: device.name,
       answerKind: "output",
       commands: formed.commands,
+      ...(sentence ? { sentence } : {}),
       output: runResult,
+      rawOutput: runResult,
       others,
       note: "Summarize only what is in output; state no number not present here.",
     };
