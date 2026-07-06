@@ -1,0 +1,212 @@
+<title>NetJarvis — Intent→Command: Fable's Verdict</title>
+<style>
+  :root{--bg:#F5F8FA;--surface:#FFFFFF;--surface-2:#EDF3F6;--ink:#0E1A24;--muted:#566A7B;--line:#D9E2E8;--accent:#0C8FA3;--accent-ink:#076576;--accent-soft:#E1F3F6;--good:#1B935D;--good-soft:#E2F3EB;--warn:#B9791A;--warn-soft:#F6ECD8;--crit:#C9455A;--crit-soft:#F8E6E9;--shadow:0 1px 2px rgba(14,26,36,.04),0 6px 20px rgba(14,26,36,.06);--font-sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;--font-mono:ui-monospace,"Cascadia Code","SF Mono",Menlo,Consolas,monospace;--maxw:1040px;}
+  @media (prefers-color-scheme:dark){:root{--bg:#091019;--surface:#0F1B26;--surface-2:#15242F;--ink:#E7EEF4;--muted:#91A5B5;--line:#21343F;--accent:#2BC4D7;--accent-ink:#7FE0EC;--accent-soft:#0E2E38;--good:#38BC80;--good-soft:#10281E;--warn:#E0A244;--warn-soft:#2C2413;--crit:#E8677A;--crit-soft:#2C1519;--shadow:0 1px 2px rgba(0,0,0,.3),0 8px 26px rgba(0,0,0,.35);}}
+  *{box-sizing:border-box;}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;}}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 clamp(18px,4vw,40px);}
+  header.hero{padding:clamp(36px,6vw,60px) 0 8px;}
+  .eyebrow{font-family:var(--font-mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.14em;color:var(--accent-ink);margin:0 0 14px;}
+  h1{font-size:clamp(1.7rem,4.2vw,2.5rem);line-height:1.08;letter-spacing:-.025em;margin:0 0 14px;text-wrap:balance;font-weight:750;}
+  .lede{font-size:clamp(1rem,1.8vw,1.12rem);color:var(--muted);max-width:66ch;margin:0;}
+  .lede b{color:var(--ink);}
+  section{padding:clamp(26px,4vw,42px) 0;border-top:1px solid var(--line);}
+  header.hero + section{border-top:none;}
+  h2{font-size:clamp(1.25rem,3vw,1.6rem);letter-spacing:-.02em;margin:0 0 6px;font-weight:700;}
+  .sub{color:var(--muted);font-size:.92rem;margin:0 0 18px;max-width:72ch;}
+  .verdict{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--good);border-radius:14px;padding:22px;box-shadow:var(--shadow);margin-top:26px;}
+  .verdict .tag{font-family:var(--font-mono);font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;background:var(--good-soft);color:var(--good);border-radius:999px;padding:4px 10px;font-weight:700;}
+  .verdict h3{margin:10px 0 8px;font-size:1.15rem;letter-spacing:-.01em;}
+  .verdict p{margin:0;color:var(--muted);font-size:.94rem;max-width:78ch;}
+  .verdict p b{color:var(--ink);}
+  .hole{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--crit);border-radius:14px;padding:22px;box-shadow:var(--shadow);}
+  .hole h3{margin:0 0 8px;font-size:1.05rem;}
+  .hole p{margin:0 0 12px;color:var(--muted);font-size:.92rem;max-width:78ch;}
+  .hole p:last-child{margin-bottom:0;}
+  .hole p b{color:var(--ink);}
+  .trace{display:flex;flex-direction:column;gap:8px;font-family:var(--font-mono);font-size:.8rem;margin:14px 0 14px;}
+  .trace .row{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;}
+  .trace .who{flex:0 0 110px;font-size:.66rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);padding-top:2px;}
+  .trace .msg{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:7px 11px;flex:1;min-width:220px;}
+  .trace .msg.bad{border-color:var(--crit);background:var(--crit-soft);}
+  .trace .msg.okd{border-color:var(--good);background:var(--good-soft);}
+  .trace .note{font-family:var(--font-sans);font-size:.78rem;color:var(--crit);font-weight:600;}
+  .qa{display:grid;gap:14px;}
+  .qcard{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;box-shadow:var(--shadow);}
+  .qcard .qline{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:8px;}
+  .qcard .qnum{font-family:var(--font-mono);font-size:.7rem;font-weight:700;color:var(--accent-ink);background:var(--accent-soft);border-radius:6px;padding:3px 8px;white-space:nowrap;}
+  .qcard h3{margin:0;font-size:1.02rem;letter-spacing:-.01em;flex:1;min-width:200px;}
+  .qcard .ans{font-family:var(--font-mono);font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;border-radius:999px;padding:4px 10px;font-weight:700;white-space:nowrap;}
+  .ans.yes{background:var(--good-soft);color:var(--good);}
+  .ans.amber{background:var(--warn-soft);color:var(--warn);}
+  .ans.no{background:var(--crit-soft);color:var(--crit);}
+  .qcard p{margin:0 0 10px;color:var(--muted);font-size:.9rem;max-width:80ch;}
+  .qcard p:last-child{margin-bottom:0;}
+  .qcard p b{color:var(--ink);}
+  .contract{background:var(--surface);border:1.5px solid var(--accent);border-radius:14px;padding:22px;box-shadow:var(--shadow);}
+  .contract h3{margin:0 0 6px;font-size:1.1rem;}
+  .contract > p{margin:0 0 16px;color:var(--muted);font-size:.92rem;max-width:78ch;}
+  .contract > p b{color:var(--ink);}
+  .flow{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap;}
+  .step{font-family:var(--font-mono);font-size:.76rem;background:var(--accent-soft);color:var(--accent-ink);border-radius:8px;padding:9px 12px;font-weight:600;flex:1;min-width:150px;}
+  .step.warnstep{background:var(--warn-soft);color:var(--warn);}
+  .step small{display:block;color:var(--muted);font-weight:400;font-size:.68rem;margin-top:3px;font-family:var(--font-sans);}
+  .flow .ar{color:var(--accent);font-weight:700;align-self:center;}
+  .rules{margin:16px 0 0;padding:0;list-style:none;display:grid;gap:8px;}
+  .rules li{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:.88rem;color:var(--muted);}
+  .rules li b{color:var(--ink);}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media (max-width:760px){.two{grid-template-columns:1fr;}}
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;box-shadow:var(--shadow);}
+  .panel h3{margin:0 0 8px;font-size:1rem;}
+  .panel p{margin:0 0 10px;color:var(--muted);font-size:.88rem;}
+  .panel p:last-child{margin-bottom:0;}
+  .panel p b{color:var(--ink);}
+  .klabel{font-family:var(--font-mono);font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:700;display:inline-block;margin-bottom:8px;}
+  .panel.enginep{border-left:3px solid var(--accent);}
+  .panel.aip{border-left:3px solid var(--warn);}
+  .enginep .klabel{color:var(--accent-ink);}
+  .aip .klabel{color:var(--warn);}
+  .ownlist{margin:0;padding:0;list-style:none;display:grid;gap:6px;font-size:.88rem;color:var(--muted);}
+  .ownlist li{padding-left:18px;position:relative;}
+  .ownlist li::before{content:"·";position:absolute;left:4px;color:var(--accent);font-weight:700;}
+  .ownlist li b{color:var(--ink);}
+  footer{border-top:1px solid var(--line);padding:24px 0 56px;color:var(--muted);font-size:.82rem;}
+  code{font-family:var(--font-mono);font-size:.85em;background:var(--surface-2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;}
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <p class="eyebrow">Grounded answers · Intent→command · Independent verdict · Fable 5 · 2026-07-06</p>
+    <h1>You're both right — about two different jobs. The AI translates. The engine referees.</h1>
+    <p class="lede">The owner is right that <b>translation is knowledge work and belongs to the AI</b> — a hand-written intent→command map is the per-case anti-pattern and never ends. The engineer is right that <b>something deterministic must stand between the AI's output and a real switch</b>. The mistake is thinking those are the same job. They aren't: one is <b>knowing</b>, the other is <b>checking</b> — and checking is one grammar rule, not 100,000 cases.</p>
+
+    <div class="verdict">
+      <span class="tag">Verdict</span>
+      <h3>AI owns intent→command. Engine owns a syntax gate + one retry loop. No map — but keep an earned cache.</h3>
+      <p>Give the tool a dedicated <b><code>ios_commands</code></b> field whose contract says "exact CLI syntax, never the user's sentence." Engine-side, add one general <b>register check</b> (is this CLI or English?) in front of the existing read-only gate; on rejection, bounce a corrective error back so the model fixes itself in one round-trip. If the voice model can't produce a command, the engine asks the <b>strong text model</b> (GPT-5.x — the <code>chatCompletion</code> path you already run) to form it. Every answer <b>names the command it ran</b>. The only "canonical set" allowed is a cache the system earns from commands that succeeded live — no human ever writes an entry.</p>
+    </div>
+  </header>
+
+  <section>
+    <h2>Why it failed — the gate checked safety, not syntax</h2>
+    <p class="sub">Verified in the live code, not guessed. This was a contract failure, not a knowledge failure: the model didn't send a <i>wrong</i> command — it sent <i>no</i> command.</p>
+    <div class="hole">
+      <h3>"show me the mac address table on sw1" is a perfectly safe non-command</h3>
+      <div class="trace">
+        <div class="row"><span class="who">You</span><span class="msg">"Show me the mac address table on sw1"</span></div>
+        <div class="row"><span class="who">Voice AI</span><span class="msg bad">passes the raw sentence into <b>commands</b></span><span class="note">← quoted into the one field where quoting is wrong</span></div>
+        <div class="row"><span class="who">Read-only gate</span><span class="msg okd">first word is "show" ✓ &nbsp; no blocked token ✓ &nbsp; → forwarded</span></div>
+        <div class="row"><span class="who">Real switch</span><span class="msg bad">% Invalid input detected</span></div>
+      </div>
+      <p><b>Three things lined up.</b> First, the whole grounding persona drills "verbatim, verbatim, verbatim" — quote the engineer, never paraphrase. That discipline is exactly right for <code>target_phrase</code> and exactly wrong for <code>commands</code>, and the contract never states the asymmetry. The model obeyed its strongest instruction in the wrong register. Second, the read-only policy checks <i>safety</i> — first word allowed, no mutating tokens — and an English sentence that happens to start with "show" is genuinely safe. It sailed through because <b>no layer owns well-formedness</b>. Third, the speech model is optimized for latency, not discipline; given a loosely-typed free-text field, it took the path of least resistance.</p>
+      <p><b>The ChatGPT comparison cuts the other way.</b> When you ask ChatGPT for a command, there's a validator in the loop: <b>you</b> — a 15-year engineer who eyeballs the command before typing it into a real box. NetJarvis removed the human but kept only the knowledge half of that loop. The fix is not less AI; it's restoring the missing half — a referee between the proposal and the device.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>The five questions, answered</h2>
+    <div class="qa">
+
+      <div class="qcard">
+        <div class="qline"><span class="qnum">Q1</span><h3>Should the AI own intent→command translation?</h3><span class="ans yes">Yes — with a referee</span></div>
+        <p><b>Yes.</b> IOS command knowledge lives in the models, is vast, and shifts across platforms and versions — encoding it engine-side is per-case forever, exactly the anti-pattern the owner rejects. But "the AI should know" is a capability, not a reliability mechanism. The enterprise pattern is <b>AI proposes, engine disposes</b>: the model translates; a deterministic gate verifies form and safety before anything touches copper. That gate is general — one grammar question ("is this CLI syntax?"), not one rule per command.</p>
+      </div>
+
+      <div class="qcard">
+        <div class="qline"><span class="qnum">Q2</span><h3>How do we make it reliable?</h3><span class="ans amber">Contract first, model second</span></div>
+        <p><b>1 · Type the field.</b> Split the registers explicitly: <code>target_phrase</code> = the engineer's words, verbatim (engine resolves). <code>ios_commands</code> = the AI's expert translation, exact CLI syntax, described in the spec as "never natural language — if unsure of exact syntax, omit it." The asymmetry stated once, in the contract, fixes the class.</p>
+        <p><b>2 · One register gate, engine-side.</b> Before the read-only check: reject any "command" that reads as English rather than CLI — interrogatives, pronouns, politeness words, a question mark, or <b>the device name inside the command</b> (targeting is the engine's argument, so "…on sw1" inside a command is malformed by definition). That's a language-register test, not an intent map — it catches every possible sentence without knowing any command's meaning.</p>
+        <p><b>3 · Corrective bounce, not silent failure.</b> On rejection the engine returns: "not valid IOS-XE syntax — send the exact CLI command only." The model self-corrects in one round-trip, hidden under the two-beat hedge. Same bounce on a device "% Invalid input", once.</p>
+        <p><b>4 · Strong-model fallback.</b> Was the model too small? Partly — but don't move command formation wholesale to GPT-5.x (latency). Fast path: the realtime model proposes, free. Fallback: if the gate rejects twice or the model omits commands (<code>need_command</code>), the <b>engine</b> asks the strong text model to form the command from the verbatim question, validates it, runs it. Reliability from a better knower — still zero maps.</p>
+      </div>
+
+      <div class="qcard">
+        <div class="qline"><span class="qnum">Q3</span><h3>Safe and honest?</h3><span class="ans yes">Safety is solid — add the echo</span></div>
+        <p><b>Safety already held.</b> The executors enforce read-only at the last mile (allowed first verb + blocklist), which is why the failure was an ugly error, not a dangerous one. Keep that layer exactly where it is — at the executor, so no future path can bypass it.</p>
+        <p><b>Honesty gap is real but cheap to close: echo the command.</b> A wrong-but-valid command ("show vlan brief" when you asked for MAC table) returns real-but-wrong output — the one failure no gate catches. Rule: every CLI answer names its command, spoken briefly and shown in the panel: "From <code>show mac address-table</code> on sw1: …". A network engineer catches a mismatch instantly, at zero latency. Extend the existing silent fact-audit telemetry to log question-vs-command pairs. <b>Active semantic read-back (a second model judging the command) is overkill today</b> — same posture as the deferred second-checker: telemetry first, promote only if the logs prove drift.</p>
+      </div>
+
+      <div class="qcard">
+        <div class="qline"><span class="qnum">Q4</span><h3>Any role for a canonical command set?</h3><span class="ans amber">Not as a mechanism — yes as an earned cache</span></div>
+        <p><b>The owner is right to reject a hand-written map as the translation mechanism.</b> But don't ban two things that only look similar. <b>(a) An earned cache:</b> when a translation passes the gate and the device accepts it, the engine may remember that question-shape → command pair and reuse it. No human writes entries; it grows from live, device-validated usage; it's a latency win on the top-20 voice questions. Caching verified answers is fixing the class — refusing it on principle would be rejecting the pattern, not the anti-pattern. <b>(b) Eval fixtures:</b> a small test list to score translation accuracy per model, so "the AI knows IOS" becomes a measured number instead of a belief. Neither is a rulebook in the answer path.</p>
+      </div>
+
+      <div class="qcard">
+        <div class="qline"><span class="qnum">Q5</span><h3>Where's the clean line with shipped grounding?</h3><span class="ans yes">Truth vs. understanding</span></div>
+        <p>One sentence covers everything shipped and everything proposed: <b>the engine owns whatever must be TRUE; the AI owns whatever must be UNDERSTOOD.</b> True: which device exists, whether a string is well-formed read-only CLI, what the device actually printed, what the composed fact is. Understood: what the engineer meant, which command expresses that intent, how to phrase the spoken answer. Device resolution already follows this line (AI quotes, engine resolves). Command translation sits on the border and splits the same way: <b>the AI proposes meaning, the engine verifies form.</b> Nothing shipped changes; this fills the one box that was empty.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <h2>The shape to build</h2>
+    <p class="sub">One field, one gate, one bounce, one fallback. Everything else is already live.</p>
+    <div class="contract">
+      <h3>ask_network( target_phrase, question, ios_commands? )</h3>
+      <p><b>Fast path stays fast</b> — the gate is microseconds and the bounce only fires on a bad proposal, hidden under the "one sec, pulling sw1…" hedge.</p>
+      <div class="flow">
+        <span class="step">1 · Translate<small>voice AI proposes exact CLI in <code>ios_commands</code> — its knowledge, its job</small></span>
+        <span class="ar">→</span>
+        <span class="step">2 · Register gate<small>engine: CLI or English? malformed → corrective bounce, one retry</small></span>
+        <span class="ar">→</span>
+        <span class="step warnstep">2b · Fallback<small>still no valid command → GPT-5.x forms it from the verbatim question</small></span>
+        <span class="ar">→</span>
+        <span class="step">3 · Read-only gate<small>existing executor enforcement, untouched</small></span>
+        <span class="ar">→</span>
+        <span class="step">4 · Run + echo<small>real output, answer names the command it ran</small></span>
+      </div>
+      <ul class="rules">
+        <li><b>The class-level rule, stated once:</b> "<code>target_phrase</code> is always the engineer's words; <code>ios_commands</code> is never the engineer's words." Two registers, one sentence — it covers every question ever asked.</li>
+        <li><b>The gate never knows what a command means.</b> It only knows what a command looks like. That's why it's not per-case: it rejects any English sentence, including ones nobody has thought of yet.</li>
+        <li><b>Earned cache sits beside the flow, not in front of the AI:</b> device-validated pairs get reused for latency; a cache miss just means the normal path runs.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>The ownership map after this ships</h2>
+    <div class="two">
+      <div class="panel enginep">
+        <span class="klabel">Engine — what must be TRUE</span>
+        <ul class="ownlist">
+          <li><b>Device identity</b> — resolve verbatim phrase, honest not-found <i>(shipped)</i></li>
+          <li><b>Simple facts</b> — composed sentence from live inventory <i>(shipped)</i></li>
+          <li><b>Anaphora</b> — "its uptime" pinned to last grounded device <i>(shipped)</i></li>
+          <li><b>Command form</b> — register gate + corrective bounce <i>(this proposal)</i></li>
+          <li><b>Safety</b> — read-only enforcement at the executor <i>(shipped)</i></li>
+          <li><b>Provenance</b> — command echo + question-vs-command telemetry <i>(this proposal)</i></li>
+        </ul>
+      </div>
+      <div class="panel aip">
+        <span class="klabel">AI — what must be UNDERSTOOD</span>
+        <ul class="ownlist">
+          <li><b>Intent</b> — what the engineer is actually asking</li>
+          <li><b>Translation</b> — which exact IOS command expresses it <i>(this proposal: AI-owned, engine-refereed)</i></li>
+          <li><b>Summarizing</b> — reading raw CLI output back in plain language, numbers only from the output</li>
+          <li><b>Voice</b> — tone, lead-ins, the two-beat hedge</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Residual risks — named</h2>
+    <div class="two">
+      <div class="panel">
+        <h3>A valid-but-wrong command survives every gate</h3>
+        <p>No syntax check can know you wanted MAC, not VLAN. Mitigation is the echo (instant human catch, zero latency) plus telemetry to measure how often it actually happens before building anything heavier. If the logs show real drift, the GPT-5.x fallback path doubles as an async auditor later.</p>
+      </div>
+      <div class="panel">
+        <h3>The bounce costs a round-trip on a bad first try</h3>
+        <p>Roughly a second, and only on failures — the hedge line covers it. If evals show the realtime model failing the gate often, flip the default: engine always forms table-question commands via the strong model, voice model never tries. That's a dial you can turn from data, not a redesign.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Independent verdict by Claude Fable 5 · grounded against the live code: <code>ask_network</code> spec in <code>electron/tools.cjs</code>, gate in <code>electron/core/read-only-policy.cjs</code>, grounding in <code>electron/core/grounding.cjs</code>, executor enforcement in <code>electron/sources/executors/</code> · companion to <i>Voice Grounding: 6 Options</i> and <i>Fable's Second Opinion</i>.
+  </footer>
+</div>
