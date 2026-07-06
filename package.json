@@ -9,6 +9,7 @@
     "web": "node server/web.cjs",
     "test": "node --test",
     "test:behavior": "node scripts/behavior-cycle.cjs",
+    "eval": "node scripts/eval-grounded.cjs",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit"
   },

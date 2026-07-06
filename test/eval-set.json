@@ -1,0 +1,47 @@
+[
+  {
+    "id": "version-fact",
+    "question": "what version is sw1 running",
+    "expect": { "status": "answered", "device": "sw1", "answerKind": "fact" }
+  },
+  {
+    "id": "ip-fact",
+    "question": "ip of sw1",
+    "expect": { "status": "answered", "device": "sw1", "answerKind": "fact" }
+  },
+  {
+    "id": "uptime-fact",
+    "question": "uptime on sw1",
+    "expect": { "status": "answered", "device": "sw1", "answerKind": "fact" }
+  },
+  {
+    "id": "mac-address-table",
+    "question": "show me the mac address table on sw1",
+    "expect": { "status": "answered", "device": "sw1", "answerKind": "output", "commandIncludes": "mac address-table" }
+  },
+  {
+    "id": "vlans",
+    "question": "vlans on sw1",
+    "expect": { "status": "answered", "device": "sw1", "answerKind": "output", "commandIncludes": "vlan" }
+  },
+  {
+    "id": "ip-route",
+    "question": "ip route on sw1",
+    "expect": { "status": "answered", "device": "sw1", "answerKind": "output", "commandIncludes": "route" }
+  },
+  {
+    "id": "arp",
+    "question": "arp on sw1",
+    "expect": { "status": "answered", "device": "sw1", "answerKind": "output", "commandIncludes": "arp" }
+  },
+  {
+    "id": "unknown-device",
+    "question": "show vlans on switch 99",
+    "expect": { "status": "not_found" }
+  },
+  {
+    "id": "anaphora-uptime",
+    "questions": ["version on sw1", "and its uptime?"],
+    "expect": { "status": "answered", "device": "sw1" }
+  }
+]
