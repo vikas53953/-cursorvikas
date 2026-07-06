@@ -10,6 +10,7 @@ const source = require("./network-source.cjs");
 const { createRegistry } = require("./core/source-registry.cjs");
 const { createQueryLayer } = require("./core/query-layer.cjs");
 const { createGrounding } = require("./core/grounding.cjs");
+const { createCommandFormer } = require("./core/command-former.cjs");
 const { logFactAudit } = require("./core/fact-telemetry.cjs");
 const { createCatalystCenterInventory } = require("./sources/providers/catalyst-center-inventory.cjs");
 const { createCatalystCenterExecutor } = require("./sources/executors/catalyst-center-executor.cjs");
@@ -169,13 +170,13 @@ const toolSpecs = [
   {
     type: "function",
     name: "ask_network",
-    description: "Grounded answer for ANY question about a specific device or target on the network. Pass the engineer's VERBATIM words as target_phrase (never your paraphrase, never a device you assumed) - the engine resolves it against the real inventory, honestly reports 'not found' with the nearest real names if it does not match, and answers single-fact questions (version, IP, uptime, model, serial, role, reachability, CPU, memory) directly from live inventory/health. For anything else, supply read-only 'show' commands and it runs them and returns the raw output to summarize. State only what this tool returns.",
+    description: "Grounded answer for ANY question about a specific device or target on the network. Pass the engineer's VERBATIM words as target_phrase (never your paraphrase, never a device you assumed) - the engine resolves it against the real inventory, honestly reports 'not found' with the nearest real names if it does not match, and answers single-fact questions (version, IP, uptime, model, serial, role, reachability, CPU, memory) directly from live inventory/health. For anything else, the engine itself forms and runs the exact read-only 'show' command(s) - do not guess or pass commands yourself. State only what this tool returns.",
     parameters: {
       type: "object",
       properties: {
         target_phrase: { type: "string", description: "The engineer's exact words naming the device/target, e.g. 'sw1', 'switch 3', 'the access switch in dc3', or 'it'/'its' for a follow-up." },
         question: { type: "string", description: "The engineer's question, verbatim." },
-        commands: { type: "array", items: { type: "string" }, description: "Optional read-only show command(s) to run if this is not a single-fact question." },
+        commands: { type: "array", items: { type: "string" }, description: "Optional override: read-only show command(s) to force. Leave unset - the engine forms the right command itself." },
       },
       required: ["target_phrase", "question"],
       additionalProperties: false,
@@ -679,7 +680,22 @@ function createTools({ readDb, updateDb }) {
     };
   }
 
-  const grounding = createGrounding({ registry, queryLayer, getDeviceFacts, session: groundingSession });
+  // Task E3: the STRONG text brain that forms the exact read-only show
+  // command from intent (electron/core/command-former.cjs, Task E1). `model`
+  // is swappable with no rebuild via NETJARVIS_BRAIN_MODEL (default
+  // gpt-5.5). `legitVerbs` is a thunk, not a resolved array, so building it
+  // here does not require `createTools` itself to become async: E2's
+  // `getLegitReads()` is ~1h-cached and never throws (degrades to
+  // ["show","sh"] on any failure), and command-former calls the thunk fresh
+  // on every `formCommand`.
+  const brainModel = process.env.NETJARVIS_BRAIN_MODEL || "gpt-5.5";
+  const commandFormer = createCommandFormer({
+    chat: (messages) => chatCompletion(messages),
+    model: brainModel,
+    legitVerbs: () => catc.getLegitReads(),
+  });
+
+  const grounding = createGrounding({ registry, queryLayer, getDeviceFacts, session: groundingSession, commandFormer });
 
   async function execute(name, args, context = {}) {
     const guard = validateToolCall(name, args);

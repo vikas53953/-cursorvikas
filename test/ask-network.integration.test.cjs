@@ -104,3 +104,37 @@ test("ask_network: non-fact question with a supplied read-only command runs and 
   assert.equal(result.device, "sw1");
   assert.ok(result.artifact);
 });
+
+// Task E3 integration: createTools now wires a REAL createCommandFormer (real
+// electron/agents.cjs chatCompletion, not a fake) into grounding, so a
+// non-fact question with NO caller-supplied commands must flow through it
+// instead of returning the old 'need_command'. Exercising the real network
+// call here would violate the "no network in tests" rule and be
+// nondeterministic, so this drives the real wiring end-to-end with
+// OPENAI_API_KEY removed for the duration of the call -- chatCompletion reads
+// process.env.OPENAI_API_KEY live (not captured at require time) and throws
+// before ever reaching fetch, so command-former degrades to {ok:false} and
+// grounding honestly reports 'cannot_form'. This proves the real wiring path
+// (tools.cjs -> createCommandFormer -> chatCompletion -> grounding) never
+// crashes and never falls back to the removed 'need_command' contract.
+test("ask_network: non-fact question with no supplied commands now routes through the engine's real commandFormer (never need_command)", async () => {
+  stubCatc();
+  const tools = createTools({ readDb: db.readDb, updateDb: db.updateDb });
+
+  const prevKey = process.env.OPENAI_API_KEY;
+  delete process.env.OPENAI_API_KEY;
+  try {
+    const result = await tools.execute("ask_network", {
+      target_phrase: "sw1",
+      question: "mac address table on sw1",
+    });
+
+    assert.equal(result.ok, true);
+    assert.notEqual(result.status, "need_command");
+    assert.equal(result.status, "cannot_form");
+    assert.equal(result.device, "sw1");
+  } finally {
+    if (prevKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = prevKey;
+  }
+});

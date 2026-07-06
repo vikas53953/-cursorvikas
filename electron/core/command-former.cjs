@@ -79,12 +79,28 @@ function isValidCommand(command, platform, legitVerbs) {
  *   Injected chat-completion function. Real callers pass the OpenAI
  *   chat-completion fn; tests inject a fake returning a canned reply.
  * @param {string} [opts.model] Defaults to `process.env.NETJARVIS_BRAIN_MODEL || "gpt-5.5"`.
- * @param {string[]} [opts.legitVerbs] Allowed read-only command roots. Defaults to ["show","sh"].
+ * @param {string[]|(()=>(string[]|Promise<string[]>))} [opts.legitVerbs] Allowed
+ *   read-only command roots. Either a static array, or a thunk (sync or
+ *   async) the former calls fresh on every `formCommand` — this lets a real
+ *   caller pass `() => catc.getLegitReads()` (E2's ~1h-cached, network-backed
+ *   allow-list) without forcing `createCommandFormer` itself to be async at
+ *   construction time. Defaults to ["show","sh"] if omitted, or if the thunk
+ *   throws/returns nothing usable (fails closed, never open).
  */
 function createCommandFormer({ chat, model, legitVerbs } = {}) {
   const resolvedModel = model || process.env.NETJARVIS_BRAIN_MODEL || DEFAULT_MODEL;
-  const verbs =
-    Array.isArray(legitVerbs) && legitVerbs.length ? legitVerbs : DEFAULT_LEGIT_VERBS;
+
+  async function resolveVerbs() {
+    if (typeof legitVerbs === "function") {
+      try {
+        const result = await legitVerbs();
+        return Array.isArray(result) && result.length ? result : DEFAULT_LEGIT_VERBS;
+      } catch {
+        return DEFAULT_LEGIT_VERBS;
+      }
+    }
+    return Array.isArray(legitVerbs) && legitVerbs.length ? legitVerbs : DEFAULT_LEGIT_VERBS;
+  }
 
   async function formCommand(question, device) {
     if (typeof chat !== "function") {
@@ -110,6 +126,7 @@ function createCommandFormer({ chat, model, legitVerbs } = {}) {
       return { ok: false, error: "command-former: brain reply was not a parseable JSON array of commands." };
     }
 
+    const verbs = await resolveVerbs();
     const commands = candidates.filter((c) => isValidCommand(c, platform, verbs));
     if (commands.length === 0) {
       return { ok: false, error: "command-former: no valid read-only show command could be formed from the brain's reply." };

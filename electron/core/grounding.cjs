@@ -3,6 +3,14 @@
 // running a read-only command through the query layer. Never states a fact
 // the engine did not produce (R1/R2). Honest "not found" (R3). Read-back best
 // guess on ambiguity (R4). Deterministic anaphora via session.lastDevice (R5).
+// Task E3 ("One Brain, Two Mouths"): for a non-fact question, the engine no
+// longer asks the caller (voice/chat model) to supply a command — it calls
+// the injected `commandFormer` (the strong text brain, electron/core/
+// command-former.cjs) to form the exact read-only show command itself, then
+// runs it via queryLayer. A caller MAY still pass its own `commands` (kept
+// as an explicit override / back-compat path, unchanged above), but the
+// default path for "mac address table on sw1"-style questions is now
+// engine-formed, not caller-formed.
 const { resolveScope } = require("./scope-resolver.cjs");
 const { composeFact } = require("./fact-compose.cjs");
 
@@ -17,7 +25,7 @@ function isBarePronoun(phrase) {
   return PRONOUNS.has(first);
 }
 
-function createGrounding({ registry, queryLayer, getDeviceFacts, session }) {
+function createGrounding({ registry, queryLayer, getDeviceFacts, session, commandFormer }) {
   const state = session || {};
 
   async function ask({ targetPhrase, question, commands } = {}) {
@@ -78,10 +86,36 @@ function createGrounding({ registry, queryLayer, getDeviceFacts, session }) {
       };
     }
 
+    // Task E3: the engine forms the command itself instead of asking the
+    // caller for one. No commandFormer wired at all (misconfiguration, or a
+    // caller that predates E3) degrades to the old honest need_command
+    // rather than silently doing nothing.
+    if (!commandFormer || typeof commandFormer.formCommand !== "function") {
+      return {
+        status: "need_command",
+        device: device.name,
+        message: "Provide a read-only show command for this question.",
+      };
+    }
+
+    const formed = await commandFormer.formCommand(question, device);
+    if (!formed.ok) {
+      return {
+        status: "cannot_form",
+        device: device.name,
+        message: "Could not form a safe read-only command for that.",
+      };
+    }
+
+    const runResult = await queryLayer.run(device.name, formed.commands);
     return {
-      status: "need_command",
+      status: "answered",
       device: device.name,
-      message: "Provide a read-only show command for this question.",
+      answerKind: "output",
+      commands: formed.commands,
+      output: runResult,
+      others,
+      note: "Summarize only what is in output; state no number not present here.",
     };
   }
 

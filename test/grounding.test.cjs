@@ -114,7 +114,10 @@ test("non-fact question with commands runs queryLayer and returns output", async
   assert.deepEqual(calledWith.commands, ["show vlan brief"]);
 });
 
-test("non-fact question with no commands returns need_command", async () => {
+test("non-fact question with no commands and NO commandFormer wired falls back to need_command", async () => {
+  // Back-compat / misconfiguration guard only: real callers (electron/tools.cjs)
+  // always wire a commandFormer now (Task E3). This covers a caller that omits
+  // it entirely, so the engine still fails honestly instead of doing nothing.
   const grounding = createGrounding({
     registry: makeRegistry(),
     queryLayer: makeQueryLayer(),
@@ -126,6 +129,62 @@ test("non-fact question with no commands returns need_command", async () => {
 
   assert.equal(result.status, "need_command");
   assert.equal(result.device, "sw1");
+});
+
+// --- Task E3: the engine forms the command itself via an injected
+// commandFormer instead of asking the caller (voice/chat model) to supply
+// one. "mac address table on sw1" does not match composeFact (no single
+// inventory attribute), so it must now flow through commandFormer.formCommand
+// -> queryLayer.run, landing on answerKind:'output' -- NOT need_command --
+// with the caller having passed no commands of its own.
+
+function makeCommandFormer(result) {
+  return { formCommand: async () => result };
+}
+
+test("non-fact question with a commandFormer wired: engine forms the command and runs it (not need_command)", async () => {
+  let calledWith = null;
+  const queryLayer = makeQueryLayer(async (phrase, commands) => {
+    calledWith = { phrase, commands };
+    return { ok: true, devices: [{ name: "sw1" }], results: [{ host: "sw1", ok: true, outputs: { "show mac address-table": "Vlan 1  aabb.ccdd.eeff  DYNAMIC  Gi1/0/1" } }] };
+  });
+  const commandFormer = makeCommandFormer({ ok: true, commands: ["show mac address-table"] });
+  const grounding = createGrounding({
+    registry: makeRegistry(),
+    queryLayer,
+    getDeviceFacts: () => null,
+    session: {},
+    commandFormer,
+  });
+
+  const result = await grounding.ask({ targetPhrase: "sw1", question: "mac address table on sw1" });
+
+  assert.notEqual(result.status, "need_command");
+  assert.equal(result.status, "answered");
+  assert.equal(result.answerKind, "output");
+  assert.equal(result.device, "sw1");
+  assert.deepEqual(result.commands, ["show mac address-table"]);
+  assert.ok(result.output);
+  assert.ok(calledWith);
+  assert.equal(calledWith.phrase, "sw1");
+  assert.deepEqual(calledWith.commands, ["show mac address-table"]);
+});
+
+test("commandFormer unable to form a safe command returns status cannot_form", async () => {
+  const commandFormer = makeCommandFormer({ ok: false, error: "no valid read-only show command" });
+  const grounding = createGrounding({
+    registry: makeRegistry(),
+    queryLayer: makeQueryLayer(),
+    getDeviceFacts: () => null,
+    session: {},
+    commandFormer,
+  });
+
+  const result = await grounding.ask({ targetPhrase: "sw1", question: "reboot sw1" });
+
+  assert.equal(result.status, "cannot_form");
+  assert.equal(result.device, "sw1");
+  assert.ok(result.message);
 });
 
 test("empty target with no lastDevice returns need_target", async () => {
