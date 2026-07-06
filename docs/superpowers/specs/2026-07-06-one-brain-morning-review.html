@@ -1,0 +1,160 @@
+<title>NetJarvis — One Brain, Two Mouths: review</title>
+<style>
+  :root{--bg:#F5F8FA;--surface:#FFFFFF;--surface-2:#EDF3F6;--ink:#0E1A24;--muted:#566A7B;--line:#D9E2E8;--accent:#0C8FA3;--accent-ink:#076576;--accent-soft:#E1F3F6;--good:#1B935D;--good-soft:#E2F3EB;--warn:#B9791A;--warn-soft:#F6ECD8;--crit:#C9455A;--crit-soft:#F8E6E9;--violet:#6D5AE0;--violet-soft:#ECE9FB;--shadow:0 1px 2px rgba(14,26,36,.04),0 6px 20px rgba(14,26,36,.06);--font-sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;--font-mono:ui-monospace,"Cascadia Code","SF Mono",Menlo,Consolas,monospace;--maxw:1000px;}
+  @media (prefers-color-scheme:dark){:root{--bg:#091019;--surface:#0F1B26;--surface-2:#15242F;--ink:#E7EEF4;--muted:#91A5B5;--line:#21343F;--accent:#2BC4D7;--accent-ink:#7FE0EC;--accent-soft:#0E2E38;--good:#38BC80;--good-soft:#10281E;--warn:#E0A244;--warn-soft:#2C2413;--crit:#E8677A;--crit-soft:#2C1519;--violet:#9E8BFF;--violet-soft:#1C1836;--shadow:0 1px 2px rgba(0,0,0,.3),0 8px 26px rgba(0,0,0,.35);}}
+  :root[data-theme="light"]{--bg:#F5F8FA;--surface:#FFFFFF;--surface-2:#EDF3F6;--ink:#0E1A24;--muted:#566A7B;--line:#D9E2E8;--accent:#0C8FA3;--accent-ink:#076576;--accent-soft:#E1F3F6;--good:#1B935D;--good-soft:#E2F3EB;--warn:#B9791A;--warn-soft:#F6ECD8;--crit:#C9455A;--crit-soft:#F8E6E9;--violet:#6D5AE0;--violet-soft:#ECE9FB;--shadow:0 1px 2px rgba(14,26,36,.04),0 6px 20px rgba(14,26,36,.06);}
+  :root[data-theme="dark"]{--bg:#091019;--surface:#0F1B26;--surface-2:#15242F;--ink:#E7EEF4;--muted:#91A5B5;--line:#21343F;--accent:#2BC4D7;--accent-ink:#7FE0EC;--accent-soft:#0E2E38;--good:#38BC80;--good-soft:#10281E;--warn:#E0A244;--warn-soft:#2C2413;--crit:#E8677A;--crit-soft:#2C1519;--violet:#9E8BFF;--violet-soft:#1C1836;--shadow:0 1px 2px rgba(0,0,0,.3),0 8px 26px rgba(0,0,0,.35);}
+  *{box-sizing:border-box;} html{scroll-behavior:smooth;}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;}}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-sans);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 clamp(18px,4vw,40px);}
+  header.hero{padding:clamp(38px,6vw,64px) 0 8px;}
+  .eyebrow{font-family:var(--font-mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.13em;color:var(--good);margin:0 0 14px;display:flex;align-items:center;gap:8px;}
+  .eyebrow .dot{width:8px;height:8px;border-radius:50%;background:var(--good);box-shadow:0 0 0 4px var(--good-soft);}
+  h1{font-size:clamp(1.8rem,4.4vw,2.7rem);line-height:1.06;letter-spacing:-.025em;margin:0 0 16px;text-wrap:balance;font-weight:750;}
+  .lede{font-size:clamp(1.02rem,1.9vw,1.2rem);color:var(--muted);max-width:64ch;margin:0;}
+  .lede b{color:var(--ink);font-weight:650;}
+  .banner{margin-top:22px;border-radius:14px;border:1px solid var(--line);border-left:4px solid var(--warn);background:var(--surface);padding:16px 18px;box-shadow:var(--shadow);font-size:.95rem;}
+  .banner b{color:var(--warn);}
+  section{padding:clamp(28px,5vw,48px) 0;border-top:1px solid var(--line);}
+  h2{font-size:clamp(1.3rem,3vw,1.7rem);letter-spacing:-.02em;margin:0 0 18px;font-weight:700;}
+  .proof{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+  @media (max-width:720px){.proof{grid-template-columns:repeat(2,1fr);}}
+  .p{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:16px;box-shadow:var(--shadow);position:relative;overflow:hidden;}
+  .p::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--good);}
+  .p .n{font-family:var(--font-mono);font-size:1.4rem;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.1;}
+  .p .l{display:block;margin-top:8px;font-size:.8rem;color:var(--muted);}
+  .win{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--good);border-radius:14px;padding:20px;box-shadow:var(--shadow);}
+  .win h3{margin:0 0 10px;font-size:1.05rem;}
+  .win .row{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;margin-bottom:8px;}
+  @media (max-width:640px){.win .row{grid-template-columns:1fr;} .win .arw{display:none;}}
+  .win .was{color:var(--crit);font-size:.9rem;} .win .now{color:var(--ink);font-size:.92rem;font-weight:550;}
+  .win .arw{color:var(--good);font-weight:700;} .win code{font-family:var(--font-mono);font-size:.82em;background:var(--surface-2);padding:1px 5px;border-radius:5px;}
+  .flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;}
+  .step{font-family:var(--font-mono);font-size:.76rem;background:var(--accent-soft);color:var(--accent-ink);border-radius:8px;padding:8px 11px;font-weight:600;}
+  .step.brain{background:var(--violet-soft);color:var(--violet);}
+  .step small{display:block;color:var(--muted);font-weight:400;font-size:.66rem;margin-top:2px;}
+  .flow .ar{color:var(--accent);font-weight:700;}
+  table.spot{width:100%;border-collapse:collapse;margin-top:6px;font-size:.85rem;}
+  table.spot td{padding:6px 8px;border-bottom:1px solid var(--line);font-family:var(--font-mono);}
+  table.spot .q{color:var(--ink);} table.spot .r{text-align:right;color:var(--good);font-weight:600;}
+  .callout{border-radius:14px;padding:18px;border:1px solid var(--line);background:var(--surface);box-shadow:var(--shadow);}
+  .callout.sec{border-left:4px solid var(--warn);}
+  .callout h3{margin:0 0 8px;font-size:1rem;} .callout p{margin:0;color:var(--muted);font-size:.92rem;} .callout code{font-family:var(--font-mono);font-size:.84em;background:var(--surface-2);padding:1px 5px;border-radius:5px;}
+  .mini{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;}
+  .mini li{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:11px 14px;font-size:.9rem;color:var(--muted);box-shadow:var(--shadow);}
+  .mini li b{color:var(--ink);}
+  .test-steps{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;box-shadow:var(--shadow);}
+  .cmd{background:var(--ink);color:#E7EEF4;border-radius:10px;padding:14px 16px;font-family:var(--font-mono);font-size:.8rem;overflow-x:auto;margin:8px 0;white-space:pre;}
+  :root[data-theme="dark"] .cmd{background:#020609;border:1px solid var(--line);}
+  .try{display:flex;flex-direction:column;gap:8px;margin-top:12px;}
+  .try .t{background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:10px 13px;font-size:.9rem;} .try .t b{font-family:var(--font-mono);color:var(--accent-ink);}
+  .hud-card{display:flex;gap:16px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:var(--shadow);border-left:4px solid var(--accent);}
+  .hud-card .emoji{font-size:1.8rem;} .hud-card p{margin:0;font-size:.92rem;color:var(--muted);} .hud-card b{color:var(--ink);}
+  a.lnk{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid var(--accent-soft);font-weight:600;}
+  footer{border-top:1px solid var(--line);padding:24px 0 56px;color:var(--muted);font-size:.82rem;} footer code{font-family:var(--font-mono);background:var(--surface-2);padding:1px 6px;border-radius:5px;}
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <p class="eyebrow"><span class="dot"></span>Built overnight · SME-approved · merged to main · pushed</p>
+    <h1>One Brain, Two Mouths — the engine forms the command now.</h1>
+    <p class="lede">Fable's design, built. The voice model <b>decides nothing</b> — you speak intent, and a strong brain (<b>gpt‑5.5</b>) forms the exact read‑only IOS command, runs it, and composes the answer. Voice and chat are just mouths sharing one brain, so they can't diverge.</p>
+    <div class="banner"><b>Honest status:</b> proven end‑to‑end <b>live</b> (9/9 on the real gpt‑5.5 + your sandbox) and SME‑approved with no critical/important findings. The one thing still for <b>you</b>: the spoken voice feel (hedge + orb) — I can't mic‑test.</div>
+  </header>
+
+  <section>
+    <h2>Proof</h2>
+    <div class="proof">
+      <div class="p"><span class="n">9/9</span><span class="l">LIVE eval — real gpt‑5.5 + sandbox</span></div>
+      <div class="p"><span class="n">127</span><span class="l">unit/integration tests pass</span></div>
+      <div class="p"><span class="n">clean</span><span class="l">SME review — 0 critical, 0 important</span></div>
+      <div class="p"><span class="n">gpt‑5.5</span><span class="l">the brain (swappable, 1 line)</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>The thing you hit yesterday — fixed</h2>
+    <div class="win">
+      <h3>"mac address table on sw1"</h3>
+      <div class="row"><div class="was">✗ Yesterday: sent your words to the switch → rejected / returned the IP</div><div class="arw">→</div><div class="now">✓ Now: the brain forms <code>show mac address-table</code>, runs it, reads you the table</div></div>
+      <p style="margin:12px 0 4px;color:var(--muted);font-size:.9rem;">Verified live against the real gpt‑5.5 + your sandbox:</p>
+      <table class="spot">
+        <tr><td class="q">"mac address table on sw1"</td><td class="r">→ show mac address-table ✓</td></tr>
+        <tr><td class="q">"vlans on sw1"</td><td class="r">→ show vlan brief ✓</td></tr>
+        <tr><td class="q">"ip route on sw1"</td><td class="r">→ show ip route ✓</td></tr>
+        <tr><td class="q">"arp on sw1"</td><td class="r">→ show ip arp ✓</td></tr>
+        <tr><td class="q">"version on sw1" · "switch 99" · "its uptime"</td><td class="r">→ still correct ✓</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>How it works now</h2>
+    <div class="flow">
+      <span class="step">You speak intent<small>verbatim words</small></span><span class="ar">→</span>
+      <span class="step">Engine resolves device<small>real inventory</small></span><span class="ar">→</span>
+      <span class="step brain">Brain forms command<small>gpt‑5.5 · exact IOS</small></span><span class="ar">→</span>
+      <span class="step">Read‑only guard<small>2 checks + Cisco list</small></span><span class="ar">→</span>
+      <span class="step">Run + compose<small>brain reads real output</small></span>
+    </div>
+    <p style="margin-top:14px;color:var(--muted);font-size:.92rem;">The mouths never form a command. Read‑only is enforced <b>at the switch boundary on every path</b> (the SME verified this by hand) — the brain's guards sit on top.</p>
+  </section>
+
+  <section>
+    <h2>The eval harness earned its keep on night one</h2>
+    <div class="callout">
+      <h3>📈 It caught a live break the unit tests couldn't</h3>
+      <p>Unit tests passed, but the harness run <b>against the real gpt‑5.5</b> scored 5/9 — every command question failed. Root cause: a stray API parameter (<code>tool_choice</code> with no tools) made every brain call error out. Fixed, re‑ran → <b>9/9 live</b>. That's Fable's whole point: "strongest" is now a number you can watch, and models are swappable — run <code>npm run eval</code> anytime.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>🔒 One security note (worth a glance)</h2>
+    <div class="callout sec">
+      <p>A run printed a promo line pointing to <code>vestauth.com</code>. I traced it to the <b>dotenv</b> package's banner — <b>not our code</b>, and I did not follow its "authenticate" nudge. But legit dotenv promotes <code>dotenvx.com</code>, not that domain — so it's worth <b>confirming your installed <code>dotenv</code> is the genuine package</b> (possible typosquat). It only reads <code>.env.local</code>; the banner is cosmetic and can be silenced.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Minor follow-ups (SME notes — none blocking)</h2>
+    <ul class="mini">
+      <li><b>Fabrication guard is the prompt + the eval.</b> The spoken sentence is composed by the brain from real output with "invent no number" — the eval's live cases are the ongoing check. Later: a programmatic number-in-output verifier (the deferred "silent checker").</li>
+      <li><b>Smoke the revived summaries.</b> The same fix quietly repaired two long-dead paths (cli‑show, pre‑check summaries) — worth one manual check that they read well.</li>
+      <li><b>The <code>commands</code> override</b> on the tool is still exposed (read‑only‑safe, persona forbids it) — can be removed for purity later.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Test it — deploy, then try</h2>
+    <div class="test-steps">
+      <p style="margin:0 0 6px;color:var(--muted);font-size:.9rem;">Deploy (paste to Cursor). Optional: set your preferred brain model in <code>.env.local</code> first — <code>NETJARVIS_BRAIN_MODEL=gpt-5.4</code> (default gpt‑5.5).</p>
+      <div class="cmd">cd /workspace
+git pull origin main          # brings One Brain (expect 65dcd26)
+npm install
+npm run build
+# restart ONLY the web-server tmux session (Ctrl+C, npm run web); leave the tunnel
+# prove it: git rev-parse --short HEAD  →  65dcd26
+#           npm run eval                →  score 9/9</div>
+      <div class="try">
+        <div class="t"><b>"show me the mac address table on sw1"</b> → the real table (this is the one that failed yesterday).</div>
+        <div class="t"><b>"what vlans are on sw1"</b> / <b>"routing table on sw1"</b> → real output, no invented numbers.</div>
+        <div class="t"><b>"version on sw1"</b> then <b>"and its uptime?"</b> → stays on sw1.</div>
+        <div class="t">By <b>voice</b>: quick "let me check sw1…", orb alive, then the answer. (your call)</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Still waiting on you — the HUD</h2>
+    <div class="hud-card">
+      <span class="emoji">🌌</span>
+      <p>The deep‑space HUD mock is still parked for your <b>yes/tweak</b> before I wire it into the live app. <a class="lnk" href="https://claude.ai/code/artifact/68317326-17bd-4944-bbd6-0a3436e167c4">Open the HUD mock →</a></p>
+    </div>
+  </section>
+
+  <footer>
+    One Brain, Two Mouths · merged to <code>main</code> @ <code>65dcd26</code> · pushed · SME-approved. Brain = gpt‑5.5 via <code>NETJARVIS_BRAIN_MODEL</code>. Full audit in <code>PIPELINE.md</code> + <code>implementation-notes.md</code>. Voice feel + live confirmation are yours; everything else is verified.
+  </footer>
+</div>
+</content>
