@@ -19,7 +19,7 @@
 const { assertReadOnly } = require("./read-only-policy.cjs");
 
 const DEFAULT_LEGIT_VERBS = ["show", "sh"];
-const DEFAULT_MODEL = "gpt-5.5";
+const DEFAULT_MODEL = "gpt-5.4";
 
 // (a) Tight shape: must start with show/sh, then only word chars, spaces,
 // and the small set of punctuation real IOS show commands use (pipes,

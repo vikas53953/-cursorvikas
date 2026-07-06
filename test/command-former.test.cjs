@@ -80,7 +80,7 @@ test("uses NETJARVIS_BRAIN_MODEL env default and passes model + platform to chat
   const result = await former.formCommand("version on sw1", DEVICE);
 
   assert.equal(result.ok, true);
-  assert.equal(capturedOpts.model, "gpt-5.5");
+  assert.equal(capturedOpts.model, "gpt-5.4");
   const joined = capturedMessages.map((m) => m.content).join(" ");
   assert.match(joined, /ios-xe/);
   if (prevModel === undefined) delete process.env.NETJARVIS_BRAIN_MODEL;

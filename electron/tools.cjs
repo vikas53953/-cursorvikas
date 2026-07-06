@@ -684,12 +684,12 @@ function createTools({ readDb, updateDb }) {
   // Task E3: the STRONG text brain that forms the exact read-only show
   // command from intent (electron/core/command-former.cjs, Task E1). `model`
   // is swappable with no rebuild via NETJARVIS_BRAIN_MODEL (default
-  // gpt-5.5). `legitVerbs` is a thunk, not a resolved array, so building it
+  // gpt-5.4 — Vikas's decision). `legitVerbs` is a thunk, not a resolved array, so building it
   // here does not require `createTools` itself to become async: E2's
   // `getLegitReads()` is ~1h-cached and never throws (degrades to
   // ["show","sh"] on any failure), and command-former calls the thunk fresh
   // on every `formCommand`.
-  const brainModel = process.env.NETJARVIS_BRAIN_MODEL || "gpt-5.5";
+  const brainModel = process.env.NETJARVIS_BRAIN_MODEL || "gpt-5.4";
   const commandFormer = createCommandFormer({
     chat: (msgs) => chatCompletion(msgs, undefined, { model: brainModel }),
     model: brainModel,

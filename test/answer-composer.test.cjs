@@ -88,7 +88,7 @@ test("uses NETJARVIS_BRAIN_MODEL env default when no model is passed", async () 
 
   await composer.compose("q", DEVICE, "output");
 
-  assert.equal(seenOpts.model, "gpt-5.5");
+  assert.equal(seenOpts.model, "gpt-5.4");
   if (prevModel === undefined) delete process.env.NETJARVIS_BRAIN_MODEL;
   else process.env.NETJARVIS_BRAIN_MODEL = prevModel;
 });

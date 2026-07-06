@@ -11,7 +11,7 @@
 // both brain calls entirely for simple facts) are the mitigations; no further
 // optimization was attempted here.
 
-const DEFAULT_MODEL = "gpt-5.5";
+const DEFAULT_MODEL = "gpt-5.4";
 
 function systemPrompt() {
   return [
