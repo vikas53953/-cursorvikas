@@ -246,11 +246,20 @@ async function chatCompletion(messages, tools, opts = {}) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY is missing in .env.local");
   const model = opts.model || "gpt-5-mini";
+  // Only send tools/tool_choice when tools are actually provided. The brain
+  // calls (command-former, answer-composer) pass no tools; OpenAI rejects
+  // `tool_choice` with no `tools` (HTTP 400), which was silently failing every
+  // brain call into `cannot_form`.
+  const body = { model, messages };
+  if (Array.isArray(tools) && tools.length > 0) {
+    body.tools = tools;
+    body.tool_choice = "auto";
+  }
   const started = Date.now();
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model, messages, tools, tool_choice: "auto" }),
+    body: JSON.stringify(body),
     signal: AbortSignal.timeout(90000),
   });
   if (!response.ok) {
