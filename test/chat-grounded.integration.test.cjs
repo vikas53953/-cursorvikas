@@ -84,7 +84,7 @@ test("chat: generalChatSystemAppendix carries the mandatory grounded-answers rul
   assert.match(appendix, /not_found/);
   assert.match(appendix, /nearest/i);
   assert.match(appendix, /answerKind/);
-  assert.match(appendix, /need_command/);
+  assert.match(appendix, /cannot_form/);
   // Text chat must NOT require the voice-only two-beat hedge.
   assert.match(appendix, /No two-beat hedge/i);
 });
