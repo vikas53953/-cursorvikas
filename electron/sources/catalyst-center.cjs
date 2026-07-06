@@ -317,6 +317,36 @@ async function getInventoryCached() {
   return rows;
 }
 
+const LEGIT_READS_FALLBACK = ["show", "sh"];
+const LEGIT_READS_MAX_AGE_MS = 60 * 60 * 1000; // ~1 hour
+
+let legitReadsCache = null; // { at, verbs }
+
+// Returns the Cisco Catalyst Center "legit-reads" allow-list of read-only CLI
+// command verbs (e.g. show, sh, ping, traceroute, ...). Cached for ~1 hour.
+// Never throws: any failure (network, auth, malformed response) degrades to
+// the safe default ["show","sh"] so the read-only guard fails closed-but-usable.
+//
+// `apiFn` may be injected for tests (defaults to the module's internal `api`).
+// `fresh: true` bypasses the cache (test-only convenience).
+async function getLegitReads({ apiFn = api, fresh = false } = {}) {
+  if (!fresh && legitReadsCache && Date.now() - legitReadsCache.at < LEGIT_READS_MAX_AGE_MS) {
+    return legitReadsCache.verbs;
+  }
+  try {
+    const data = await apiFn("GET", "/dna/intent/api/v1/network-device-poller/cli/legit-reads");
+    const verbs = Array.isArray(data) ? data : Array.isArray(data?.response) ? data.response : null;
+    if (!verbs || verbs.length === 0) {
+      throw new Error("legit-reads: malformed or empty response");
+    }
+    legitReadsCache = { at: Date.now(), verbs };
+    return verbs;
+  } catch (error) {
+    logger.log("catc.legit-reads.error", { error: String(error && error.message) });
+    return LEGIT_READS_FALLBACK;
+  }
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -334,4 +364,5 @@ module.exports = {
   getEvents,
   getClientHealth,
   runCommands,
+  getLegitReads,
 };
