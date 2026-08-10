@@ -1,0 +1,31 @@
+{
+  "name": "Alex Rivera",
+  "bio": "Network engineer · builder · coffee enthusiast",
+  "avatar": "/avatar.svg",
+  "siteUrl": "https://links.example.com",
+  "links": [
+    {
+      "slug": "github",
+      "title": "GitHub",
+      "url": "https://github.com/example",
+      "emoji": "💻"
+    },
+    {
+      "slug": "blog",
+      "title": "Blog",
+      "url": "https://blog.example.com",
+      "emoji": "✍️"
+    },
+    {
+      "slug": "linkedin",
+      "title": "LinkedIn",
+      "url": "https://linkedin.com/in/example"
+    },
+    {
+      "slug": "email",
+      "title": "Email me",
+      "url": "mailto:hello@example.com",
+      "emoji": "✉️"
+    }
+  ]
+}
