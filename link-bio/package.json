@@ -1,0 +1,19 @@
+{
+  "name": "link-bio",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Self-hosted link-in-bio page with click tracking",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.9.0",
+    "dotenv": "^16.5.0",
+    "sharp": "^0.34.1"
+  }
+}
