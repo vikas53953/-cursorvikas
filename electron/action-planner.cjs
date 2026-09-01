@@ -74,6 +74,16 @@ function planAction(route, context = {}) {
         meta: route.meta,
       };
 
+    case INTENTS.INVESTIGATE:
+      return {
+        skill: "investigation",
+        mode: "hybrid",
+        useLlm: true,
+        batch: true,
+        tool: "investigate",
+        meta: route.meta,
+      };
+
     case INTENTS.DELEGATE:
     case INTENTS.GENERAL: {
       const built = buildLlmPayload(message, route, target, agents);
