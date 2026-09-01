@@ -26,6 +26,12 @@ const ORG = {
         { id: "firewall", name: "Firewall Agent", scope: "firewalls and network security policy: rules, zones, NAT, drops by policy, and exposure" },
         { id: "proxy", name: "Proxy Agent", scope: "forward/reverse proxies: access errors, latency, cache behavior, and upstream health" },
         { id: "loadbalancer", name: "Load Balancer Agent", scope: "load balancers: VIPs, pools, health monitors, persistence, and traffic distribution" },
+        {
+          id: "soc",
+          name: "Investigation Agent",
+          scope:
+            "cross-platform security investigation: correlate Splunk-indexed VPN, proxy, firewall, endpoint, identity and cloud evidence plus network events into one timestamped timeline for a user, IP, or host; report coverage and gaps, never speculate beyond the evidence",
+        },
       ],
     },
     {
@@ -66,6 +72,7 @@ const TOOL_ROUTING = {
   drop_report: { team: "data", title: "Drop/error report" },
   export_csv: { team: "data", title: "CSV export" },
   vulnerability_check: { team: "firewall", title: "Vulnerability check" },
+  investigate: { team: "soc", title: "Cross-platform investigation" },
   active_alerts: { team: "incident", title: "Active alerts" },
   overnight_events: { team: "incident", title: "Overnight events" },
   acknowledge_alert: { team: "incident", title: "Acknowledge alert" },
@@ -98,6 +105,7 @@ const SPECIALIST_TOOL_NAMES = [
   "traffic_report",
   "drop_report",
   "vulnerability_check",
+  "investigate",
   "precheck_capture",
   "precheck_compare",
   "problem_trends",
@@ -138,7 +146,12 @@ Rules:
 - Device-specific pre-check (e.g. "precheck on sw1", label "precheck-sw1"): use run_show_command with the standard show bundle. Do NOT call precheck_capture for single-device CLI pre-checks — that tool is for whole-network baseline snapshots only.
 - Present a clean, professional report the way a network engineer would in Slack: lead with a one-line **Summary**, then **Details** (bullets/tables with real numbers).
 - FORBIDDEN: "Next steps", "Notes and next steps", "Recommended actions", or suggesting follow-up commands unless explicitly asked.
-- Only add **⚠ Flag:** when something is genuinely wrong. Otherwise end after Details. Keep it under 300 words.`;
+- Only add **⚠ Flag:** when something is genuinely wrong. Otherwise end after Details. Keep it under 300 words.${
+    String(team || "").toLowerCase() === "soc"
+      ? `
+- Investigations: call the investigate tool with the one seed entity (user, ip, or host) and the window the engineer gave. Report the timeline in time order with platform + source on each line, then the coverage table and every gap (unconfigured / failed / empty platforms). Never infer intent, attribution, or "compromise" - state what the evidence shows and what is missing.`
+      : ""
+  }`;
 }
 
 function routeTitle(toolName, args) {
@@ -148,6 +161,10 @@ function routeTitle(toolName, args) {
     return `CLI: ${args.commands.slice(0, 2).join(" / ")}`;
   }
   if (toolName === "precheck_capture" && args?.label) return `Pre-check: ${args.label}`;
+  if (toolName === "investigate") {
+    const seed = args?.user || args?.ip || args?.host;
+    if (seed) return `Investigate: ${String(seed).slice(0, 100)}`;
+  }
   if (toolName === "delegate_task" && args?.task) return String(args.task).slice(0, 140);
   if (toolName === "send_email" && args?.subject) return `Email: ${args.subject}`;
   return route.title;
