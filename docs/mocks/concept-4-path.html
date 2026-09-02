@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>NetJarvis — Concept 4: The Path (follow the packet)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #14171a; --panel: #1c2024; --panel-2: #22272c; --face: #2a2f34; --face-2: #33393f; --edge: #3b424a; --edge-2: #4a525b;
+    --silk: #c9d1d9; --silk-2: #8b949e; --silk-3: #5c656f;
+    --led-g: #3ddc84; --led-a: #ffb020; --led-r: #ff5c5c; --led-b: #4cc2ff; --led-off: #3a4148;
+    --cable-y: #f2c14e; --cable-c: #4ad3c8; --cable-v: #b39bff; --cable-o: #ff8a5b;
+    --cond: "Barlow Condensed", "Arial Narrow", sans-serif; --sans: "Barlow", system-ui, sans-serif; --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--bg); color: var(--silk); font-family: var(--sans); font-size: 13px; overflow: hidden; }
+  .wall { display: grid; grid-template-rows: 48px 1fr 300px; grid-template-columns: 1fr 380px; height: 100vh; }
+
+  /* prompt bar: NetJarvis is a device prompt, not an orb */
+  .prompt { grid-column: 1 / -1; display: flex; align-items: center; gap: 16px; padding: 0 18px; background: var(--panel); border-bottom: 1px solid var(--edge); font-family: var(--mono); font-size: 13px; }
+  .prompt .host { color: var(--led-g); }
+  .prompt .host b { color: var(--silk); font-weight: 500; }
+  .prompt .cmd { flex: 1; color: var(--silk); }
+  .prompt .cmd i { color: var(--silk-3); font-style: normal; }
+  .prompt .cur { display: inline-block; width: 8px; height: 15px; background: var(--silk); vertical-align: -3px; animation: blink 1s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: 0 } }
+  .prompt .st { display: flex; gap: 18px; color: var(--silk-2); font-size: 11.5px; }
+  .prompt .st i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; background: var(--led-g); box-shadow: 0 0 6px var(--led-g); }
+  .prompt .st .off i { background: var(--led-off); box-shadow: none; }
+  .prompt .st .amb i { background: var(--led-a); box-shadow: 0 0 6px var(--led-a); }
+
+  /* the path */
+  .path { grid-column: 1; grid-row: 2; position: relative; padding: 22px 26px 12px; overflow: hidden; }
+  .path h2 { margin: 0 0 4px; font-family: var(--cond); font-weight: 600; font-size: 22px; letter-spacing: .04em; text-transform: uppercase; }
+  .path h2 span { color: var(--silk-2); font-weight: 500; }
+  .path p.sub { margin: 0 0 18px; color: var(--silk-2); font-family: var(--mono); font-size: 11.5px; }
+  .hops { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0; align-items: start; position: relative; }
+  .hop { --cable: var(--cable-c); position: relative; padding: 0 10px; display: grid; gap: 8px; justify-items: stretch; }
+  .hop .role { font-family: var(--cond); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--silk-2); text-align: center; }
+  .hop .n { position: absolute; top: 28px; left: 4px; width: 20px; height: 20px; border-radius: 50%; background: var(--panel-2); border: 1px solid var(--edge-2); font-family: var(--mono); font-size: 10px; display: grid; place-items: center; color: var(--silk-2); }
+  .hop .name { text-align: center; font-weight: 600; font-size: 14px; }
+  .hop .name small { display: block; font-family: var(--mono); font-size: 10.5px; color: var(--silk-2); font-weight: 400; margin-top: 2px; }
+  .hop .ev { text-align: center; font-family: var(--mono); font-size: 11px; color: var(--silk-2); }
+  .hop .ev b { color: var(--silk); font-weight: 500; }
+  .hop .ev .bad { color: var(--led-r); }
+  .hop .ev .amb { color: var(--led-a); }
+
+  /* faceplates */
+  .hop:not(:last-child) .face::after { content: ""; position: absolute; right: -21px; top: calc(50% - 2px); width: 22px; height: 4px; border-radius: 2px; background: var(--cable, var(--cable-c)); z-index: 2; }
+  .hop:not(:last-child) .face::before { content: ""; position: absolute; right: -6px; top: calc(50% - 6px); width: 10px; height: 12px; border-radius: 2px; background: #0f1214; border: 1px solid var(--edge-2); z-index: 3; }
+  .face { height: 74px; border-radius: 4px; background: linear-gradient(180deg, var(--face-2), var(--face)); border: 1px solid var(--edge-2); box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 6px 14px rgba(0,0,0,.45); position: relative; padding: 8px 10px; display: grid; grid-template-rows: auto 1fr; gap: 6px; }
+  .face .brand { font-family: var(--cond); font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--silk-2); display: flex; justify-content: space-between; }
+  .face .brand i { width: 7px; height: 7px; border-radius: 50%; background: var(--led-g); box-shadow: 0 0 6px var(--led-g); }
+  .face .brand i.r { background: var(--led-r); box-shadow: 0 0 6px var(--led-r); }
+  .face .brand i.a { background: var(--led-a); box-shadow: 0 0 6px var(--led-a); }
+  .ports { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; align-items: end; }
+  .port { height: 22px; border-radius: 2px; background: #0f1214; border: 1px solid var(--edge); position: relative; }
+  .port::after { content: ""; position: absolute; top: 3px; left: 3px; width: 5px; height: 5px; border-radius: 1px; background: var(--led-off); }
+  .port.up::after { background: var(--led-g); box-shadow: 0 0 5px var(--led-g); }
+  .port.amb::after { background: var(--led-a); box-shadow: 0 0 5px var(--led-a); }
+  .port.err::after { background: var(--led-r); box-shadow: 0 0 5px var(--led-r); }
+  .port.sel { outline: 1px solid var(--led-b); outline-offset: 1px; }
+  .plabel { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; font-family: var(--mono); font-size: 8.5px; color: var(--silk-3); text-align: center; margin-top: -2px; }
+  .appliance .ports { grid-template-columns: repeat(4, 1fr) 2fr; }
+  .cloud .face { border-style: dashed; background: transparent; box-shadow: none; }
+  .cloud .face .lcd { font-family: var(--mono); font-size: 11px; color: var(--led-b); align-self: center; }
+  .lcd { font-family: var(--mono); font-size: 11px; color: var(--led-g); background: #0b1e14; border: 1px solid #1d3a2a; border-radius: 2px; padding: 3px 6px; align-self: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lcd.a { color: var(--led-a); background: #241a08; border-color: #4b3612; }
+  .lcd.r { color: var(--led-r); background: #2a1212; border-color: #5a2323; }
+
+  /* cables between hops */
+  .cables { position: absolute; left: 26px; right: 26px; top: 0; height: 100%; pointer-events: none; }
+  .cable { position: absolute; height: 4px; border-radius: 2px; }
+  .cable::before, .cable::after { content: ""; position: absolute; top: -3px; width: 10px; height: 10px; border-radius: 2px; background: #0f1214; border: 1px solid var(--edge-2); }
+  .cable::before { left: -4px; } .cable::after { right: -4px; }
+  .pkt { position: absolute; top: -2px; width: 8px; height: 8px; border-radius: 50%; background: #fff; box-shadow: 0 0 8px #fff; animation: run 3.2s linear infinite; }
+  @keyframes run { from { left: 0 } to { left: calc(100% - 8px) } }
+
+  /* the walk (timestamped evidence aligned to hops) */
+  .walk { margin-top: 26px; border-top: 1px solid var(--edge); padding-top: 10px; }
+  .walk h3 { margin: 0 0 8px; font-family: var(--cond); font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--silk-2); display: flex; justify-content: space-between; }
+  .walk h3 span { font-family: var(--mono); letter-spacing: 0; text-transform: none; color: var(--silk-3); font-size: 11px; }
+  .rows { display: grid; gap: 3px; font-family: var(--mono); font-size: 11px; }
+  .row { display: grid; grid-template-columns: 72px repeat(7, 1fr); align-items: center; height: 24px; }
+  .row time { color: var(--silk-3); }
+  .row .c { height: 18px; margin: 0 8px; border-radius: 2px; background: var(--panel-2); border-left: 2px solid var(--led-g); padding: 0 6px; line-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--silk); }
+  .row .c.a { border-left-color: var(--led-a); } .row .c.r { border-left-color: var(--led-r); background: #2a1616; } .row .c.b { border-left-color: var(--led-b); }
+  .row .dash { height: 1px; background: repeating-linear-gradient(90deg, var(--edge) 0 4px, transparent 4px 8px); margin: 0 8px; }
+
+  /* right: NetJarvis narration + team */
+  .side { grid-column: 2; grid-row: 2 / 4; border-left: 1px solid var(--edge); background: var(--panel); display: grid; grid-template-rows: auto 1fr auto; min-height: 0; }
+  .side h4 { margin: 0; padding: 12px 16px; font-family: var(--cond); font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--silk-2); border-bottom: 1px solid var(--edge); display: flex; justify-content: space-between; }
+  .side h4 span { font-family: var(--mono); letter-spacing: 0; text-transform: none; color: var(--led-g); }
+  .log { padding: 14px 16px; overflow: auto; font-size: 13.5px; line-height: 1.5; display: grid; gap: 14px; align-content: start; }
+  .log .u { color: var(--silk-2); font-family: var(--mono); font-size: 12px; }
+  .log .u::before { content: "you> "; color: var(--silk-3); }
+  .log .j::before { content: "netjarvis> "; font-family: var(--mono); font-size: 12px; color: var(--led-g); }
+  .log .j b { color: var(--led-a); font-weight: 500; }
+  .log .j code { font-family: var(--mono); font-size: 12px; background: var(--panel-2); padding: 0 4px; border-radius: 2px; }
+  .log .gap { color: var(--silk-2); font-size: 12px; border-left: 2px solid var(--led-a); padding-left: 10px; }
+  .crew { border-top: 1px solid var(--edge); padding: 10px 16px 14px; font-family: var(--mono); font-size: 11px; color: var(--silk-2); display: grid; gap: 5px; }
+  .crew div { display: flex; justify-content: space-between; }
+  .crew i { display: inline-block; width: 7px; height: 7px; border-radius: 2px; background: var(--led-off); margin-right: 8px; vertical-align: -1px; }
+  .crew i.on { background: var(--led-g); box-shadow: 0 0 5px var(--led-g); }
+
+  /* bottom: the real output for the selected hop */
+  .term { grid-column: 1; grid-row: 3; border-top: 1px solid var(--edge); background: #0f1214; display: grid; grid-template-rows: 34px 1fr; min-height: 0; }
+  .tabs { display: flex; align-items: center; gap: 2px; padding: 0 12px; border-bottom: 1px solid var(--edge); font-family: var(--mono); font-size: 11.5px; }
+  .tab { padding: 8px 12px; color: var(--silk-2); border-bottom: 2px solid transparent; }
+  .tab.on { color: var(--silk); border-bottom-color: var(--led-b); }
+  .tabs .right { margin-left: auto; color: var(--silk-3); }
+  pre.out { margin: 0; padding: 12px 16px; overflow: auto; font-family: var(--mono); font-size: 12px; line-height: 1.55; color: #cfd8e3; }
+  pre.out .p { color: var(--led-g); } pre.out .h { color: var(--silk-2); } pre.out .hi { background: rgba(255,176,32,.16); color: #ffd48a; }
+</style>
+</head>
+<body>
+<div class="wall">
+  <header class="prompt">
+    <span class="host">netjarvis@<b>sandboxdnac</b>#</span>
+    <span class="cmd">investigate user jdoe last 6h<span class="cur"></span> <i>— follow the user through the estate, hop by hop</i></span>
+    <div class="st"><span><i></i>Catalyst Center · live · 4 devices</span><span class="off"><i></i>Splunk · unconfigured</span><span class="amb"><i></i>mock lab · fixture</span><span class="off"><i></i>voice off</span></div>
+  </header>
+
+  <section class="path">
+    <h2>Path of <span>user</span> jdoe <span>· 23:48 → 02:33 UTC · 29 events · 7 hops</span></h2>
+    <p class="sub">identity → remote access → perimeter → web egress → endpoint → campus → cloud &nbsp;·&nbsp; every hop is a real device or service; the LEDs are its evidence in this window</p>
+
+
+    <div class="hops">
+      <div class="hop cloud" style="--cable:var(--cable-y)"><span class="n">1</span><div class="role">identity</div>
+        <div class="face"><div class="brand">okta · corp.example <i class="a"></i></div><div class="lcd a">3 × FAIL → SUCCESS · PUSH · NL</div></div>
+        <div class="name">idp-okta<small>System Log · OktaIM2</small></div><div class="ev"><b>5</b> events · <span class="amb">new country</span></div></div>
+
+      <div class="hop appliance" style="--cable:var(--cable-c)"><span class="n">2</span><div class="role">remote access</div>
+        <div class="face"><div class="brand">cisco asa 5516-x <i></i></div><div class="ports"><span class="port up"></span><span class="port up"></span><span class="port"></span><span class="port"></span><span class="lcd">jdoe ⇄ 10.20.0.7 · 2h40m · 812MB↑</span></div></div>
+        <div class="name">vpn-asa-1<small>10.0.0.11 · RA-VPN</small></div><div class="ev"><b>3</b> events · assigned <b>10.20.0.7</b></div></div>
+
+      <div class="hop appliance" style="--cable:var(--cable-v)"><span class="n">3</span><div class="role">perimeter</div>
+        <div class="face"><div class="brand">palo alto pa-3260 <i class="r"></i></div><div class="ports"><span class="port up"></span><span class="port up"></span><span class="port err sel"></span><span class="port up"></span><span class="lcd r">DENY ×3 → 198.51.100.4 :445 :3389</span></div></div>
+        <div class="name">fw-pan-1<small>10.0.0.12 · vpn-users → untrust</small></div><div class="ev"><b>4</b> events · <span class="bad">3 denies</span></div></div>
+
+      <div class="hop cloud" style="--cable:var(--cable-o)"><span class="n">4</span><div class="role">web egress</div>
+        <div class="face"><div class="brand">zscaler zia <i class="a"></i></div><div class="lcd a">BLOCK pastebin ×2 · POST 48MB allowed</div></div>
+        <div class="name">proxy-zs-1<small>NSS web feed</small></div><div class="ev"><b>4</b> events · <span class="amb">2 blocked</span></div></div>
+
+      <div class="hop appliance" style="--cable:var(--cable-c)"><span class="n">5</span><div class="role">endpoint</div>
+        <div class="face"><div class="brand">windows 11 · falcon sensor <i class="r"></i></div><div class="ports"><span class="port up"></span><span class="port"></span><span class="port"></span><span class="port"></span><span class="lcd r">HIGH · powershell -enc · T1059.001</span></div></div>
+        <div class="name">LT-4421<small>10.20.0.7 · jdoe</small></div><div class="ev"><b>4</b> events · <span class="bad">1 detection</span></div></div>
+
+      <div class="hop" style="--cable:var(--cable-y)"><span class="n">6</span><div class="role">campus · access</div>
+        <div class="face"><div class="brand">catalyst c9000v · sw1 <i></i></div><div class="ports"><span class="port up"></span><span class="port up"></span><span class="port up"></span><span class="port up"></span><span class="port up"></span><span class="port up"></span><span class="port up"></span><span class="port up"></span></div></div>
+        <div class="plabel"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span></div>
+        <div class="name">sw1<small>10.10.20.175 · IOS-XE 17.x</small></div><div class="ev"><b>3</b> events · ssh + <span class="amb">config</span> by jdoe</div></div>
+
+      <div class="hop cloud"><span class="n">7</span><div class="role">cloud</div>
+        <div class="face"><div class="brand">aws · 123456789012 <i class="r"></i></div><div class="lcd r">AttachUserPolicy AdministratorAccess</div></div>
+        <div class="name">aws-prod-account<small>CloudTrail · us-east-1</small></div><div class="ev"><b>3</b> events · <span class="bad">IAM escalation</span></div></div>
+    </div>
+
+    <div class="walk">
+      <h3>The walk <span>time flows down · each column is a hop · click a cell to see its raw evidence below</span></h3>
+      <div class="rows">
+        <div class="row"><time>23:48:17</time><div class="c a">FAIL · INVALID_CREDENTIALS · 203.0.113.9</div><div class="dash"></div><div class="dash"></div><div class="dash"></div><div class="dash"></div><div class="dash"></div><div class="dash"></div></div>
+        <div class="row"><time>23:51:17</time><div class="c">SUCCESS · PUSH · new device / country</div><div class="dash"></div><div class="dash"></div><div class="dash"></div><div class="dash"></div><div class="dash"></div><div class="dash"></div></div>
+        <div class="row"><time>23:53:17</time><div class="dash"></div><div class="c">ASA-6-722022 · assigned 10.20.0.7</div><div class="dash"></div><div class="dash"></div><div class="dash"></div><div class="dash"></div><div class="dash"></div></div>
+        <div class="row"><time>00:07:17</time><div class="dash"></div><div class="dash"></div><div class="dash"></div><div class="dash"></div><div class="dash"></div><div class="c a">%SEC_LOGIN-4 · failed · 10.20.0.7</div><div class="dash"></div></div>
+        <div class="row"><time>00:09:17</time><div class="dash"></div><div class="dash"></div><div class="dash"></div><div class="dash"></div><div class="dash"></div><div class="c a">%SYS-5-CONFIG_I · jdoe · vty0</div><div class="dash"></div></div>
+        <div class="row"><time>00:13:17</time><div class="dash"></div><div class="dash"></div><div class="c r">deny → 198.51.100.4:445 · block-smb-out</div><div class="dash"></div><div class="dash"></div><div class="dash"></div><div class="dash"></div></div>
+        <div class="row"><time>00:18:17</time><div class="dash"></div><div class="dash"></div><div class="dash"></div><div class="dash"></div><div class="c r">DetectionSummary · HIGH · powershell</div><div class="dash"></div><div class="dash"></div></div>
+        <div class="row"><time>00:23:17</time><div class="dash"></div><div class="dash"></div><div class="dash"></div><div class="c a">GET pastebin.com/raw · BLOCKED</div><div class="dash"></div><div class="dash"></div><div class="dash"></div></div>
+        <div class="row"><time>00:55:17</time><div class="dash"></div><div class="dash"></div><div class="dash"></div><div class="dash"></div><div class="dash"></div><div class="dash"></div><div class="c r">AttachUserPolicy · AdministratorAccess</div></div>
+      </div>
+    </div>
+  </section>
+
+  <aside class="side">
+    <h4>netjarvis <span>● grounded · 29/29 rows sourced</span></h4>
+    <div class="log">
+      <p class="u">investigate user jdoe last 6h</p>
+      <p class="j">Followed jdoe across 7 hops. Identity: three failures then a push approval from a new country. The VPN handed the session <code>10.20.0.7</code>; from there the firewall denied SMB and RDP to <code>198.51.100.4</code>, CrowdStrike raised a <b>high</b> encoded-PowerShell detection on <code>LT-4421</code>, the proxy blocked pastebin twice and allowed a 48 MB upload, and the same user changed config on <code>sw1</code> from that address. In AWS the account attached <b>AdministratorAccess</b> to <code>svc-backup</code>.</p>
+      <p class="gap">Blind spots: 7 Splunk lenses unconfigured, so this path is built from the mock lab plus Catalyst Center. I will not guess what the missing hops would show.</p>
+      <p class="u">show me the firewall hop</p>
+      <p class="j">Selected hop 3 · <code>fw-pan-1</code>. Raw traffic log is below; the three denies are highlighted.</p>
+    </div>
+    <div class="crew">
+      <div><span><i class="on"></i>Investigation Agent</span><span>done · 05:11</span></div>
+      <div><span><i></i>Firewall Agent</span><span>idle</span></div>
+      <div><span><i></i>Data Network Agent</span><span>idle</span></div>
+    </div>
+  </aside>
+
+  <section class="term">
+    <div class="tabs"><span class="tab on">fw-pan-1 · traffic log</span><span class="tab">vpn-asa-1 · syslog</span><span class="tab">sw1 · show logging</span><span class="tab">LT-4421 · falcon events</span><span class="right">hop 3 of 7 · 4 rows · pan:traffic · fixture</span></div>
+<pre class="out"><span class="h">receive_time         src          dst             dport  app        action  rule</span>
+<span class="hi">2026-09-02 00:13:17  10.20.0.7    198.51.100.4    445    ms-ds-smb  deny    block-smb-outbound</span>
+<span class="hi">2026-09-02 00:14:17  10.20.0.7    198.51.100.4    445    ms-ds-smb  deny    block-smb-outbound</span>
+<span class="hi">2026-09-02 00:15:17  10.20.0.7    198.51.100.4    3389   ms-rdp     deny    block-rdp-outbound</span>
+2026-09-02 00:28:17  10.20.0.7    198.51.100.8    443    ssl        allow   allow-web-out       bytes_out=53084160
+<span class="p">netjarvis@sandboxdnac#</span> _</pre>
+  </section>
+</div>
+</body>
+</html>
