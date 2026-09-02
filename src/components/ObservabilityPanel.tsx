@@ -1,11 +1,14 @@
-import { useEffect, useState, type MouseEvent } from "react";
-import { Copy } from "lucide-react";
+import { useEffect, useId, useMemo, useState, type MouseEvent } from "react";
+import mermaid from "mermaid";
+import { Activity, Copy, Download, Mail } from "lucide-react";
 import { CollapsibleSection } from "./CollapsibleSection";
+import { CliOutputView } from "./CliOutput";
+import { Markdown } from "./Markdown";
+import { StatusPill } from "./ui/StatusPill";
 import { artifactEmailBody, artifactPlainText, downloadArtifact } from "../lib/artifactExport";
 import { artifactNarrativeText, artifactTechnicalText } from "../lib/observability";
 import type { TranscriptEntry } from "../lib/realtime";
 import type { JarvisArtifact, SessionAuditTurn, SessionIndexEntry } from "../vite-env";
-import { CliOutputView } from "./CliOutput";
 
 export type ObservabilityEvent = {
   id: string;
@@ -21,10 +24,20 @@ type ObservabilityPanelProps = {
   events: ObservabilityEvent[];
   artifact: JarvisArtifact | null;
   sessionLog: TranscriptEntry[];
+  theme?: "light" | "dark";
 };
 
-// Focused observability: current output (technical + narrative) with optional recent tool log.
-export function ObservabilityPanel({ events, artifact, sessionLog }: ObservabilityPanelProps) {
+let mermaidTheme: "default" | "dark" | null = null;
+function ensureMermaid(theme: "light" | "dark") {
+  const wanted = theme === "dark" ? "dark" : "default";
+  if (mermaidTheme === wanted) return;
+  mermaid.initialize({ startOnLoad: false, theme: wanted, securityLevel: "strict" });
+  mermaidTheme = wanted;
+}
+
+// Observability page: current output (behind the scenes / CLI / narrative, mermaid diagrams
+// rendered), the recent tool activity feed and the durable session audit trail.
+export function ObservabilityPanel({ events, artifact, sessionLog, theme = "light" }: ObservabilityPanelProps) {
   const [copied, setCopied] = useState<"" | "all" | "email">("");
   const [auditSessions, setAuditSessions] = useState<SessionIndexEntry[]>([]);
   const [auditTurns, setAuditTurns] = useState<SessionAuditTurn[]>([]);
@@ -49,13 +62,13 @@ export function ObservabilityPanel({ events, artifact, sessionLog }: Observabili
     };
   }, [events.length, sessionLog.length]);
 
-  const recentTools = (events.length > 0 ? events : fallbackFromTranscript(sessionLog))
-    .filter((event) => event.role === "tool")
-    .slice(0, 8);
+  const recentTools = (events.length > 0 ? events : fallbackFromTranscript(sessionLog)).filter((event) => event.role === "tool").slice(0, 8);
   const fullTechnical = artifact ? artifactTechnicalText(artifact) : "";
   const hasSession = fullTechnical.includes("## Behind the scenes");
   const sceneText = hasSession ? fullTechnical.split("## CLI output")[0]?.replace("## Behind the scenes", "").trim() : "";
   const cliText = hasSession ? fullTechnical.split("## CLI output")[1]?.trim() : fullTechnical;
+  const isMarkdown = artifact?.kind === "markdown";
+  const isMermaid = artifact?.kind === "mermaid";
 
   async function copyAll() {
     if (!artifact) return;
@@ -72,108 +85,191 @@ export function ObservabilityPanel({ events, artifact, sessionLog }: Observabili
   }
 
   return (
-    <div className="observability-panel">
+    <div className="observability">
       {artifact ? (
-        <section className="observability-current">
-          <header>
-            <strong>Current output</strong>
-            <span>{artifact.kind}</span>
+        <section className="ui-card">
+          <header className="ui-card-head">
+            <h2>
+              {artifact.title}
+              <StatusPill tone={isMermaid ? "accent" : artifact.kind === "code" ? "accent" : artifact.kind === "table" ? "info" : "neutral"} dot={false} label={artifact.kind} />
+            </h2>
+            <div className="ui-card-actions">
+              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => void copyAll()} title="Copy full output">
+                <Copy size={13} /> {copied === "all" ? "Copied" : "Copy"}
+              </button>
+              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => void copyEmail()} title="Copy formatted as an email">
+                <Mail size={13} /> {copied === "email" ? "Copied" : "Copy as email"}
+              </button>
+              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => downloadArtifact(artifact)}>
+                <Download size={13} /> {artifact.kind === "table" ? "Download CSV" : "Download"}
+              </button>
+            </div>
           </header>
-          <h4>{artifact.title}</h4>
-          <div className="observability-split">
-            {hasSession ? (
-              <div className="observability-technical">
-                <div className="obs-block-head">
-                  <small>Behind the scenes</small>
-                  <CopyChip text={sceneText} label="behind the scenes" />
-                </div>
-                <pre>{sceneText}</pre>
-              </div>
-            ) : null}
-            <div className="observability-technical">
-              <div className="obs-block-head">
-                <small>{hasSession ? "CLI output" : "Technical"}</small>
-                <CopyChip text={cliText} label="technical output" />
-              </div>
-              <CliOutputView text={cliText} />
-            </div>
-            <div className="observability-narrative">
-              <div className="obs-block-head">
-                <small>Narrative</small>
-                <CopyChip text={artifactNarrativeText(artifact)} label="narrative summary" />
-              </div>
-              <div>{artifactNarrativeText(artifact)}</div>
-            </div>
-          </div>
 
-          <footer className="observability-actions">
-            <button onClick={() => void copyAll()} title="Copy full output">
-              {copied === "all" ? "Copied!" : "Copy all"}
-            </button>
-            <button onClick={() => void copyEmail()} title="Copy formatted as an email">
-              {copied === "email" ? "Copied!" : "Copy email"}
-            </button>
-            <button onClick={() => downloadArtifact(artifact)} title={artifact.kind === "table" ? "Download as CSV" : "Download as file"}>
-              {artifact.kind === "table" ? "Download CSV" : "Download"}
-            </button>
-          </footer>
+          {isMermaid ? (
+            <div className="ui-card-body">
+              <MermaidView source={artifact.content} title={artifact.title} theme={theme} />
+            </div>
+          ) : isMarkdown ? (
+            <div className="ui-card-body obs-markdown">
+              <Markdown text={artifact.content} mentions={false} />
+            </div>
+          ) : (
+            <div className="obs-split">
+              {hasSession ? (
+                <section className="obs-block">
+                  <header className="obs-block-head">
+                    <span className="ui-label">Behind the scenes</span>
+                    <CopyChip text={sceneText} label="behind the scenes" />
+                  </header>
+                  <pre className="obs-pre">{sceneText}</pre>
+                </section>
+              ) : null}
+              <section className="obs-block obs-block-wide">
+                <header className="obs-block-head">
+                  <span className="ui-label">{hasSession ? "CLI output" : "Technical output"}</span>
+                  <CopyChip text={cliText} label="technical output" />
+                </header>
+                <CliOutputView text={cliText} />
+              </section>
+              <section className="obs-block">
+                <header className="obs-block-head">
+                  <span className="ui-label">Narrative</span>
+                  <CopyChip text={artifactNarrativeText(artifact)} label="narrative summary" />
+                </header>
+                <p className="obs-narrative">{artifactNarrativeText(artifact)}</p>
+              </section>
+            </div>
+          )}
         </section>
       ) : (
-        <p className="observability-empty">No active output yet. When Jarvis runs a tool, the latest technical output and narrative summary appear here.</p>
+        <div className="ui-card ui-empty ui-empty-tall">
+          <Activity size={28} />
+          <strong>No output yet</strong>
+          <span>When NetJarvis runs a tool, the latest technical output and narrative summary appear here.</span>
+        </div>
       )}
 
-      {recentTools.length > 0 ? (
-        <CollapsibleSection title="Recent tool activity" count={recentTools.length}>
-          <ul className="observability-feed-list">
+      <section className="ui-card">
+        <header className="ui-card-head">
+          <h2>
+            Recent tool activity <em className="ui-count">{recentTools.length}</em>
+          </h2>
+        </header>
+        {recentTools.length === 0 ? (
+          <div className="ui-empty">
+            <strong>No tool activity in this session</strong>
+          </div>
+        ) : (
+          <ul className="obs-feed">
             {recentTools.map((event) => (
-              <li key={event.id} className={`obs-entry obs-entry-${event.role} obs-status-${event.status || "done"}`}>
+              <li key={event.id} className={`obs-entry obs-status-${event.status || "done"}`}>
                 <header>
                   <time>{event.at}</time>
-                  <strong>{event.tool || "tool"}</strong>
-                  {event.status === "running" ? <em className="obs-running">running</em> : null}
+                  <code>{event.tool || "tool"}</code>
+                  <StatusPill tone={event.status === "error" ? "bad" : event.status === "running" ? "info" : "ok"} label={event.status || "done"} />
                   <CopyChip text={event.narrative} label="event summary" />
                 </header>
-                <p className="obs-narrative">{event.narrative}</p>
+                <p>{event.narrative}</p>
                 {event.technical ? (
-                  <details className="obs-technical-block">
-                    <summary>
-                      Technical detail
-                      <CopyChip text={event.technical} label="technical detail" />
-                    </summary>
-                    <pre>{event.technical}</pre>
+                  <details className="obs-technical">
+                    <summary>Technical detail</summary>
+                    <pre className="obs-pre">{event.technical}</pre>
                   </details>
                 ) : null}
               </li>
             ))}
           </ul>
-        </CollapsibleSection>
-      ) : null}
+        )}
+      </section>
 
-      {auditTurns.length > 0 ? (
-        <CollapsibleSection title="Session audit trail" count={auditTurns.length}>
-          <p className="observability-audit-meta">
-            Durable log for enterprise traceability — session <code>{auditSessions[0]?.id || "—"}</code>
-          </p>
-          <ul className="observability-feed-list observability-audit-list">
-            {auditTurns.map((turn) => (
-              <li key={turn.id} className={`obs-entry obs-status-${turn.ok === false ? "error" : "done"}`}>
-                <header>
-                  <time>{new Date(turn.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })}</time>
-                  <strong>{turn.intent || "unknown"}</strong>
-                  {turn.skill ? <span className="obs-skill">{turn.skill}</span> : null}
-                  {turn.ms != null ? <span className="obs-latency">{turn.ms}ms</span> : null}
-                </header>
-                {turn.reply ? <p className="obs-narrative">{turn.reply}</p> : null}
-                {turn.tools && turn.tools.length > 0 ? (
-                  <small className="obs-tools">{turn.tools.map((t) => t.tool).join(", ")}</small>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </CollapsibleSection>
-      ) : null}
+      <CollapsibleSection title="Session audit trail" count={auditTurns.length} defaultOpen={auditTurns.length > 0}>
+        {auditTurns.length === 0 ? (
+          <p className="ui-muted">No audited chat turns yet. Every chat message is written to a per-session JSONL log.</p>
+        ) : (
+          <>
+            <p className="ui-muted obs-audit-meta">
+              Durable log for enterprise traceability · session <code>{auditSessions[0]?.id || "—"}</code>
+            </p>
+            <div className="table-scroll">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Intent</th>
+                    <th>Skill</th>
+                    <th className="num">Latency</th>
+                    <th>Tools</th>
+                    <th>Reply</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {auditTurns.map((turn) => (
+                    <tr key={turn.id} className={turn.ok === false ? "row-bad" : ""}>
+                      <td className="mono nowrap">{new Date(turn.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })}</td>
+                      <td>
+                        <StatusPill tone={turn.ok === false ? "bad" : "neutral"} dot={false} label={turn.intent || "unknown"} />
+                      </td>
+                      <td className="mono">{turn.skill || "—"}</td>
+                      <td className="num">{turn.ms != null ? `${turn.ms} ms` : "—"}</td>
+                      <td className="mono">{turn.tools && turn.tools.length > 0 ? turn.tools.map((t) => t.tool).join(", ") : "—"}</td>
+                      <td className="obs-reply">{turn.reply || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </CollapsibleSection>
     </div>
   );
+}
+
+function MermaidView({ source, title, theme }: { source: string; title: string; theme: "light" | "dark" }) {
+  const rawId = useId();
+  const id = useMemo(() => `mermaid-${rawId.replace(/[^a-zA-Z0-9_-]/g, "")}`, [rawId]);
+  const [state, setState] = useState<{ svg: string; error: string | null }>({ svg: "", error: null });
+
+  useEffect(() => {
+    let cancelled = false;
+    ensureMermaid(theme);
+    const normalized = normalizeMermaidSource(source);
+    mermaid
+      .render(`${id}-${theme}`, normalized)
+      .then((result) => {
+        if (!cancelled) setState({ svg: result.svg, error: null });
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) setState({ svg: "", error: error instanceof Error ? error.message : String(error) });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [source, id, theme]);
+
+  if (state.error) {
+    return (
+      <div className="ui-banner ui-banner-warn">
+        <div>
+          <strong>Diagram could not be rendered.</strong> {state.error}
+          <pre className="obs-pre">{source}</pre>
+        </div>
+      </div>
+    );
+  }
+  return <div className="mermaid-view" role="img" aria-label={title} dangerouslySetInnerHTML={{ __html: state.svg }} />;
+}
+
+function normalizeMermaidSource(content: string): string {
+  const stripped = content.replace(/```mermaid/gi, "").replace(/```/g, "").replace(/\r/g, "").trim();
+  const lines = stripped
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => line.replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/[–—]/g, "-"));
+  const hasHeader = /^(flowchart|graph|sequenceDiagram|classDiagram|stateDiagram|erDiagram|journey|gantt|pie|mindmap|timeline)\b/i.test(lines[0] || "");
+  return hasHeader ? lines.join("\n") : `flowchart TD\n${lines.join("\n")}`;
 }
 
 function CopyChip({ text, label }: { text: string; label: string }) {
@@ -188,9 +284,9 @@ function CopyChip({ text, label }: { text: string; label: string }) {
   }
 
   return (
-    <button type="button" className="obs-copy-chip" onClick={(event) => void copy(event)} title={copied ? "Copied" : `Copy ${label}`} aria-label={`Copy ${label}`}>
+    <button type="button" className="ui-btn ui-btn-ghost ui-btn-xs" onClick={(event) => void copy(event)} title={copied ? "Copied" : `Copy ${label}`} aria-label={`Copy ${label}`}>
       <Copy size={12} />
-      {copied ? <span>OK</span> : null}
+      {copied ? "Copied" : "Copy"}
     </button>
   );
 }

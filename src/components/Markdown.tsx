@@ -12,6 +12,8 @@ type Block =
   | { type: "paragraph"; text: string }
   | { type: "code"; lang?: string; content: string }
   | { type: "list"; ordered: boolean; items: ListItem[] }
+  | { type: "table"; headers: string[]; rows: string[][] }
+  | { type: "quote"; text: string }
   | { type: "divider" };
 
 export function Markdown({ text, mentions = true }: { text: string; mentions?: boolean }) {
@@ -35,6 +37,41 @@ function MarkdownBlock({ block, mentions }: { block: Block; mentions: boolean })
   }
   if (block.type === "divider") {
     return <hr className="md-divider" />;
+  }
+  if (block.type === "quote") {
+    return (
+      <blockquote className="md-quote">
+        <Inline text={block.text} mentions={mentions} />
+      </blockquote>
+    );
+  }
+  if (block.type === "table") {
+    return (
+      <div className="md-table-wrap">
+        <table className="md-table data-table">
+          <thead>
+            <tr>
+              {block.headers.map((header, index) => (
+                <th key={index}>
+                  <Inline text={header} mentions={false} />
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {block.rows.map((row, rowIndex) => (
+              <tr key={rowIndex}>
+                {block.headers.map((_, cellIndex) => (
+                  <td key={cellIndex}>
+                    <Inline text={row[cellIndex] ?? ""} mentions={false} />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
   }
   if (block.type === "heading") {
     const Tag = (`h${Math.min(block.level, 4)}` as "h1" | "h2" | "h3" | "h4");
@@ -142,6 +179,28 @@ function parseBlocks(text: string): Block[] {
       continue;
     }
 
+    if (line.startsWith("|") && i + 1 < lines.length && /^\|?\s*:?-{2,}/.test(lines[i + 1].trim())) {
+      flushParagraph();
+      flushList();
+      const headers = splitTableRow(line);
+      const rows: string[][] = [];
+      i += 2;
+      while (i < lines.length && lines[i].trim().startsWith("|")) {
+        rows.push(splitTableRow(lines[i].trim()));
+        i += 1;
+      }
+      i -= 1;
+      blocks.push({ type: "table", headers, rows });
+      continue;
+    }
+
+    if (line.startsWith("> ")) {
+      flushParagraph();
+      flushList();
+      blocks.push({ type: "quote", text: line.slice(2).trim() });
+      continue;
+    }
+
     const heading = line.match(/^(#{1,6})\s+(.*)$/);
     if (heading) {
       flushParagraph();
@@ -179,6 +238,26 @@ function parseBlocks(text: string): Block[] {
   flushParagraph();
   flushList();
   return blocks;
+}
+
+function splitTableRow(line: string): string[] {
+  const trimmed = line.replace(/^\|/, "").replace(/\|\s*$/, "");
+  const cells: string[] = [];
+  let current = "";
+  for (let index = 0; index < trimmed.length; index += 1) {
+    const char = trimmed[index];
+    if (char === "\\" && trimmed[index + 1] === "|") {
+      current += "|";
+      index += 1;
+    } else if (char === "|") {
+      cells.push(current.trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  cells.push(current.trim());
+  return cells;
 }
 
 type Token = { type: "text" | "bold" | "italic" | "code"; value: string };
