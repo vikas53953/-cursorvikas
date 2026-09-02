@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>NetJarvis — Concept 3: The Chart Room</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --paper: #0d2140; --paper-2: #0a1a33; --chalk: #dfe9f5; --chalk-2: rgba(223,233,245,.62); --chalk-3: rgba(223,233,245,.32); --grid: rgba(223,233,245,.07);
+    --route-a: #f4c95d; --route-b: #6ee7d8; --route-c: #ff8a80; --route-d: #b7a5ff; --ok: #7ee2a0; --bad: #ff8a80;
+    --display: "Fraunces", "Iowan Old Style", Georgia, serif; --sans: "Space Grotesk", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--paper); color: var(--chalk); font-family: var(--sans); font-size: 13px; overflow: hidden;
+    background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px); background-size: 48px 48px; }
+  .room { position: relative; height: 100vh; }
+
+  .title { position: absolute; top: 30px; left: 40px; }
+  .title h1 { margin: 0; font-family: var(--display); font-weight: 300; font-size: 44px; line-height: 1; letter-spacing: -.01em; font-variation-settings: "opsz" 144; }
+  .title h1 i { font-style: italic; color: var(--route-a); }
+  .title p { margin: 8px 0 0; color: var(--chalk-2); letter-spacing: .12em; text-transform: uppercase; font-size: 11px; }
+  .title p b { color: var(--ok); font-weight: 500; }
+
+  svg.chart { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .route { fill: none; stroke-width: 8; stroke-linecap: round; stroke-linejoin: round; opacity: .9; }
+  .route-thin { fill: none; stroke: var(--chalk-3); stroke-width: 1.5; stroke-dasharray: 4 6; }
+  .station { fill: var(--paper); stroke: var(--chalk); stroke-width: 3; }
+  .station-ok { stroke: var(--ok); }
+  .label { fill: var(--chalk); font-family: var(--sans); font-size: 15px; font-weight: 600; letter-spacing: .02em; }
+  .sub { fill: var(--chalk-2); font-family: var(--sans); font-size: 11px; letter-spacing: .06em; }
+  .port { fill: var(--chalk-3); font-family: ui-monospace, Menlo, monospace; font-size: 10px; }
+  .district { fill: none; stroke: var(--chalk-3); stroke-width: 1; stroke-dasharray: 2 8; }
+  .district-label { fill: var(--chalk-3); font-family: var(--display); font-style: italic; font-size: 18px; letter-spacing: .04em; }
+  .pin { fill: var(--bad); }
+  .pin-ring { fill: none; stroke: var(--bad); stroke-width: 1.5; opacity: .6; animation: ping 2.2s ease-out infinite; transform-origin: center; transform-box: fill-box; }
+  @keyframes ping { 0% { transform: scale(.6); opacity: .8 } 100% { transform: scale(2.2); opacity: 0 } }
+  .arc { fill: none; stroke: var(--route-c); stroke-width: 1.5; stroke-dasharray: 3 5; opacity: .85; }
+  .callout { fill: var(--chalk-2); font-family: var(--display); font-style: italic; font-size: 14px; }
+
+  .legend { position: absolute; left: 40px; bottom: 34px; display: grid; gap: 6px; font-size: 11.5px; color: var(--chalk-2); letter-spacing: .04em; }
+  .legend span { display: flex; align-items: center; gap: 10px; }
+  .legend i { width: 26px; height: 6px; border-radius: 3px; background: var(--c); }
+  .legend .scale { margin-top: 8px; border-top: 1px solid var(--chalk-2); border-left: 1px solid var(--chalk-2); border-right: 1px solid var(--chalk-2); height: 6px; width: 96px; }
+  .legend small { color: var(--chalk-3); }
+
+  .notes { position: absolute; top: 30px; right: 40px; width: 340px; }
+  .card { background: rgba(10,26,51,.72); border: 1px solid rgba(223,233,245,.14); backdrop-filter: blur(8px); border-radius: 6px; padding: 16px 18px; margin-bottom: 12px; }
+  .card h5 { margin: 0 0 8px; font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--chalk-2); font-weight: 500; }
+  .card p { margin: 0; line-height: 1.5; }
+  .card .hand { font-family: var(--display); font-style: italic; font-size: 16px; line-height: 1.4; }
+  .card .hand b { font-style: normal; font-weight: 500; color: var(--route-a); }
+  .card .row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed rgba(223,233,245,.14); font-size: 12.5px; }
+  .card .row:last-child { border-bottom: 0; }
+  .card .row span { color: var(--chalk-2); }
+  .card .ok { color: var(--ok); }
+  .card .bad { color: var(--bad); }
+  .compass { position: absolute; right: 60px; bottom: 210px; width: 90px; height: 90px; border: 1px solid var(--chalk-3); border-radius: 50%; display: grid; place-items: center; color: var(--chalk-2); font-family: var(--display); font-style: italic; }
+  .compass::before { content: ""; position: absolute; width: 1px; height: 100%; background: var(--chalk-3); }
+  .compass::after { content: ""; position: absolute; height: 1px; width: 100%; background: var(--chalk-3); }
+  .compass b { background: var(--paper); padding: 4px 6px; font-weight: 300; z-index: 1; }
+
+  .ask { position: absolute; left: 50%; bottom: 30px; transform: translateX(-50%); width: 560px; display: flex; align-items: center; gap: 12px; padding: 12px 18px; background: rgba(10,26,51,.82); border: 1px solid rgba(223,233,245,.2); border-radius: 999px; backdrop-filter: blur(8px); font-family: var(--display); font-style: italic; font-size: 17px; color: var(--chalk-2); }
+  .ask .orb { width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--route-a); display: grid; place-items: center; }
+  .ask .orb b { width: 7px; height: 7px; border-radius: 50%; background: var(--route-a); }
+  .ask span:last-child { margin-left: auto; font-family: var(--sans); font-style: normal; font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; }
+</style>
+</head>
+<body>
+<div class="room">
+  <div class="title">
+    <h1>Chart of the <i>sandbox</i> campus</h1>
+    <p><b>● live</b> · Catalyst Center · four stations · ten routes · surveyed 05:42 UTC</p>
+  </div>
+
+  <svg class="chart" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
+    <!-- districts -->
+    <rect class="district" x="330" y="230" width="720" height="440" rx="18"/>
+    <text class="district-label" x="350" y="260">Campus · access layer</text>
+    <rect class="district" x="1070" y="640" width="330" height="200" rx="18"/>
+    <text class="district-label" x="1090" y="670">Outside · Catalyst Center logins</text>
+
+    <!-- routes (metro lines) -->
+    <path class="route" stroke="#f4c95d" d="M480,360 L700,360 L700,520 L920,520"/>
+    <path class="route" stroke="#6ee7d8" d="M480,360 L480,560 L700,560 L920,360"/>
+    <path class="route" stroke="#b7a5ff" d="M480,560 L920,560 L920,360"/>
+    <path class="route" stroke="#ff8a80" d="M700,360 L920,360"/>
+    <!-- management ring -->
+    <path class="route-thin" d="M400,300 L1000,300 L1000,620 L400,620 Z"/>
+    <text class="sub" x="404" y="292">mgmt 10.10.20.0/24</text>
+
+    <!-- ports -->
+    <text class="port" x="500" y="350">Gi1/0/3</text>
+    <text class="port" x="640" y="350">Gi1/0/2</text>
+    <text class="port" x="710" y="500">Gi1/0/1</text>
+    <text class="port" x="850" y="510">Gi1/0/2</text>
+    <text class="port" x="440" y="470">Gi0/0</text>
+    <text class="port" x="930" y="470">Gi1/0/1</text>
+
+    <!-- stations -->
+    <circle class="station station-ok" cx="480" cy="360" r="14"/>
+    <text class="label" x="420" y="332">sw1</text><text class="sub" x="404" y="348">10.10.20.175 · access</text>
+    <circle class="station station-ok" cx="700" cy="360" r="14"/>
+    <text class="label" x="720" y="335">sw2</text><text class="sub" x="720" y="350">10.10.20.176 · access</text>
+    <circle class="station station-ok" cx="920" cy="360" r="14"/>
+    <text class="label" x="940" y="335">sw3</text><text class="sub" x="940" y="350">10.10.20.177 · access</text>
+    <circle class="station station-ok" cx="480" cy="560" r="14"/>
+    <text class="label" x="420" y="600">sw4</text><text class="sub" x="380" y="616">10.10.20.178 · access</text>
+    <circle class="station" cx="700" cy="560" r="8"/>
+    <circle class="station" cx="920" cy="560" r="8"/>
+    <circle class="station" cx="700" cy="520" r="8"/>
+    <circle class="station" cx="920" cy="520" r="8"/>
+
+    <!-- catalyst center as the harbour -->
+    <rect x="640" y="150" width="120" height="44" rx="6" fill="#0a1a33" stroke="#dfe9f5" stroke-width="1.5"/>
+    <text class="label" x="700" y="171" text-anchor="middle" font-size="12">Catalyst Center</text>
+    <text class="sub" x="700" y="186" text-anchor="middle">sandboxdnac.cisco.com</text>
+    <path class="route-thin" d="M700,194 L700,300"/>
+
+    <!-- outside logins pinned to the harbour -->
+    <circle cx="1100" cy="700" r="4" fill="#dfe9f5"/><text class="sub" x="1112" y="704">173.212.228.200 · ×94</text>
+    <circle cx="1100" cy="735" r="4" fill="#dfe9f5"/><text class="sub" x="1112" y="739">3.136.227.198 · ×17</text>
+    <circle cx="1100" cy="770" r="4" fill="#dfe9f5"/><text class="sub" x="1112" y="774">104.192.252.4 · ×12</text>
+    <circle cx="1100" cy="805" r="4" fill="#dfe9f5"/><text class="sub" x="1112" y="809">203.0.113.9 · fixture</text>
+    <path class="arc" d="M1096,700 C1000,560 880,300 762,176"/>
+    <path class="arc" d="M1096,735 C980,600 880,320 762,182"/>
+    <path class="arc" d="M1096,770 C960,640 880,340 762,188"/>
+    <text class="callout" x="905" y="470">devnetuser · 187 logins today, six origins</text>
+
+    <!-- investigation pin -->
+    <circle class="pin-ring" cx="1100" cy="805" r="10"/>
+    <circle class="pin" cx="1100" cy="805" r="5"/>
+    <text class="callout" x="1090" y="840">jdoe · 29 events · critical → open investigation</text>
+  </svg>
+
+  <aside class="notes">
+    <div class="card">
+      <h5>Navigator's note · 05:42</h5>
+      <p class="hand">All four stations answer. The only traffic on the chart is <b>administrative</b>: devnetuser logging into the harbour from six public addresses. Nothing has moved on the campus since sw2 · Gi1/0/3 came up at 02:10.</p>
+    </div>
+    <div class="card">
+      <h5>Soundings</h5>
+      <div class="row"><span>health</span><b class="ok">100 / 100</b></div>
+      <div class="row"><span>reachable</span><b>4 of 4</b></div>
+      <div class="row"><span>routes up</span><b>10 of 10</b></div>
+      <div class="row"><span>issues</span><b>none</b></div>
+      <div class="row"><span>open investigation</span><b class="bad">jdoe · critical</b></div>
+    </div>
+    <div class="card">
+      <h5>Crew</h5>
+      <div class="row"><span>NetJarvis</span><b>at the chart</b></div>
+      <div class="row"><span>Investigation Agent</span><b>done · 05:11</b></div>
+      <div class="row"><span>Data Network Agent</span><span>idle</span></div>
+    </div>
+  </aside>
+
+  <div class="legend">
+    <span><i style="--c:#f4c95d"></i>uplink</span>
+    <span><i style="--c:#6ee7d8"></i>access trunk</span>
+    <span><i style="--c:#b7a5ff"></i>redundant path</span>
+    <span><i style="--c:#ff8a80"></i>evidence · investigation</span>
+    <div class="scale"></div><small>1 hop</small>
+  </div>
+  <div class="compass"><b>N</b></div>
+
+  <div class="ask"><span class="orb"><b></b></span><span>ask the chart… “what changed on sw2 overnight?”</span><span>voice · ⌥ space</span></div>
+</div>
+</body>
+</html>

@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>NetJarvis — Concept 2: The Timeline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter+Tight:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0f1113; --bg-2: #15181b; --bg-3: #1b1f23; --line: #262b30; --line-2: #333a41;
+    --fg: #e8e6e1; --fg-2: #9aa0a6; --fg-3: #5f666d; --amber: #f2b134; --amber-2: rgba(242,177,52,.14);
+    --c-conv: #e8e6e1; --c-net: #6fb1ff; --c-vpn: #62d3c9; --c-proxy: #b39bff; --c-fw: #ff7b6b; --c-edr: #ff9f43; --c-idp: #7ed957; --c-cloud: #ffd166;
+    --mono: "JetBrains Mono", ui-monospace, Menlo, monospace; --sans: "Inter Tight", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 13px; overflow: hidden; }
+  .deck { display: grid; grid-template-rows: 52px 40px 1fr 220px; height: 100vh; }
+
+  .bar { display: flex; align-items: center; gap: 22px; padding: 0 20px; border-bottom: 1px solid var(--line); background: var(--bg-2); }
+  .bar .brand { font-weight: 600; letter-spacing: .02em; }
+  .bar .brand span { color: var(--amber); }
+  .bar .ask { flex: 1; max-width: 640px; display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 12px; border: 1px solid var(--line-2); border-radius: 4px; color: var(--fg-3); font-family: var(--mono); font-size: 12px; background: var(--bg); }
+  .bar .ask b { color: var(--amber); }
+  .bar .zoom { display: inline-flex; border: 1px solid var(--line-2); border-radius: 4px; overflow: hidden; font-family: var(--mono); font-size: 11px; }
+  .bar .zoom span { padding: 6px 10px; color: var(--fg-2); border-right: 1px solid var(--line-2); }
+  .bar .zoom span:last-child { border-right: 0; }
+  .bar .zoom .on { background: var(--bg-3); color: var(--fg); }
+  .bar .live { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--fg-2); display: flex; gap: 18px; }
+  .bar .live i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #7ed957; margin-right: 6px; }
+  .bar .voice { border: 1px solid var(--line-2); border-radius: 999px; padding: 4px 10px; color: var(--fg-2); }
+
+  /* Ruler */
+  .ruler { display: grid; grid-template-columns: 200px 1fr; border-bottom: 1px solid var(--line); background: var(--bg-2); }
+  .ruler .corner { border-right: 1px solid var(--line); padding: 0 14px; display: flex; align-items: center; font-family: var(--mono); font-size: 11px; color: var(--fg-3); }
+  .ruler .ticks { position: relative; font-family: var(--mono); font-size: 11px; color: var(--fg-2); }
+  .ruler .ticks span { position: absolute; top: 8px; transform: translateX(-50%); }
+  .ruler .ticks span::after { content: ""; position: absolute; left: 50%; top: 18px; width: 1px; height: 14px; background: var(--line-2); }
+
+  /* Lanes */
+  .lanes { position: relative; display: grid; grid-template-columns: 200px 1fr; overflow: hidden; }
+  .heads { border-right: 1px solid var(--line); background: var(--bg-2); }
+  .head { height: 62px; display: flex; align-items: center; gap: 10px; padding: 0 14px; border-bottom: 1px solid var(--line); }
+  .head i { width: 3px; height: 26px; border-radius: 2px; background: var(--c); }
+  .head b { font-weight: 500; }
+  .head small { color: var(--fg-3); font-family: var(--mono); font-size: 10.5px; display: block; margin-top: 2px; }
+  .head .n { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--fg-2); }
+  .head .off { color: var(--fg-3); font-family: var(--mono); font-size: 10px; margin-left: auto; border: 1px dashed var(--line-2); padding: 1px 6px; border-radius: 3px; }
+  .grid { position: relative; background-image: linear-gradient(to right, var(--line) 1px, transparent 1px); background-size: calc(100% / 12) 100%; }
+  .lane { position: relative; height: 62px; border-bottom: 1px solid var(--line); }
+  .ev { position: absolute; top: 20px; height: 22px; border-radius: 3px; background: color-mix(in srgb, var(--c) 22%, transparent); border-left: 2px solid var(--c); color: var(--fg); font-family: var(--mono); font-size: 10.5px; line-height: 22px; padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tick { position: absolute; top: 24px; width: 2px; height: 14px; background: var(--c); border-radius: 1px; opacity: .85; }
+  .dot { position: absolute; top: 25px; width: 12px; height: 12px; border-radius: 50%; background: var(--c); }
+  .hi { outline: 1px solid var(--amber); outline-offset: 1px; }
+  .span { position: absolute; top: 0; bottom: 0; background: var(--amber-2); border-left: 1px dashed var(--amber); border-right: 1px dashed var(--amber); pointer-events: none; }
+  .span label { position: absolute; top: 6px; left: 8px; font-family: var(--mono); font-size: 10.5px; color: var(--amber); letter-spacing: .06em; text-transform: uppercase; }
+  .now { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--fg); opacity: .8; }
+  .now::before { content: "NOW 05:42"; position: absolute; top: 6px; right: 6px; font-family: var(--mono); font-size: 10px; color: var(--fg); background: var(--bg); padding: 1px 5px; border: 1px solid var(--line-2); border-radius: 3px; }
+  .conv .ev { background: var(--bg-3); border-left-color: var(--fg-2); }
+
+  /* Inspector */
+  .inspector { display: grid; grid-template-columns: 200px 1fr 1fr 360px; border-top: 1px solid var(--line-2); background: var(--bg-2); }
+  .inspector > div { padding: 14px 16px; border-right: 1px solid var(--line); min-width: 0; }
+  .inspector > div:last-child { border-right: 0; }
+  .inspector h5 { margin: 0 0 8px; font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--fg-3); font-weight: 500; }
+  .inspector .k { font-family: var(--mono); font-size: 11.5px; color: var(--fg-2); display: grid; grid-template-columns: 90px 1fr; gap: 4px 10px; }
+  .inspector .k b { color: var(--fg); font-weight: 500; }
+  .sel { border-left: 3px solid var(--c-idp); padding-left: 10px; }
+  .sel .t { font-family: var(--mono); font-size: 12px; color: var(--fg); }
+  .sel .d { color: var(--fg-2); margin-top: 4px; }
+  .cov { display: flex; flex-wrap: wrap; gap: 6px; }
+  .cov span { font-family: var(--mono); font-size: 10.5px; padding: 3px 8px; border-radius: 3px; border: 1px solid var(--line-2); color: var(--fg-2); }
+  .cov .ok { border-color: #7ed957; color: #b8f39a; }
+  .cov .un { border-style: dashed; }
+  .say { font-size: 14px; line-height: 1.45; }
+  .say .amber { color: var(--amber); }
+  .say small { display: block; margin-top: 8px; color: var(--fg-3); font-family: var(--mono); font-size: 10.5px; }
+</style>
+</head>
+<body>
+<div class="deck">
+  <header class="bar">
+    <div class="brand">Net<span>Jarvis</span></div>
+    <div class="ask"><b>›</b> investigate user jdoe over the last six hours<span style="margin-left:auto;color:var(--fg-3)">↵</span></div>
+    <div class="zoom"><span>1h</span><span class="on">6h</span><span>24h</span><span>7d</span></div>
+    <div class="live"><span><i></i>Catalyst Center · live</span><span>Splunk · unconfigured</span><span>mock lab · on</span><span class="voice">voice off</span></div>
+  </header>
+
+  <div class="ruler">
+    <div class="corner">UTC · 6h · 30 min / div</div>
+    <div class="ticks">
+      <span style="left:0%">23:42</span><span style="left:8.33%">00:12</span><span style="left:16.66%">00:42</span><span style="left:25%">01:12</span><span style="left:33.33%">01:42</span><span style="left:41.66%">02:12</span><span style="left:50%">02:42</span><span style="left:58.33%">03:12</span><span style="left:66.66%">03:42</span><span style="left:75%">04:12</span><span style="left:83.33%">04:42</span><span style="left:91.66%">05:12</span>
+    </div>
+  </div>
+
+  <div class="lanes">
+    <div class="heads">
+      <div class="head conv" style="--c:var(--c-conv)"><i></i><div><b>Conversation</b><small>you ↔ NetJarvis</small></div><span class="n">3</span></div>
+      <div class="head" style="--c:var(--c-net)"><i></i><div><b>Network</b><small>Catalyst Center · sw1–sw4</small></div><span class="n">13</span></div>
+      <div class="head" style="--c:var(--c-idp)"><i></i><div><b>Identity</b><small>Okta · AD</small></div><span class="n">5</span></div>
+      <div class="head" style="--c:var(--c-vpn)"><i></i><div><b>VPN</b><small>ASA AnyConnect</small></div><span class="n">3</span></div>
+      <div class="head" style="--c:var(--c-fw)"><i></i><div><b>Firewall</b><small>PAN-OS</small></div><span class="n">4</span></div>
+      <div class="head" style="--c:var(--c-proxy)"><i></i><div><b>Proxy</b><small>Zscaler</small></div><span class="n">4</span></div>
+      <div class="head" style="--c:var(--c-edr)"><i></i><div><b>Endpoint</b><small>CrowdStrike</small></div><span class="n">4</span></div>
+      <div class="head" style="--c:var(--c-cloud)"><i></i><div><b>Cloud</b><small>AWS CloudTrail</small></div><span class="n">3</span></div>
+    </div>
+    <div class="grid">
+      <div class="span" style="left:1.5%; width:47%"><label>Investigation · user jdoe · 23:48 → 02:33</label></div>
+      <div class="now" style="left:100%"></div>
+
+      <div class="lane conv" style="--c:var(--c-conv)">
+        <div class="ev" style="left:86%; width:6%">how is my network doing</div>
+        <div class="ev hi" style="left:93.5%; width:6.3%">investigate user jdoe · 6h</div>
+      </div>
+      <div class="lane" style="--c:var(--c-net)">
+        <div class="tick" style="left:3.4%"></div><div class="tick" style="left:3.7%"></div><div class="tick" style="left:4.1%"></div>
+        <div class="ev" style="left:41%; width:9%">sw2 Gi1/0/3 · up</div>
+        <div class="tick" style="left:83%"></div><div class="tick" style="left:83.6%"></div><div class="tick" style="left:84.1%"></div><div class="tick" style="left:84.9%"></div><div class="tick" style="left:85.3%"></div><div class="tick" style="left:86%"></div><div class="tick" style="left:86.4%"></div><div class="tick" style="left:87.1%"></div><div class="tick" style="left:87.8%"></div><div class="tick" style="left:88.3%"></div>
+      </div>
+      <div class="lane" style="--c:var(--c-idp)">
+        <div class="tick" style="left:1.6%"></div><div class="tick" style="left:2.2%"></div><div class="tick" style="left:2.8%"></div>
+        <div class="ev hi" style="left:3.4%; width:12%">Okta · success · PUSH · new country</div>
+        <div class="tick" style="left:38%"></div>
+      </div>
+      <div class="lane" style="--c:var(--c-vpn)">
+        <div class="ev" style="left:4.4%; width:43%">AnyConnect · jdoe · 203.0.113.9 → 10.20.0.7 · 2h40m · 812 MB out</div>
+      </div>
+      <div class="lane" style="--c:var(--c-fw)">
+        <div class="tick" style="left:9.9%"></div><div class="tick" style="left:10.2%"></div><div class="tick" style="left:10.5%"></div>
+        <div class="ev" style="left:10.9%; width:10%">deny ×3 → 198.51.100.4 · 445/3389</div>
+        <div class="tick" style="left:14.9%"></div>
+      </div>
+      <div class="lane" style="--c:var(--c-proxy)">
+        <div class="tick" style="left:5.8%"></div>
+        <div class="ev" style="left:12.3%; width:8%">pastebin · blocked ×2</div>
+        <div class="ev" style="left:20.6%; width:9%">POST 48 MB · files.transfer</div>
+      </div>
+      <div class="lane" style="--c:var(--c-edr)">
+        <div class="tick" style="left:9.5%"></div>
+        <div class="dot hi" style="left:10.4%"></div>
+        <div class="ev" style="left:11.6%; width:13%">HIGH · encoded PowerShell · LT-4421</div>
+        <div class="tick" style="left:19.6%"></div>
+      </div>
+      <div class="lane" style="--c:var(--c-cloud)">
+        <div class="tick" style="left:19.9%"></div>
+        <div class="ev" style="left:21%; width:12%">AttachUserPolicy · AdministratorAccess</div>
+        <div class="tick" style="left:22.9%"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="inspector">
+    <div>
+      <h5>Selection</h5>
+      <div class="k"><span>range</span><b>23:48 → 02:33</b><span>events</span><b>29</b><span>platforms</span><b>8</b><span>severity</span><b>critical</b><span>pivots</span><b>4</b></div>
+    </div>
+    <div>
+      <h5>Event · identity · 23:51:17</h5>
+      <div class="sel"><div class="t">user.session.start · SUCCESS · factor PUSH</div><div class="d">jdoe · 203.0.113.9 · idp-okta · New Device=POSITIVE, New Country=POSITIVE (Netherlands)</div></div>
+    </div>
+    <div>
+      <h5>Coverage</h5>
+      <div class="cov"><span class="ok">network 3</span><span class="ok">identity 5</span><span class="ok">vpn 3</span><span class="ok">firewall 4</span><span class="ok">proxy 4</span><span class="ok">endpoint 4</span><span class="ok">cloud 3</span><span class="ok">siem 3</span><span class="un">splunk ×7 unconfigured</span></div>
+      <h5 style="margin-top:12px">Pivots</h5>
+      <div class="cov"><span>203.0.113.9</span><span>10.20.0.7</span><span>LT-4421</span><span>198.51.100.4</span></div>
+    </div>
+    <div>
+      <h5>NetJarvis</h5>
+      <p class="say">Three failed Okta logins, then a push approval from a new country. The VPN gave that session <span class="amber">10.20.0.7</span>; it goes on to hit the firewall on 445, trip CrowdStrike on LT-4421, and attach <span class="amber">AdministratorAccess</span> in AWS. Seven Splunk lenses are unconfigured — I can't see what they'd show.<small>fixture data · mock lab · 29 rows · 0 duplicates</small></p>
+    </div>
+  </footer>
+</div>
+</body>
+</html>
