@@ -93,7 +93,11 @@ async function run(ctx) {
     }
   }
 
-  return { ok: true, text, artifacts, activity, intent: route.intent, skill: "investigation", investigationId: result.id };
+  if (result.fixture && !/FIXTURE DATA/.test(text)) {
+    text = `_FIXTURE DATA — mock lab (NETJARVIS_EVIDENCE_FIXTURE), not a real network._\n\n${text}`;
+  }
+
+  return { ok: true, text, artifacts, activity, intent: route.intent, skill: "investigation", investigationId: result.id, fixture: Boolean(result.fixture) };
 }
 
 module.exports = { id: "investigation", run };

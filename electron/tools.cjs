@@ -1212,6 +1212,7 @@ function createTools({ readDb, updateDb }) {
     return {
       ok: true,
       id: inv.id,
+      fixture: inv.fixture,
       entity: inv.entity,
       window: inv.window,
       summary,
@@ -1558,12 +1559,22 @@ function createTools({ readDb, updateDb }) {
         ? `- ${splunk.config.baseUrl} reachable${splunkStatus.version ? `, version ${splunkStatus.version}` : ""} (${splunkStatus.ms} ms)`
         : `- ${splunkStatus.configured ? `configured but unreachable: ${splunkStatus.error}` : "not configured (SPLUNK_URL + SPLUNK_TOKEN)"}`,
     ];
+    if (evidenceProviders.lab) {
+      const lab = evidenceProviders.lab;
+      lines.push(
+        "",
+        `## Mock lab (FIXTURE DATA - ${lab.name || "fixtures"})`,
+        `- Enabled via NETJARVIS_EVIDENCE_FIXTURE; ${lab.devices.length} mock devices, ${lab.files.length} evidence feeds (${lab.files.map((f) => f.platform).join(", ")}). Not a real network.`,
+        ...lab.errors.map((e) => `- ⚠ ${e}`),
+      );
+    }
     return {
       ok: true,
       catalyst: { mode: snapshot.mode, overall: snapshot.overall },
       prometheus: prom,
       snmp: snmpStatus,
       splunk: splunkStatus,
+      mockLab: evidenceProviders.lab ? { name: evidenceProviders.lab.name, devices: evidenceProviders.lab.devices.length, feeds: evidenceProviders.lab.files.map((f) => f.platform) } : null,
       artifact: { title: "Multi-source Status", kind: "markdown", content: lines.join("\n") },
     };
   }

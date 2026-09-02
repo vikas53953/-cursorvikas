@@ -18,6 +18,7 @@
 
 const { LENSES, buildSpl, mapRow } = require("./lenses.cjs");
 const { isIpv4 } = require("../../core/investigation.cjs");
+const { createFixtureEvidenceProviders, fixtureDirFromEnv } = require("./fixture.cjs");
 
 function createSplunkLensProviders({ splunk, env = process.env, lenses = LENSES } = {}) {
   return lenses.map((lens) => ({
@@ -161,6 +162,13 @@ function createEvidenceProviders({ splunk, catc, source, env = process.env } = {
   const providers = [];
   if (catc && source) providers.push(createCatalystCenterEvidenceProvider({ catc, source }));
   providers.push(...createSplunkLensProviders({ splunk, env }));
+  // Mock lab (FIXTURE DATA) - only when explicitly enabled; see fixture.cjs.
+  const fixtureDir = fixtureDirFromEnv(env);
+  if (fixtureDir) {
+    const fixtures = createFixtureEvidenceProviders({ dir: fixtureDir });
+    providers.push(...fixtures);
+    providers.lab = fixtures.lab;
+  }
   return providers;
 }
 

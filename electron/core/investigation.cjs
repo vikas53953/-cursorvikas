@@ -363,9 +363,11 @@ function buildInvestigation({ entity, window, results, now = Date.now(), id } = 
     });
 
   const directHits = rows.filter((e) => eventMentions(e, seed)).length;
+  const fixture = providerResults.some((r) => r.provider === "fixture");
 
   return {
     ok: true,
+    fixture,
     id: id || `INV-${new Date(now).toISOString().replace(/[-:TZ.]/g, "").slice(0, 14)}`,
     generatedAt: new Date(now).toISOString(),
     entity: seed,
@@ -403,7 +405,12 @@ function renderInvestigationMarkdown(inv) {
   lines.push(`# Investigation ${inv.id} - ${inv.entity.kind} \`${inv.entity.value}\``);
   lines.push("");
   lines.push(`Window: ${shortTs(inv.window.from)} to ${shortTs(inv.window.to)} (${inv.window.hours}h). Generated ${shortTs(inv.generatedAt)}.`);
-  lines.push("Read-only evidence collection. Every row names the provider and platform it came from; nothing here is simulated.");
+  if (inv.fixture) {
+    lines.push("");
+    lines.push("> **FIXTURE DATA.** Rows marked provider `fixture` come from the NetJarvis mock lab (NETJARVIS_EVIDENCE_FIXTURE), not from a real system. Use for development and demos only.");
+  } else {
+    lines.push("Read-only evidence collection. Every row names the provider and platform it came from; nothing here is simulated.");
+  }
   lines.push("");
 
   lines.push("## Summary");
@@ -484,6 +491,7 @@ function summarizeInvestigation(inv) {
   const others = inv.observations.filter((n) => n.kind !== "summary" && n.kind !== "coverage").slice(0, 3);
   for (const n of others) parts.push(n.text);
   if (inv.gaps.length > 0) parts.push(`Gaps: ${inv.gaps.length} platform${inv.gaps.length === 1 ? "" : "s"} returned nothing or are not configured.`);
+  if (inv.fixture) parts.unshift("[FIXTURE DATA - mock lab, not a real network]");
   return parts.join(" ");
 }
 

@@ -1,0 +1,11 @@
+{
+  "$comment": "FIXTURE DATA - mock lab. Catalyst 9000v syslog (sw1) forwarded to Splunk. Hostnames match the DevNet sandbox so the fixture and the real Catalyst Center network lens describe the same devices.",
+  "platform": "network",
+  "devices": ["sw1", "sw2"],
+  "events": [
+    { "offsetMinutes": -166, "product": "cisco:ios", "kind": "net.login-failed", "severity": "medium", "entities": { "user": "jdoe", "srcIp": "10.20.0.7", "host": "sw1", "device": "sw1" }, "summary": "%SEC_LOGIN-4-LOGIN_FAILED: Login failed [user: jdoe] [Source: 10.20.0.7] [localport: 22] [Reason: Login Authentication Failed]", "raw": { "facility": "SEC_LOGIN", "mnemonic": "LOGIN_FAILED", "sourcetype": "cisco:ios" } },
+    { "offsetMinutes": -165, "product": "cisco:ios", "kind": "net.login-success", "severity": "low", "entities": { "user": "jdoe", "srcIp": "10.20.0.7", "host": "sw1", "device": "sw1" }, "summary": "%SEC_LOGIN-5-LOGIN_SUCCESS: Login Success [user: jdoe] [Source: 10.20.0.7] [localport: 22]", "raw": { "facility": "SEC_LOGIN", "mnemonic": "LOGIN_SUCCESS", "sourcetype": "cisco:ios" } },
+    { "offsetMinutes": -164, "product": "cisco:ios", "kind": "net.config", "severity": "medium", "entities": { "user": "jdoe", "srcIp": "10.20.0.7", "host": "sw1", "device": "sw1" }, "summary": "%SYS-5-CONFIG_I: Configured from console by jdoe on vty0 (10.20.0.7)", "raw": { "facility": "SYS", "mnemonic": "CONFIG_I", "sourcetype": "cisco:ios" } },
+    { "offsetMinutes": -90, "product": "cisco:ios", "kind": "net.link", "severity": "low", "entities": { "host": "sw2", "device": "sw2" }, "summary": "%LINEPROTO-5-UPDOWN: Line protocol on Interface GigabitEthernet1/0/3, changed state to down", "raw": { "facility": "LINEPROTO", "mnemonic": "UPDOWN", "interface": "GigabitEthernet1/0/3", "sourcetype": "cisco:ios" } }
+  ]
+}
