@@ -10,6 +10,7 @@
     "test": "node --test",
     "test:behavior": "node scripts/behavior-cycle.cjs",
     "eval": "node scripts/eval-grounded.cjs",
+    "demo:investigate": "node scripts/investigate-demo.cjs",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit"
   },
