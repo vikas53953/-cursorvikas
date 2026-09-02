@@ -123,6 +123,26 @@ SPLUNK_TIMEOUT_MS=45000  SPLUNK_MAX_COUNT=500
 SPLUNK_LENS_VPN|PROXY|FIREWALL|ENDPOINT|IDENTITY|CLOUD|SIEM=<base search override>
 ```
 
+## 5a. Mock lab (FIXTURE DATA, opt-in)
+
+`fixtures/mock-lab/` holds the mock devices the agent needs to be exercised end-to-end without a
+Splunk tenant: 12 devices (`devices.json` — ASA VPN concentrator, PAN firewall, Zscaler proxy, F5,
+CrowdStrike tenant, Okta, AD DC, AWS account, Splunk ES, the laptop `LT-4421`, and `sw1`/`sw2`)
+and one evidence feed per platform (`vpn|proxy|firewall|endpoint|identity|cloud|siem|network.json`)
+telling one coherent `jdoe` scenario with relative `offsetMinutes` timestamps.
+
+Guard-rails so this never conflicts with "no fabricated data":
+- Loaded **only** when `NETJARVIS_EVIDENCE_FIXTURE` is set (`1` → bundled lab, or a path).
+- Provider id is `fixture` on every coverage/timeline row; the artifact carries a
+  **FIXTURE DATA** banner, the spoken summary is prefixed `[FIXTURE DATA - mock lab …]`, the chat
+  reply is prefixed, and `multi_source_status` lists the lab explicitly.
+- Real providers still run alongside (Catalyst Center live, Splunk `unconfigured`), so the
+  coverage table always shows what is real and what is fixture.
+- `test/evidence-fixture.test.cjs` validates the lab schema (platforms, device references,
+  offsets inside 24h) and asserts the expected cross-platform observations and pivots.
+
+`npm run demo:investigate [-- user|ip|host <value> [hours]]` prints the resulting artifact.
+
 ## 6. Tests (`npm test`)
 
 - `test/investigation.test.cjs` — entity/window normalization, merge/dedupe/window, coverage &

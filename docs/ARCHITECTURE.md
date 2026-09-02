@@ -185,6 +185,10 @@ and an explicit gap list. Two provider families ship:
   becomes a `failed` result). Unconfigured providers report `status:"unconfigured"` — never
   placeholder data.
 
+- `evidence/fixture.cjs` — **mock lab (FIXTURE DATA), opt-in only** via `NETJARVIS_EVIDENCE_FIXTURE`:
+  `fixtures/mock-lab/` = 12 mock SOC devices + one feed per platform. Rows are provider `fixture`
+  and the artifact/summary/chat reply are banner-labelled, so it can never pass as real data.
+
 `core/investigation.cjs` is pure (no I/O, no LLM): `buildInvestigation()` +
 `renderInvestigationMarkdown()` + `summarizeInvestigation()`. Voice calls the tool directly; chat
 routes `investigate …` through `INTENTS.INVESTIGATE` → `skills/investigation.cjs`, which narrates

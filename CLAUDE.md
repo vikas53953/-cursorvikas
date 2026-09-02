@@ -57,7 +57,9 @@ is the correctness gate for the frontend/TS. There is no linter.
 Node 20+ required. Voice needs `OPENAI_API_KEY` (Realtime access). Web search needs `EXA_API_KEY`.
 Cross-platform investigations need `SPLUNK_URL` + `SPLUNK_TOKEN` (or basic creds) for the
 VPN/proxy/firewall/endpoint/identity/cloud lenses; without them those platforms report
-"unconfigured" and only the Catalyst Center network lens contributes evidence.
+"unconfigured" and only the Catalyst Center network lens contributes evidence. For development
+without Splunk, `NETJARVIS_EVIDENCE_FIXTURE=1` loads the mock lab (`fixtures/mock-lab/`) — every
+result it touches is labelled FIXTURE DATA; it is never on by default.
 Everything else (dashboard, all network tools, simulator) works with no keys.
 
 ## The single most important thing to understand: two answer paths
@@ -113,6 +115,7 @@ electron/                 Backend (Node, all .cjs, NO electron dependency except
       splunk.cjs          Real Splunk REST search client (export endpoint; bearer/basic; TLS verify on)
       lenses.cjs          CIM-based SPL lens per platform: vpn, proxy, firewall, endpoint, identity, cloud, siem
       index.cjs           Provider contract, Catalyst Center network-evidence provider, collectEvidence()
+      fixture.cjs         Mock-lab providers (FIXTURE DATA) — opt-in via NETJARVIS_EVIDENCE_FIXTURE only
   realtime-token.cjs      Mints OpenAI Realtime ephemeral client secret (model gpt-realtime-2)
   session-store.cjs       Per-conversation JSONL audit (data/sessions/)
   artifacts.cjs           Persists every tool artifact for download (data/artifacts/)
@@ -141,6 +144,10 @@ src/                      Frontend (React 19 + Vite + TS)
 
 server/web.cjs            HTTP API for web mode (mirrors IPC), serves dist/
 scripts/behavior-cycle.cjs Smoke test
+scripts/investigate-demo.cjs `npm run demo:investigate` — investigation against the mock lab
+fixtures/mock-lab/        FIXTURE DATA: 12 mock SOC devices (devices.json) + one evidence feed per
+                          platform (vpn, proxy, firewall, endpoint, identity, cloud, siem, network).
+                          Loaded ONLY when NETJARVIS_EVIDENCE_FIXTURE is set; always labelled FIXTURE.
 data/                     Runtime state (gitignored): db, sessions, artifacts, tasks, exports, logs
 ```
 
