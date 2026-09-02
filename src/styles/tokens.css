@@ -1,0 +1,199 @@
+/* NetJarvis design tokens — see docs/superpowers/specs/2026-09-02-enterprise-ui-design.md §4.
+   Primitive palette first, then the semantic layer. Components use ONLY semantic tokens. */
+
+:root {
+  /* Brand */
+  --brand-900: #0b2340;
+  --brand-800: #0e2d52;
+  --brand-700: #10345f;
+  --brand-600: #14498a;
+  --brand-500: #1b6ec2;
+  --brand-400: #049fd9;
+  --brand-300: #4fb9e6;
+  --brand-100: #e3f1fb;
+  --brand-50: #f2f8fd;
+
+  /* Neutrals (cool gray) */
+  --n-0: #ffffff;
+  --n-50: #f5f7fa;
+  --n-100: #eef1f5;
+  --n-200: #dfe4ea;
+  --n-300: #c5ccd6;
+  --n-400: #9aa5b4;
+  --n-500: #6b7684;
+  --n-600: #525c69;
+  --n-700: #3f4854;
+  --n-800: #262d36;
+  --n-900: #171c23;
+  --n-950: #0f131a;
+
+  /* Status hues */
+  --green-700: #1f7a3a;
+  --green-600: #2a8f47;
+  --green-100: #e6f4ea;
+  --amber-700: #9a5b00;
+  --amber-600: #b86e00;
+  --amber-100: #fff4dd;
+  --red-700: #c8161d;
+  --red-600: #d9262d;
+  --red-100: #fde9ea;
+  --blue-700: #1b6ec2;
+  --blue-100: #e3f1fb;
+  --purple-700: #6b4fbb;
+  --purple-100: #efeafb;
+  --teal-700: #0e7c86;
+  --teal-100: #e0f4f6;
+
+  /* Type */
+  --font-sans: Inter, "CiscoSans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+  --fs-1: 11px;
+  --fs-2: 12px;
+  --fs-3: 13px;
+  --fs-4: 14px;
+  --fs-5: 16px;
+  --fs-6: 20px;
+  --fs-7: 24px;
+  --fs-8: 32px;
+  --lh-tight: 1.2;
+  --lh-body: 1.45;
+
+  /* Space (4px base) */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-10: 40px;
+
+  /* Radius */
+  --r-1: 4px;
+  --r-2: 6px;
+  --r-3: 10px;
+  --r-pill: 999px;
+
+  /* Layout */
+  --topbar-h: 56px;
+  --nav-w: 232px;
+  --nav-w-collapsed: 64px;
+  --drawer-w: 400px;
+  --content-max: 1680px;
+
+  /* Motion */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur-1: 120ms;
+  --dur-2: 200ms;
+
+  /* ---- Semantic: light theme (default) ---- */
+  color-scheme: light;
+  --bg-app: var(--n-50);
+  --bg-surface: var(--n-0);
+  --bg-surface-2: var(--n-100);
+  --bg-inset: var(--n-50);
+  --bg-hover: rgba(16, 52, 95, 0.05);
+  --bg-selected: var(--brand-100);
+  --bg-topbar: var(--brand-900);
+  --bg-topbar-2: var(--brand-800);
+  --bg-nav: var(--n-0);
+  --border: var(--n-200);
+  --border-strong: var(--n-300);
+  --text: var(--n-900);
+  --text-2: var(--n-600);
+  --text-3: var(--n-500);
+  --text-on-brand: #ffffff;
+  --text-on-brand-2: rgba(255, 255, 255, 0.72);
+  --link: var(--brand-500);
+  --interactive: var(--brand-500);
+  --interactive-hover: var(--brand-600);
+  --interactive-text: #ffffff;
+  --highlight: var(--brand-400);
+  --focus: 0 0 0 2px var(--bg-surface), 0 0 0 4px var(--brand-400);
+
+  --ok-fg: var(--green-700);
+  --ok-bg: var(--green-100);
+  --ok-dot: var(--green-600);
+  --warn-fg: var(--amber-700);
+  --warn-bg: var(--amber-100);
+  --warn-dot: #f0a51c;
+  --bad-fg: var(--red-700);
+  --bad-bg: var(--red-100);
+  --bad-dot: var(--red-600);
+  --info-fg: var(--blue-700);
+  --info-bg: var(--blue-100);
+  --info-dot: var(--brand-400);
+  --neutral-fg: var(--n-600);
+  --neutral-bg: var(--n-100);
+  --neutral-dot: var(--n-400);
+  --accent-fg: var(--purple-700);
+  --accent-bg: var(--purple-100);
+  --teal-fg: var(--teal-700);
+  --teal-bg: var(--teal-100);
+
+  --code-bg: var(--n-900);
+  --code-fg: #e6ebf2;
+  --code-border: var(--n-800);
+
+  --sh-1: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 1px rgba(15, 23, 42, 0.04);
+  --sh-2: 0 8px 24px rgba(15, 23, 42, 0.14), 0 2px 6px rgba(15, 23, 42, 0.08);
+  --sh-3: 0 16px 48px rgba(15, 23, 42, 0.22);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-app: #0d1219;
+  --bg-surface: #141b24;
+  --bg-surface-2: #1a2330;
+  --bg-inset: #10161e;
+  --bg-hover: rgba(255, 255, 255, 0.05);
+  --bg-selected: rgba(4, 159, 217, 0.16);
+  --bg-topbar: #0a1626;
+  --bg-topbar-2: #0f1f36;
+  --bg-nav: #10171f;
+  --border: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --text: #e6ebf2;
+  --text-2: #a8b3c2;
+  --text-3: #7c8796;
+  --link: #5fb7ee;
+  --interactive: #2a7fd4;
+  --interactive-hover: #3b8fe3;
+  --highlight: var(--brand-400);
+  --focus: 0 0 0 2px var(--bg-surface), 0 0 0 4px var(--brand-400);
+
+  --ok-fg: #62d18a;
+  --ok-bg: rgba(46, 160, 88, 0.18);
+  --ok-dot: #3fbf6a;
+  --warn-fg: #f5bd5a;
+  --warn-bg: rgba(240, 165, 28, 0.18);
+  --warn-dot: #f0a51c;
+  --bad-fg: #ff7b7b;
+  --bad-bg: rgba(217, 38, 45, 0.2);
+  --bad-dot: #ef5350;
+  --info-fg: #6cc1f2;
+  --info-bg: rgba(4, 159, 217, 0.18);
+  --info-dot: var(--brand-400);
+  --neutral-fg: #a8b3c2;
+  --neutral-bg: rgba(255, 255, 255, 0.08);
+  --neutral-dot: #7c8796;
+  --accent-fg: #b9a5f2;
+  --accent-bg: rgba(107, 79, 187, 0.24);
+  --teal-fg: #62cbd5;
+  --teal-bg: rgba(14, 124, 134, 0.24);
+
+  --code-bg: #0b1017;
+  --code-fg: #dde5ef;
+  --code-border: rgba(255, 255, 255, 0.08);
+
+  --sh-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --sh-2: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --sh-3: 0 16px 48px rgba(0, 0, 0, 0.6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-1: 0ms;
+    --dur-2: 0ms;
+  }
+}
