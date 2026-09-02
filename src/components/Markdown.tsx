@@ -303,7 +303,9 @@ function renderMentions(text: string): ReactNode {
 
 function tokenizeInline(text: string): Token[] {
   const tokens: Token[] = [];
-  const pattern = /(`[^`]+`)|(\*\*[^*]+\*\*)|(__[^_]+__)|(\*[^*]+\*)|(_[^_]+_)/g;
+  // Underscore emphasis only at word boundaries so identifiers like
+  // NETJARVIS_EVIDENCE_FIXTURE or snake_case_names are left intact.
+  const pattern = /(`[^`]+`)|(\*\*[^*]+\*\*)|(?<![\w])(__[^_\s][^_]*?__)(?![\w])|(\*[^*\s][^*]*?\*)|(?<![\w])(_[^_\s][^_]*?_)(?![\w])/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Mic, MicOff, Send, X } from "lucide-react";
 import { NetworkCore } from "./NetworkCore";
+import { Markdown } from "./Markdown";
 import type { JarvisConnectionState, JarvisMood, MouthShape, TranscriptEntry } from "../lib/realtime";
 
 export type HudActivity = {
@@ -54,10 +55,13 @@ export function CopilotDrawer({
   const stateLabel = connecting ? "Connecting" : connected ? MOOD_LABEL[mood] : busy ? "Working" : "Standing by";
   const stateTone = connecting ? "warn" : !connected && !busy ? "neutral" : mood === "error" ? "bad" : mood === "idle" ? "ok" : "info";
 
+  // Transcript state is newest-first; the drawer reads top-to-bottom like a chat.
+  const ordered = [...transcript].reverse();
+
   useEffect(() => {
     const node = feedRef.current;
-    if (node) node.scrollTop = 0;
-  }, [transcript.length]);
+    if (node) node.scrollTop = node.scrollHeight;
+  }, [transcript.length, busy]);
 
   function submit() {
     const trimmed = draft.trim();
@@ -124,15 +128,25 @@ export function CopilotDrawer({
       ) : null}
 
       <div className="copilot-feed" ref={feedRef}>
-        {transcript.map((entry) => (
+        {ordered.map((entry) => (
           <article className={`copilot-msg copilot-msg-${entry.role}`} key={entry.id}>
             <header>
               <b>{entry.role === "jarvis" ? "NetJarvis" : entry.role === "user" ? "You" : entry.role}</b>
               <time>{entry.at}</time>
             </header>
-            <p>{entry.text}</p>
+            {entry.role === "jarvis" ? <Markdown text={entry.text} mentions={false} /> : <p>{entry.text}</p>}
           </article>
         ))}
+        {busy ? (
+          <article className="copilot-msg copilot-msg-jarvis copilot-msg-busy">
+            <header>
+              <b>NetJarvis</b>
+            </header>
+            <p>
+              <span className="ui-spinner ui-spinner-sm" aria-hidden="true" /> Working on it…
+            </p>
+          </article>
+        ) : null}
       </div>
 
       <footer className="copilot-compose">

@@ -114,6 +114,7 @@ async function liveSnapshot() {
     events: events.map((event) => ({
       time: event.timestamp ? hhmm(new Date(Number(event.timestamp))) : "",
       severity: String(event.severity || "info").toLowerCase(),
+      type: String(event.type || ""),
       device: event.source || "",
       text: `${event.name}: ${event.description}`.slice(0, 200),
     })),

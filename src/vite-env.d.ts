@@ -141,6 +141,7 @@ export type DashboardEvent = {
   time?: string;
   when?: string;
   severity?: string;
+  type?: string;
   device?: string;
   text?: string;
   event?: string;

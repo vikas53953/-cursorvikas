@@ -3,7 +3,7 @@ import { AlertTriangle, CheckCircle2, RefreshCw, WifiOff } from "lucide-react";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { StatusPill, statusTone } from "./ui/StatusPill";
 import type { TranscriptEntry } from "../lib/realtime";
-import type { DashboardSnapshot } from "../vite-env";
+import type { DashboardEvent, DashboardSnapshot } from "../vite-env";
 
 type OpsDashboardProps = {
   snapshot: DashboardSnapshot | null;
@@ -122,7 +122,7 @@ export function OpsDashboard({ snapshot, loading, error, onRefresh, sessionLog =
                         <strong>{device.name}</strong>
                         {device.note ? <div className="cell-note">{device.note}</div> : null}
                       </td>
-                      <td className="cap">{device.role || "—"}</td>
+                      <td>{titleCase(device.role) || "—"}</td>
                       <td className="mono">{device.ip || "—"}</td>
                       <td>{device.platform || "—"}</td>
                       <td>
@@ -228,7 +228,7 @@ export function OpsDashboard({ snapshot, loading, error, onRefresh, sessionLog =
               {events.slice(0, 12).map((event, index) => (
                 <li key={index}>
                   <time>{event.time || event.when || ""}</time>
-                  <i className={`sev-dot sev-${severityTone(event.severity)}`} aria-hidden="true" />
+                  <i className={`sev-dot sev-${eventTone(event)}`} aria-hidden="true" title={event.type || event.severity || ""} />
                   <span className="event-device">{event.device || ""}</span>
                   <span className="event-text">{event.text || event.event || ""}</span>
                 </li>
@@ -274,11 +274,19 @@ function statusLabel(status: string): string {
   return status || "Unknown";
 }
 
-function severityTone(severity?: string): string {
-  const s = String(severity || "").toLowerCase();
-  if (/crit|p1|1$/.test(s)) return "bad";
-  if (/high|error|p2|2$/.test(s)) return "bad";
-  if (/warn|med|p3|3$/.test(s)) return "warn";
+function titleCase(value?: string): string {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/(^|[\s_-])([a-z])/g, (_, sep: string, char: string) => `${sep}${char.toUpperCase()}`);
+}
+
+// Catalyst Center event severity is 1 (critical) … 5 (informational); audit-log
+// entries such as user logins are informational regardless of the number they carry.
+function eventTone(event: DashboardEvent): string {
+  if (/audit/i.test(event.type || "")) return "info";
+  const s = String(event.severity || "").toLowerCase();
+  if (/crit|p1|^1$|^2$|high|error|major/.test(s)) return "bad";
+  if (/warn|med|minor|p2|p3|^3$|^4$/.test(s)) return "warn";
   return "info";
 }
 

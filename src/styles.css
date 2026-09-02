@@ -1067,6 +1067,8 @@ textarea.ui-input {
   display: grid;
   gap: var(--s-5);
   align-content: start;
+  container-type: inline-size;
+  container-name: page;
 }
 
 .page-head {
@@ -1272,6 +1274,22 @@ textarea.ui-input {
 .copilot-msg-tool {
   font-family: var(--font-mono);
   font-size: var(--fs-2);
+}
+
+.copilot-msg .md {
+  font-size: var(--fs-3);
+  gap: 6px;
+}
+
+.copilot-msg-busy p {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-3);
+}
+
+.copilot-msg-busy .ui-spinner-sm {
+  border-top-color: var(--interactive);
 }
 
 .copilot-compose {
@@ -1874,6 +1892,9 @@ textarea.ui-input {
 .cov-failed strong {
   color: var(--bad-fg);
 }
+.cov-fixture small {
+  color: var(--accent-fg);
+}
 
 .inv-event {
   min-width: 320px;
@@ -1932,6 +1953,41 @@ textarea.ui-input {
 
 .team-board-layout-hidden {
   display: none;
+}
+
+/* Narrow content area (e.g. assistant drawer open on a laptop): chat drops below. */
+@container page (max-width: 1180px) {
+  .team-board-layout,
+  .team-board-layout-chat {
+    grid-template-columns: 248px minmax(0, 1fr);
+  }
+  .team-board-layout-chat > .squad-chat-rail {
+    grid-column: 1 / -1;
+    height: 520px;
+  }
+  .kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .overview-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .obs-split {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
+@container page (max-width: 820px) {
+  .team-board-layout,
+  .team-board-layout-chat {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .overview-grid-even,
+  .inv-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .kanban {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .team-board-main {
@@ -2251,6 +2307,7 @@ textarea.ui-input {
   box-shadow: var(--sh-1);
   display: grid;
   min-width: 0;
+  overflow: hidden;
 }
 
 .kanban-column > header {
@@ -2381,6 +2438,15 @@ textarea.ui-input {
 .kanban-meta {
   color: var(--text-3);
   font-size: var(--fs-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kanban-card > header small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .kanban-step {

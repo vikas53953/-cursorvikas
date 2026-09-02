@@ -110,6 +110,21 @@ export function InvestigationsPage({ onOpenArtifact, onActivity }: Investigation
 
   const timelinePlatforms = useMemo(() => Object.keys(result?.counts?.byPlatform || {}).sort(), [result]);
 
+  // observations[0] is the headline; per-platform "N events between …" lines are
+  // already visualised by the coverage grid, so only the correlation findings stay.
+  const observations = result?.observations || [];
+  const lede = observations[0] || (result?.summary || "").replace(/^\[FIXTURE DATA[^\]]*\]\s*/, "") || "No events matched.";
+  const findings = observations.slice(1).filter((text) => !/^[a-z]+: \d+ events? between /.test(text));
+
+  const coverage = useMemo(
+    () =>
+      [...(result?.coverage || [])].sort((a, b) => {
+        const rank = (c: Coverage) => (c.status === "ok" ? 0 : c.status === "empty" ? 1 : c.status === "failed" ? 2 : 3);
+        return rank(a) - rank(b) || a.platform.localeCompare(b.platform) || a.provider.localeCompare(b.provider);
+      }),
+    [result],
+  );
+
   return (
     <div className="inv">
       <section className="ui-card inv-seed">
@@ -200,14 +215,16 @@ export function InvestigationsPage({ onOpenArtifact, onActivity }: Investigation
               </div>
             </header>
             <div className="ui-card-body inv-summary">
-              <p className="inv-lede">{result.summary?.replace(/^\[FIXTURE DATA[^\]]*\]\s*/, "")}</p>
-              {result.observations && result.observations.length > 1 ? (
+              <p className="inv-lede">{lede}</p>
+              {findings.length > 0 ? (
                 <ul className="inv-observations">
-                  {result.observations.slice(1).map((text, index) => (
+                  {findings.map((text, index) => (
                     <li key={index}>{text}</li>
                   ))}
                 </ul>
-              ) : null}
+              ) : (
+                <p className="ui-muted">No cross-platform patterns detected in this window. See the timeline for the individual events.</p>
+              )}
             </div>
           </section>
 
@@ -222,8 +239,8 @@ export function InvestigationsPage({ onOpenArtifact, onActivity }: Investigation
             </header>
             <div className="ui-card-body">
               <div className="coverage">
-                {(result.coverage || []).map((cov) => (
-                  <div key={`${cov.provider}-${cov.platform}`} className={`cov cov-${cov.status}`} title={cov.error || `${cov.provider} · ${cov.status}`}>
+                {coverage.map((cov) => (
+                  <div key={`${cov.provider}-${cov.platform}`} className={`cov cov-${cov.status} ${cov.provider === "fixture" ? "cov-fixture" : ""}`} title={cov.error || `${cov.provider} · ${cov.status}`}>
                     <span>{cov.platform}</span>
                     <strong>{cov.status === "unconfigured" ? "—" : cov.count}</strong>
                     <small>

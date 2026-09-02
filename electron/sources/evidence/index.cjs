@@ -44,12 +44,15 @@ function textMentions(text, value) {
   return String(text || "").toLowerCase().includes(String(value).toLowerCase());
 }
 
-// Catalyst Center event severity is numeric 1 (info) .. 5 (critical) on the
-// event-series API; issues carry P1..P4 which normalizeSeverity already reads.
-function catalystSeverity(value) {
+// Catalyst Center event severity is numeric 1 (critical) .. 5 (informational)
+// on the event-series API; audit-log entries (user logins, API calls) are
+// informational whatever number they carry. Issues carry P1..P4, which
+// normalizeSeverity already reads.
+function catalystSeverity(value, type) {
+  if (/audit/i.test(String(type || ""))) return "info";
   const n = Number(value);
   if (!Number.isFinite(n)) return value;
-  return ["info", "info", "low", "medium", "high", "critical"][Math.max(0, Math.min(5, Math.round(n)))];
+  return ["info", "critical", "high", "medium", "low", "info"][Math.max(0, Math.min(5, Math.round(n)))];
 }
 
 // Network-domain evidence from the network NetJarvis already sees. Uses the raw
@@ -95,7 +98,7 @@ function createCatalystCenterEvidenceProvider({ catc, source }) {
             platform: "network",
             product: "cisco:catalyst-center",
             kind: `net.${String(event.type || "event").toLowerCase()}`,
-            severity: catalystSeverity(event.severity),
+            severity: catalystSeverity(event.severity, event.type),
             entities: {
               device: deviceName,
               host: deviceName,
