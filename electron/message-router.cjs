@@ -8,6 +8,7 @@ const INTENTS = {
   DEVICE_PRECHECK: "device_precheck",
   INTERFACE_STATUS: "interface_status",
   CLI_SHOW: "cli_show",
+  INVESTIGATE: "investigate",
   DELEGATE: "delegate",
   GENERAL: "general",
 };
@@ -104,6 +105,68 @@ function parseCliShowRoute(message, devices) {
   return { device, commands: [command] };
 }
 
+// Cross-platform investigation: "investigate user jdoe", "what did 10.20.0.7 do
+// in the last 6 hours", "timeline for host LT-4421", "correlate ... for jdoe@corp".
+// Needs both an investigation verb and a seed entity; otherwise falls through.
+const INVESTIGATE_VERB = /\b(investigat\w*|correlate|timeline|trace|what (?:did|has) .{1,60}\b(?:do|done|access|touch)|activity (?:for|of|from)|evidence (?:for|on|about))\b/i;
+const IPV4_TOKEN = /\b(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3}\b/;
+
+function parseLookbackHours(lower) {
+  const m = lower.match(/\b(?:last|past|previous)\s+(\d+(?:\.\d+)?)\s*(minutes?|mins?|hours?|hrs?|h|days?|d|weeks?|w)\b/);
+  if (!m) {
+    if (/\b(?:last|past)\s+(?:hour|hr)\b/.test(lower)) return 1;
+    if (/\b(?:last|past)\s+day\b|\byesterday\b|\bovernight\b/.test(lower)) return 24;
+    if (/\b(?:last|past)\s+week\b/.test(lower)) return 24 * 7;
+    return null;
+  }
+  const n = Number(m[1]);
+  const unit = m[2];
+  if (/^m/.test(unit)) return Math.max(1, Math.ceil(n / 60));
+  if (/^h/.test(unit)) return n;
+  if (/^d/.test(unit)) return n * 24;
+  if (/^w/.test(unit)) return n * 24 * 7;
+  return null;
+}
+
+function parseInvestigateRoute(message, devices) {
+  const text = String(message || "").trim();
+  const lower = text.toLowerCase();
+  if (!INVESTIGATE_VERB.test(lower)) return null;
+
+  const explicitUser = text.match(/\b(?:user|account|username|upn|employee)\s+[:=]?\s*([A-Za-z0-9][A-Za-z0-9._\\@-]{1,80})/i);
+  const explicitHost = text.match(/\b(?:host|hostname|endpoint|laptop|workstation|server|device|machine)\s+[:=]?\s*([A-Za-z0-9][A-Za-z0-9._-]{1,80})/i);
+  const ip = text.match(IPV4_TOKEN);
+  const email = text.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/);
+
+  let entity = null;
+  if (explicitUser) entity = { kind: "user", value: explicitUser[1] };
+  else if (ip) entity = { kind: "ip", value: ip[0] };
+  else if (explicitHost) entity = { kind: "host", value: explicitHost[1] };
+  else if (email) entity = { kind: "user", value: email[0] };
+  else {
+    const device = extractDeviceFromText(text, devices);
+    if (device) entity = { kind: "host", value: device };
+  }
+  if (!entity) return null;
+
+  const platforms = [];
+  for (const [platform, pattern] of Object.entries({
+    network: /\b(network|switch|catalyst)\b/,
+    vpn: /\bvpn\b|anyconnect|globalprotect/,
+    proxy: /\bprox(?:y|ies)\b|zscaler|bluecoat/,
+    firewall: /\bfirewalls?\b|\bfw\b|palo alto|\basa\b/,
+    endpoint: /\bendpoints?\b|\bedr\b|crowdstrike|defender|sysmon/,
+    identity: /\bidentity\b|\bokta\b|\bauth(?:entication)?\b|\bactive directory\b|\bad\b|\bentra\b|\blogins?\b|\bsign-?ins?\b/,
+    cloud: /\bcloud\b|\baws\b|cloudtrail|\bazure\b|\bgcp\b/,
+    siem: /\bsplunk\b|\bsiem\b|\bnotables?\b/,
+  })) {
+    if (pattern.test(lower)) platforms.push(platform);
+  }
+
+  const lookbackHours = parseLookbackHours(lower);
+  return { entity, lookbackHours, platforms: platforms.length ? platforms : undefined };
+}
+
 function parseDelegateRoute(message, agentsApi, devices) {
   const handles = extractMentionHandles(message).filter((h) => h !== "jarvis");
   if (handles.length === 0) return null;
@@ -139,6 +202,11 @@ function classifyIntent(message, { agentsApi, target = "jarvis", devices } = {})
   const cliShow = parseCliShowRoute(trimmed, devices);
   if (cliShow) {
     return { intent: INTENTS.CLI_SHOW, confidence: "high", meta: cliShow };
+  }
+
+  const investigate = parseInvestigateRoute(trimmed, devices);
+  if (investigate) {
+    return { intent: INTENTS.INVESTIGATE, confidence: "high", meta: investigate };
   }
 
   const interfaceStatus = parseInterfaceStatusRoute(trimmed, devices);
@@ -188,6 +256,7 @@ function routerInstructionsAppendix() {
 - network_overview: only when the engineer asks how the network is doing or wants a shift rundown.
 - device_precheck: batch all standard show commands in one run_show_command on the named device.
 - cli_show: run the requested show command on the named device.
+- investigate: cross-platform SOC investigation of a user / IP / host - call investigate with the seed entity and window; report the timeline, coverage and gaps only.
 - delegate: hand off to the @mentioned specialist via delegate_task.
 `;
 }
@@ -199,4 +268,6 @@ module.exports = {
   routerInstructionsAppendix,
   extractMentionHandles,
   extractDeviceFromText,
+  parseInvestigateRoute,
+  parseLookbackHours,
 };

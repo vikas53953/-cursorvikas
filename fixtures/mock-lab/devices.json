@@ -1,0 +1,27 @@
+{
+  "$comment": "NetJarvis mock lab. FIXTURE DATA - not a real network. Loaded only when NETJARVIS_EVIDENCE_FIXTURE is set; every investigation built from it is banner-labelled 'FIXTURE'. One representative device per SOC platform the investigation agent must correlate, plus the campus switches the DevNet sandbox exposes so network fixtures line up with real hostnames.",
+  "lab": "mock-lab",
+  "devices": [
+    { "name": "vpn-asa-1", "domain": "firewall", "platform": "asa", "role": "vpn-concentrator", "mgmtIp": "10.0.0.11", "site": "DC1", "product": "cisco:asa", "feeds": ["vpn", "firewall"], "note": "Cisco ASA 5516-X running AnyConnect remote-access VPN; syslog to Splunk sourcetype cisco:asa." },
+    { "name": "fw-pan-1", "domain": "firewall", "platform": "pan-os", "role": "perimeter-firewall", "mgmtIp": "10.0.0.12", "site": "DC1", "product": "pan:traffic", "feeds": ["firewall"], "note": "Palo Alto PA-3260 internet edge; traffic + threat logs to Splunk sourcetype pan:traffic / pan:threat." },
+    { "name": "proxy-zs-1", "domain": "proxy", "platform": "zscaler", "role": "web-proxy", "mgmtIp": "10.0.0.13", "site": "Cloud", "product": "zscaler:web", "feeds": ["proxy"], "note": "Zscaler ZIA tenant; NSS web feed to Splunk sourcetype zscalernss-web." },
+    { "name": "lb-f5-1", "domain": "loadbalancer", "platform": "f5-tmos", "role": "load-balancer", "mgmtIp": "10.0.0.14", "site": "DC1", "product": "f5:bigip", "feeds": [], "note": "F5 BIG-IP i5800 in front of internal apps; present for scope/inventory realism, no evidence feed in this lab." },
+    { "name": "edr-crowdstrike", "domain": "endpoint", "platform": "crowdstrike-falcon", "role": "edr-tenant", "mgmtIp": "", "site": "Cloud", "product": "crowdstrike:events", "feeds": ["endpoint"], "note": "CrowdStrike Falcon tenant; sensor events via Falcon Data Replicator to Splunk." },
+    { "name": "idp-okta", "domain": "identity", "platform": "okta", "role": "identity-provider", "mgmtIp": "", "site": "Cloud", "product": "okta", "feeds": ["identity"], "note": "Okta org (corp.example); System Log via Splunk Add-on for Okta, sourcetype OktaIM2:log." },
+    { "name": "dc-ad-1", "domain": "identity", "platform": "windows-server", "role": "domain-controller", "mgmtIp": "10.0.1.5", "site": "DC1", "product": "windows:security", "feeds": ["identity"], "note": "Active Directory DC; Security event log (4624/4625/4768) to Splunk sourcetype XmlWinEventLog:Security." },
+    { "name": "aws-prod-account", "domain": "cloud", "platform": "aws", "role": "cloud-account", "mgmtIp": "", "site": "us-east-1", "product": "aws:cloudtrail", "feeds": ["cloud"], "note": "AWS account 123456789012; CloudTrail management events to Splunk." },
+    { "name": "splunk-es", "domain": "siem", "platform": "splunk-enterprise-security", "role": "siem", "mgmtIp": "10.0.0.20", "site": "DC1", "product": "splunk:es", "feeds": ["siem"], "note": "Splunk ES search head; notable events from correlation searches in index=notable." },
+    { "name": "LT-4421", "domain": "endpoint", "platform": "windows-11", "role": "laptop", "mgmtIp": "10.20.0.7", "site": "Remote", "product": "", "feeds": [], "note": "Corporate laptop assigned to jdoe; VPN-assigned address 10.20.0.7 in this scenario." },
+    { "name": "sw1", "domain": "data", "platform": "ios-xe", "role": "access", "mgmtIp": "10.10.20.175", "site": "Campus", "product": "cisco:ios", "feeds": ["network"], "note": "Catalyst 9000v access switch (matches the DevNet sandbox hostname); syslog to Splunk." },
+    { "name": "sw2", "domain": "data", "platform": "ios-xe", "role": "access", "mgmtIp": "10.10.20.176", "site": "Campus", "product": "cisco:ios", "feeds": ["network"], "note": "Catalyst 9000v access switch (matches the DevNet sandbox hostname)." }
+  ],
+  "entities": {
+    "user": "jdoe",
+    "userEmail": "jdoe@corp.example",
+    "host": "LT-4421",
+    "externalIp": "203.0.113.9",
+    "vpnAssignedIp": "10.20.0.7",
+    "suspiciousDest": "198.51.100.4",
+    "benignUser": "asmith"
+  }
+}

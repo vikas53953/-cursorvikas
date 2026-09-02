@@ -166,6 +166,34 @@ status-board/topology. Intentional simulation, not a stub. Used as fallback + fo
 - `prometheus.cjs` — **real but thin**; only queries the `up` metric; off unless `PROMETHEUS_URL`.
 - `snmp.cjs` — **stub**; returns null placeholder but `ok:true`. No SNMP is performed.
 
+### 3e. Evidence plane — cross-platform investigations (`sources/evidence/`, `core/investigation.cjs`)
+
+The SOC side of the product (AI-Ready SOC, Part II). One `investigate` tool takes a seed entity
+(user | ip | host) and a window and correlates evidence from pluggable **evidence providers** into
+one timestamped investigation: merged/deduped/time-ordered timeline, per-platform coverage,
+pivot candidates (other users/IPs/hosts that co-occur with the seed), deterministic observations,
+and an explicit gap list. Two provider families ship:
+
+- `evidence/splunk.cjs` — **real** Splunk REST client (`/services/search/jobs/export`, bearer or
+  basic auth, TLS verification on by default). Every SPL passes `core/spl-policy.cjs`
+  (`assertReadOnlySpl`: no `delete`/`collect`/`outputlookup`/`sendemail`/`script`/`rest`/…).
+- `evidence/lenses.cjs` — one CIM-based SPL lens per platform: **vpn, proxy, firewall, endpoint,
+  identity, cloud, siem** (notables). Base searches are overridable per shop via
+  `SPLUNK_LENS_<PLATFORM>`. Rows map to the `EvidenceEvent` contract using CIM field names only.
+- `evidence/index.cjs` — `createCatalystCenterEvidenceProvider` (network lens: issues + event
+  series, real epoch timestamps) and `collectEvidence()` (parallel fan-out; a throwing provider
+  becomes a `failed` result). Unconfigured providers report `status:"unconfigured"` — never
+  placeholder data.
+
+- `evidence/fixture.cjs` — **mock lab (FIXTURE DATA), opt-in only** via `NETJARVIS_EVIDENCE_FIXTURE`:
+  `fixtures/mock-lab/` = 12 mock SOC devices + one feed per platform. Rows are provider `fixture`
+  and the artifact/summary/chat reply are banner-labelled, so it can never pass as real data.
+
+`core/investigation.cjs` is pure (no I/O, no LLM): `buildInvestigation()` +
+`renderInvestigationMarkdown()` + `summarizeInvestigation()`. Voice calls the tool directly; chat
+routes `investigate …` through `INTENTS.INVESTIGATE` → `skills/investigation.cjs`, which narrates
+strictly from the tool's JSON output. Owning specialist: **Investigation Agent** (`soc`, Security Team).
+
 ---
 
 ## 4. The specialist agent team — `agents.cjs`
@@ -229,6 +257,9 @@ A side effect is that **mermaid topology artifacts are no longer displayed anywh
 - Read-only CLI: `guardrails.validateToolCall` + `network-source.runLiveShowCommands` both reject
   anything not matching `^show\s`, plus a blocklist (config/write/copy/delete/no/clear/reload/
   shutdown/reboot/debug/telnet/ssh). Config changes are refused before any API call.
+- Read-only SPL: `core/spl-policy.cjs` rejects any Splunk search that writes, collects, executes or
+  sends (`delete`, `collect`, `outputlookup`, `sendemail`, `script`, `rest`, `map`, …) before the
+  request leaves the box; `guardrails.validateToolCall("investigate")` requires exactly one seed.
 - State-changing actions (`acknowledge_alert`) require explicit `confirmed:true`.
 - Secrets only from `.env.local`; redacted in logs. Realtime key never reaches the browser (only a
   short-lived minted secret does).
@@ -247,6 +278,7 @@ A side effect is that **mermaid topology artifacts are no longer displayed anywh
 | Chat classify→plan→skill→audit pipeline | Real |
 | Specialist agent delegation + Kanban | Real (gpt-5-mini loops) |
 | CSV export, artifacts, pre/post checks, tickets, trends, notes, email (SMTP) | Real |
+| Cross-platform `investigate` (Splunk lenses + Catalyst Center network evidence) | Real; Splunk lenses need `SPLUNK_URL` + token, otherwise reported as unconfigured |
 | Prometheus adapter | Real but thin (`up` metric only) |
 | SNMP adapter | ⚠ Stub (null data, false ok) |
 | `run_show_command` in sim/offline mode | ✗ Hard-fails (live-only) |

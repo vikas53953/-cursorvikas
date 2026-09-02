@@ -45,14 +45,21 @@ npm start            # Electron against an already-built dist/
 npm run build        # tsc --noEmit && vite build  → dist/
 npm run web          # node server/web.cjs → http://localhost:8080 (needs a prior build)
 npm run typecheck    # tsc --noEmit
+npm test             # node --test → test/*.test.cjs (backend unit + integration tests, no network needed)
 npm run test:behavior # scripts/behavior-cycle.cjs — smoke-tests core tools + activity board
 ```
 
-There is **no unit-test suite and no linter** configured. `test:behavior` is the only automated
-check — it exercises ~6 tools against whatever source is live/sim and asserts they return `ok`.
-`npm run build`'s `tsc --noEmit` is the main correctness gate for the frontend/TS.
+`npm test` (`node --test`) is the backend correctness gate — pure-function and injected-fake tests
+for the core engines, sources, router, guardrails and skills. `test:behavior` exercises ~6 tools
+against whatever source is live/sim and asserts they return `ok`. `npm run build`'s `tsc --noEmit`
+is the correctness gate for the frontend/TS. There is no linter.
 
 Node 20+ required. Voice needs `OPENAI_API_KEY` (Realtime access). Web search needs `EXA_API_KEY`.
+Cross-platform investigations need `SPLUNK_URL` + `SPLUNK_TOKEN` (or basic creds) for the
+VPN/proxy/firewall/endpoint/identity/cloud lenses; without them those platforms report
+"unconfigured" and only the Catalyst Center network lens contributes evidence. For development
+without Splunk, `NETJARVIS_EVIDENCE_FIXTURE=1` loads the mock lab (`fixtures/mock-lab/`) — every
+result it touches is labelled FIXTURE DATA; it is never on by default.
 Everything else (dashboard, all network tools, simulator) works with no keys.
 
 ## The single most important thing to understand: two answer paths
@@ -80,11 +87,17 @@ electron/                 Backend (Node, all .cjs, NO electron dependency except
   main.cjs                Electron entry: window, IPC handlers, background services
   preload.cjs             contextBridge → window.jarvis (IPC impl of the backend surface)
   tools.cjs               ★ Heart: JARVIS_INSTRUCTIONS persona, toolSpecs, execute(), createTools()
-  message-router.cjs      Chat-only regex intent classifier (device_fact, cli_show, etc.)
+  message-router.cjs      Chat-only regex intent classifier (device_fact, cli_show, investigate, etc.)
   action-planner.cjs      Maps classified intent → {skill, mode, tool}
   handle-user-message.cjs Chat orchestrator: classify → plan → skill → audit
   skills/                 Chat skill handlers (device-fact, network-overview, device-precheck,
-                          interface-status, cli-show, llm-loop) + index.cjs registry
+                          interface-status, cli-show, investigation, llm-loop) + index.cjs registry
+  core/
+    investigation.cjs     ★ Cross-platform investigation engine: EvidenceEvent contract, correlation,
+                          timeline / pivots / observations / gaps, markdown render (pure, no I/O)
+    spl-policy.cjs        Read-only SPL guard (blocks delete/collect/outputlookup/sendemail/script/rest/…)
+    grounding.cjs, command-former.cjs, answer-composer.cjs, query-layer.cjs, source-registry.cjs,
+    read-only-policy.cjs, scope-resolver.cjs, contracts.cjs, fact-*.cjs  (grounded-answers engine)
   answer-policy.cjs       Reply-shape rules per intent (truncate, strip preamble/next-steps)
   chat-reply.cjs          Strips robotic "next steps" sections from replies
   guardrails.cjs          Read-only CLI enforcement (only `show ...`, blocklist)
@@ -98,6 +111,11 @@ electron/                 Backend (Node, all .cjs, NO electron dependency except
     nvd.cjs               Real NVD CVE lookup (keyless) — powers vulnerability_check
     prometheus.cjs        Thin real adapter (only queries `up` metric); off unless PROMETHEUS_URL set
     snmp.cjs              ⚠ STUB — returns null placeholder data but reports ok:true
+    evidence/             Evidence plane for `investigate` (AI-Ready SOC, Part II)
+      splunk.cjs          Real Splunk REST search client (export endpoint; bearer/basic; TLS verify on)
+      lenses.cjs          CIM-based SPL lens per platform: vpn, proxy, firewall, endpoint, identity, cloud, siem
+      index.cjs           Provider contract, Catalyst Center network-evidence provider, collectEvidence()
+      fixture.cjs         Mock-lab providers (FIXTURE DATA) — opt-in via NETJARVIS_EVIDENCE_FIXTURE only
   realtime-token.cjs      Mints OpenAI Realtime ephemeral client secret (model gpt-realtime-2)
   session-store.cjs       Per-conversation JSONL audit (data/sessions/)
   artifacts.cjs           Persists every tool artifact for download (data/artifacts/)
@@ -126,6 +144,10 @@ src/                      Frontend (React 19 + Vite + TS)
 
 server/web.cjs            HTTP API for web mode (mirrors IPC), serves dist/
 scripts/behavior-cycle.cjs Smoke test
+scripts/investigate-demo.cjs `npm run demo:investigate` — investigation against the mock lab
+fixtures/mock-lab/        FIXTURE DATA: 12 mock SOC devices (devices.json) + one evidence feed per
+                          platform (vpn, proxy, firewall, endpoint, identity, cloud, siem, network).
+                          Loaded ONLY when NETJARVIS_EVIDENCE_FIXTURE is set; always labelled FIXTURE.
 data/                     Runtime state (gitignored): db, sessions, artifacts, tasks, exports, logs
 ```
 
@@ -137,8 +159,12 @@ data/                     Runtime state (gitignored): db, sessions, artifacts, t
   `main.cjs`/`preload.cjs`) so `tools.cjs` and friends run under plain Node for the web server and
   `test:behavior`. Keep it that way.
 - **Tool contract**: a tool is a `case` in `tools.cjs` `executeInner()` returning
-  `{ ok, ...data, artifact?: {title, kind, content} }`. Add the spec to `toolSpecs`, the routing to
-  `TOOL_ROUTING` in `agents.cjs`, and (if it changes state) a guard in `guardrails.cjs`.
+ `{ ok, ...data, artifact?: {title, kind, content} }`. Add the spec to `toolSpecs`, the routing to
+ `TOOL_ROUTING` in `agents.cjs`, and (if it changes state) a guard in `guardrails.cjs`.
+- **Evidence provider contract** (investigations): `{ id, platform, configured(), collect({entity,
+ window, limit}) → { status: "ok"|"empty"|"unconfigured"|"failed", events: EvidenceEvent[], query?,
+ error?, ms? } }`. Register it in `sources/evidence/index.cjs` `createEvidenceProviders`. A
+ provider that is not configured must say so — never return placeholder rows.
 - **Skill contract** (chat path only): a module `{ id, run({route, plan, deps, message, target,
   channel}) }` registered in `skills/index.cjs`. `deps` carries `execute`, `agents`,
   `chatCompletion`, `toolSpecs`, formatting helpers.
