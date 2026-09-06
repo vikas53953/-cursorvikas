@@ -53,11 +53,10 @@ export function AssurancePage({ snapshot, loading, error, onRefresh, sessionLog 
     <div className="page assurance-page">
       <header className="page-toolbar">
         <div>
-          <p className="page-kicker">Assurance · Overall health</p>
-          <h1>Enterprise health</h1>
+          <h1>Assurance</h1>
           <p className="page-sub">
-            {snapshot.source || "network source"}
-            {snapshot.updatedAt ? ` · updated ${snapshot.updatedAt}` : ""} · auto-refresh 30s
+            {snapshot.source || "Network source"}
+            {snapshot.updatedAt ? ` · updated ${snapshot.updatedAt}` : ""} · refreshes every 30 seconds
           </p>
         </div>
         <div className="page-toolbar-actions">

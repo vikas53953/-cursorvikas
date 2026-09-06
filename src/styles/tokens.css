@@ -22,8 +22,8 @@
   --nj-info-bg: #e6f4fb;
   --nj-neutral: #6b7280;
 
-  --font-sans: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-  --font-mono: "Consolas", "Source Code Pro", ui-monospace, monospace;
+  --font-sans: "Segoe UI Variable", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Cascadia Mono", "Consolas", "Source Code Pro", ui-monospace, monospace;
 
   --text-xs: 11px;
   --text-sm: 12px;
@@ -44,19 +44,19 @@
   --radius-md: 4px;
   --radius-lg: 6px;
 
-  --rail-w: 220px;
+  --rail-w: 216px;
   --rail-w-collapsed: 56px;
-  --topbar-h: 48px;
+  --topbar-h: 52px;
   --drawer-w: 380px;
 
-  --shadow-dashlet: 0 1px 2px rgba(7, 20, 38, 0.08);
+  --shadow-dashlet: 0 1px 2px rgba(11, 31, 58, 0.06), 0 8px 20px rgba(11, 31, 58, 0.04);
 }
 
 :root,
 [data-theme="light"] {
   color-scheme: light;
-  --bg-app: #e8edf2;
-  --bg-canvas: #e8edf2;
+  --bg-app: #eef2f6;
+  --bg-canvas: #eef2f6;
   --bg-dashlet: #ffffff;
   --bg-dashlet-alt: #f6f8fa;
   --bg-input: #ffffff;

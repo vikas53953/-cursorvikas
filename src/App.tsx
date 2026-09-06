@@ -1,11 +1,11 @@
 import { useRef, useState } from "react";
 import { ArtifactsPanel } from "./components/ArtifactsPanel";
 import { AssurancePage } from "./components/AssurancePage";
-import { CopilotDrawer } from "./components/CopilotDrawer";
 import { InvestigationsPage } from "./components/InvestigationsPage";
 import { InventoryPage } from "./components/InventoryPage";
 import { ObservabilityPanel, type ObservabilityEvent } from "./components/ObservabilityPanel";
 import { TeamBoard } from "./components/TeamBoard";
+import { VoicePage } from "./components/VoicePage";
 import { AppShell, type AppPage } from "./components/shell/AppShell";
 import { useDashboard } from "./hooks/useDashboard";
 import { useTheme } from "./hooks/useTheme";
@@ -48,8 +48,7 @@ function parseSearchSeed(raw: string): { kind: "user" | "ip" | "host"; value: st
 export default function App() {
   const { theme, toggle: toggleTheme } = useTheme();
   const dashboard = useDashboard();
-  const [page, setPage] = useState<AppPage>("assurance");
-  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [page, setPage] = useState<AppPage>("voice");
   const [search, setSearch] = useState("");
   const [lookbackHours, setLookbackHours] = useState(24);
   const [pendingSeed, setPendingSeed] = useState<{ kind: "user" | "ip" | "host"; value: string } | null>(null);
@@ -110,7 +109,7 @@ export default function App() {
             status: "done",
           }),
         );
-        if (!squadChatExpandedRef.current) setPage("observability");
+        if (!squadChatExpandedRef.current && page !== "voice") setPage("observability");
       },
       onStatus: (message) => {
         setTranscript((items) => [newEntry("system", message), ...items].slice(0, 80));
@@ -206,7 +205,7 @@ export default function App() {
       }),
     );
     if (channel === "chat") setPage("squad");
-    else setAssistantOpen(true);
+    else setPage("voice");
 
     setChatBusy(true);
     try {
@@ -303,7 +302,7 @@ export default function App() {
       return;
     }
     setSearch("");
-    setAssistantOpen(true);
+    setPage("voice");
     setTextPrompt("");
     void deliverUserMessage({ channel: "keyboard", message: trimmed, target: { id: "jarvis", name: "NetJarvis" } });
   }
@@ -325,9 +324,30 @@ export default function App() {
         onSearchSubmit={onSearchSubmit}
         lookbackHours={lookbackHours}
         onLookbackHours={setLookbackHours}
-        assistantOpen={assistantOpen}
-        onToggleAssistant={() => setAssistantOpen((value) => !value)}
+        connectionState={connectionState}
+        mood={mood}
+        mouthShape={mouthShape}
       >
+        {page === "voice" ? (
+          <VoicePage
+            connectionState={connectionState}
+            mood={mood}
+            mouthShape={mouthShape}
+            activity={hudActivity}
+            lastHeard={lastHeard}
+            speakingText={speakingText}
+            feed={hudFeed}
+            transcript={transcript}
+            textPrompt={textPrompt}
+            onTextPrompt={setTextPrompt}
+            onSend={sendTextPrompt}
+            onConnect={() => void connect()}
+            onDisconnect={disconnect}
+            chatBusy={chatBusy}
+            showTypeInput={showTypeInput}
+            onToggleType={() => setShowTypeInput((value) => !value)}
+          />
+        ) : null}
         {page === "assurance" ? (
           <AssurancePage
             snapshot={dashboard.snapshot}
@@ -364,9 +384,8 @@ export default function App() {
           <div className="page">
             <header className="page-toolbar">
               <div>
-                <p className="page-kicker">Observability</p>
-                <h1>Current output</h1>
-                <p className="page-sub">Technical, CLI, and narrative from the last tool run.</p>
+                <h1>Observability</h1>
+                <p className="page-sub">Technical, CLI, and narrative from the last tool run</p>
               </div>
             </header>
             <ObservabilityPanel events={observabilityEvents} artifact={artifact} sessionLog={transcript} />
@@ -376,36 +395,14 @@ export default function App() {
           <div className="page">
             <header className="page-toolbar">
               <div>
-                <p className="page-kicker">Reports</p>
-                <h1>Artifact library</h1>
-                <p className="page-sub">Download saved CLI, tables, and investigation markdown.</p>
+                <h1>Reports</h1>
+                <p className="page-sub">Saved CLI, tables, and investigation artifacts</p>
               </div>
             </header>
             <ArtifactsPanel />
           </div>
         ) : null}
       </AppShell>
-
-      <CopilotDrawer
-        open={assistantOpen}
-        onClose={() => setAssistantOpen(false)}
-        connectionState={connectionState}
-        mood={mood}
-        mouthShape={mouthShape}
-        activity={hudActivity}
-        lastHeard={lastHeard}
-        speakingText={speakingText}
-        feed={hudFeed}
-        transcript={transcript}
-        textPrompt={textPrompt}
-        onTextPrompt={setTextPrompt}
-        onSend={sendTextPrompt}
-        onConnect={() => void connect()}
-        onDisconnect={disconnect}
-        chatBusy={chatBusy}
-        showTypeInput={showTypeInput}
-        onToggleType={() => setShowTypeInput((value) => !value)}
-      />
     </>
   );
 }

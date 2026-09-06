@@ -35,9 +35,8 @@ export function InventoryPage({ snapshot, onInvestigate }: InventoryPageProps) {
     <div className="page inventory-page">
       <header className="page-toolbar">
         <div>
-          <p className="page-kicker">Inventory · Catalyst Center</p>
-          <h1>Devices and topology</h1>
-          <p className="page-sub">{snapshot?.source || "network source"} · {devices.length} devices · {links.length} links</p>
+          <h1>Inventory</h1>
+          <p className="page-sub">{snapshot?.source || "Network source"} · {devices.length} devices · {links.length} links</p>
         </div>
         <div className="page-toolbar-actions">
           <div className="ui-seg" role="tablist">

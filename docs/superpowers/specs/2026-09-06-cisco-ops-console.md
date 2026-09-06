@@ -37,6 +37,7 @@ From **SOC consoles (SecureX / XDR-class)**
 
 | Rail item | Page | Data |
 |---|---|---|
+| Voice | Full orb + conversation | Realtime voice + typed ask (same tools as before) |
 | Assurance | NOC home | `getDashboard()` |
 | Investigate | Path + timeline | `executeTool("investigate")` |
 | Inventory | Device table + L2 topology | dashboard devices + links |
@@ -44,9 +45,11 @@ From **SOC consoles (SecureX / XDR-class)**
 | Observability | Current tool output + audit | existing ObservabilityPanel |
 | Reports | Artifact library | existing ArtifactsPanel |
 
-The voice / text copilot is a **right-hand assistant drawer**, not half the
-window. Voice connect, transcript, and typed ask live there. The two answer
-paths (Realtime voice vs chat pipeline) are unchanged.
+**Voice is a first-class workspace**, not a drawer. The original orb
+(`NetworkCore`) fills the Assistant → Voice page: talk or type, tools run,
+the conversation stays on the right. A compact orb in the top bar opens Voice
+from any page. The two answer paths (Realtime voice vs chat pipeline) are
+unchanged.
 
 ## Honesty rules (unchanged)
 

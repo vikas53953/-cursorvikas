@@ -92,9 +92,8 @@ export function InvestigationsPage({ lookbackHours, onLookbackHours, pendingSeed
     <div className="page investigate-page">
       <header className="page-toolbar">
         <div>
-          <p className="page-kicker">Investigate · Cross-platform evidence</p>
-          <h1>Path investigation</h1>
-          <p className="page-sub">One seed entity. Splunk lenses + Catalyst Center, correlated on a hop path. Read-only.</p>
+          <h1>Investigate</h1>
+          <p className="page-sub">One user, IP, or host. Evidence from each platform on a single path. Read-only.</p>
         </div>
       </header>
 

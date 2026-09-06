@@ -135,7 +135,8 @@ src/                      Frontend (React 19 + Vite + TS) — Cisco-class ops co
     transcriptGate.ts     Single write path for chat history (drops interim, dedupes)
     observability.ts, tasks.ts, artifactExport.ts, squadMentions.ts, ...
   components/
-    shell/AppShell.tsx    Navy left rail + top utility bar (search, window, LIVE badge)
+    shell/AppShell.tsx    Navy left rail + top utility bar (search, window, compact orb)
+    VoicePage.tsx         Full orb workspace — voice/type, HUD, conversation (same tools as before)
     AssurancePage.tsx     NOC home: health donuts, inventory, issues, events
     InvestigationsPage.tsx SOC workspace: hop path viz + coverage + event table
     InventoryPage.tsx     Device table + L2 topology from Catalyst Center snapshot
