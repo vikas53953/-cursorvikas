@@ -163,7 +163,10 @@ summary:focus-visible {
   text-align: left;
   font-size: 13px;
   font-weight: 500;
+  overflow: hidden;
 }
+
+.ops-rail nav button span { white-space: nowrap; }
 
 .ops-rail nav button:hover { background: rgba(255, 255, 255, 0.06); color: #fff; }
 
