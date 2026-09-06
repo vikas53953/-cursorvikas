@@ -10,7 +10,6 @@ import { VoicePage } from "./components/VoicePage";
 import { AppShell, type AppPage } from "./components/shell/AppShell";
 import { useDashboard } from "./hooks/useDashboard";
 import { usePrefs } from "./hooks/usePrefs";
-import { useTheme } from "./hooks/useTheme";
 import { JarvisRealtimeClient, newEntry, type JarvisConnectionState, type JarvisMood, type MouthShape, type TranscriptEntry } from "./lib/realtime";
 import { artifactTechnicalText } from "./lib/observability";
 import { sanitizeSquadChatReply } from "./lib/chatReplySanitizer";
@@ -48,7 +47,6 @@ function parseSearchSeed(raw: string): { kind: "user" | "ip" | "host"; value: st
 }
 
 export default function App() {
-  const { theme, setTheme } = useTheme();
   const { prefs, update: updatePrefs } = usePrefs();
   const dashboard = useDashboard();
   const [page, setPage] = useState<AppPage>("voice");
@@ -316,6 +314,7 @@ export default function App() {
         page={page}
         onPage={setPage}
         productName={prefs.productName}
+        operatorName={prefs.operatorName}
         railCollapsed={prefs.railCollapsed}
         onToggleRail={() => updatePrefs({ railCollapsed: !prefs.railCollapsed })}
         search={search}
@@ -409,13 +408,7 @@ export default function App() {
           </div>
         ) : null}
         {page === "settings" ? (
-          <SettingsPage
-            prefs={prefs}
-            onPrefs={updatePrefs}
-            theme={theme}
-            onTheme={setTheme}
-            snapshot={dashboard.snapshot}
-          />
+          <SettingsPage prefs={prefs} onPrefs={updatePrefs} snapshot={dashboard.snapshot} />
         ) : null}
       </AppShell>
     </>

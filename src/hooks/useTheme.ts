@@ -1,34 +1,18 @@
-import { useEffect, useState } from "react";
+import { resolveScheme, type DisplayMode, type Scheme } from "../theme/palettes";
 
-export type Theme = "light" | "dark";
-
-const KEY = "netjarvis.theme";
-
-function initialTheme(): Theme {
-  try {
-    const stored = localStorage.getItem(KEY);
-    if (stored === "dark" || stored === "light") return stored;
-  } catch {
-    /* ignore */
-  }
-  return "light";
-}
+/** @deprecated Appearance now lives on usePrefs. Kept so existing imports typecheck. */
+export type Theme = Scheme;
 
 export function useTheme() {
-  const [theme, setTheme] = useState<Theme>(initialTheme);
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    try {
-      localStorage.setItem(KEY, theme);
-    } catch {
-      /* ignore */
-    }
-  }, [theme]);
-
-  function toggle() {
-    setTheme((current) => (current === "light" ? "dark" : "light"));
-  }
-
-  return { theme, setTheme, toggle };
+  const scheme = resolveScheme("auto");
+  return {
+    theme: scheme,
+    setTheme: (_theme: Theme) => {
+      /* appearance is owned by Settings / usePrefs */
+    },
+    toggle: () => {
+      /* appearance is owned by Settings / usePrefs */
+    },
+    displayMode: "auto" as DisplayMode,
+  };
 }

@@ -6,8 +6,18 @@
     <title>Vigil — Network operations</title>
     <script>
       try {
-        var theme = localStorage.getItem("netjarvis.theme");
-        document.documentElement.dataset.theme = theme === "dark" || theme === "light" ? theme : "light";
+        var prefs = JSON.parse(localStorage.getItem("vigil.prefs") || "{}");
+        var mode = prefs.displayMode || "auto";
+        var scheme =
+          mode === "dark" || mode === "light"
+            ? mode
+            : window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light";
+        document.documentElement.dataset.theme = scheme;
+        document.documentElement.dataset.scheme = scheme;
+        document.documentElement.dataset.palette = prefs.palette || "vigil";
+        document.documentElement.dataset.intensity = prefs.intensity || "standard";
       } catch (e) {
         document.documentElement.dataset.theme = "light";
       }

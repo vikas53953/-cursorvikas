@@ -47,8 +47,10 @@ From **SOC consoles (SecureX / XDR-class)**
 | Settings (rail footer) | Identity + theme + source | local prefs; source status once |
 
 The visible product name defaults to **Vigil**. **NetJarvis** is the assistant
-name and lives under Settings, not as a cheap lockup on the rail. Theme and
-operator live in Settings so every page stays clean. The rail is collapsible
+name and lives under Settings, not as a cheap lockup on the rail. Appearance is
+a Kiro-style gallery (Auto / Light / Dark, palette intensity, named themes)
+so rail and top bar share one chrome. Active nav is a filled row — no inset
+accent bar. Operator can follow the console name. The rail is collapsible
 from the brand row. Source Unreachable / Live / Fixture is shown on Assurance,
 Inventory, and Settings — not duplicated in the rail footer.
 

@@ -62,6 +62,7 @@ type AppShellProps = {
   page: AppPage;
   onPage: (page: AppPage) => void;
   productName: string;
+  operatorName: string;
   railCollapsed: boolean;
   onToggleRail: () => void;
   search: string;
@@ -79,6 +80,7 @@ export function AppShell({
   page,
   onPage,
   productName,
+  operatorName,
   railCollapsed,
   onToggleRail,
   search,
@@ -112,7 +114,7 @@ export function AppShell({
           </button>
           <div className="ops-brand-copy">
             <strong>{productName}</strong>
-            <em>Operations</em>
+            <em>{operatorName}</em>
           </div>
           <button
             type="button"
