@@ -144,6 +144,51 @@ export type DashboardEvent = {
   device?: string;
   text?: string;
   event?: string;
+  type?: string;
+};
+
+export type InvestigationCoverage = {
+  platform: string;
+  status: "ok" | "empty" | "unconfigured" | "failed";
+  count: number;
+  provider?: string;
+  error?: string;
+  ms?: number | null;
+};
+
+export type InvestigationEvent = {
+  ts: string;
+  platform: string;
+  severity: string;
+  summary: string;
+  entities?: Record<string, string>;
+  provider?: string;
+};
+
+export type InvestigationPivot = {
+  kind: string;
+  value: string;
+  count: number;
+  platforms?: string[];
+  firstSeen?: string;
+  lastSeen?: string;
+};
+
+export type InvestigationResult = {
+  ok: boolean;
+  error?: string;
+  id?: string;
+  fixture?: boolean;
+  entity?: { kind: string; value: string };
+  window?: { from?: string; to?: string; hours?: number };
+  summary?: string;
+  counts?: { total?: number; shown?: number; byPlatform?: Record<string, number> };
+  coverage?: InvestigationCoverage[];
+  observations?: string[];
+  pivots?: InvestigationPivot[];
+  gaps?: string[];
+  timeline?: InvestigationEvent[];
+  artifact?: JarvisArtifact;
 };
 
 export type DashboardIssue = {

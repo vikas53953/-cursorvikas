@@ -3,7 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>NetJarvis</title>
+    <title>NetJarvis — Network operations</title>
+    <script>
+      try {
+        var theme = localStorage.getItem("netjarvis.theme");
+        document.documentElement.dataset.theme = theme === "dark" || theme === "light" ? theme : "light";
+      } catch (e) {
+        document.documentElement.dataset.theme = "light";
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

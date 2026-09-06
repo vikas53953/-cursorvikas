@@ -1,16 +1,21 @@
 import { useRef, useState } from "react";
-import { Activity, History, Keyboard, Mic, MicOff, PanelRight, Send } from "lucide-react";
-import { ArtifactPanel, type RightPanelTab } from "./components/ArtifactPanel";
-import { FloatingConsole } from "./components/FloatingConsole";
-import { Hud, type HudActivity } from "./components/Hud";
-import { NetworkCore } from "./components/NetworkCore";
-import type { ObservabilityEvent } from "./components/ObservabilityPanel";
+import { ArtifactsPanel } from "./components/ArtifactsPanel";
+import { AssurancePage } from "./components/AssurancePage";
+import { CopilotDrawer } from "./components/CopilotDrawer";
+import { InvestigationsPage } from "./components/InvestigationsPage";
+import { InventoryPage } from "./components/InventoryPage";
+import { ObservabilityPanel, type ObservabilityEvent } from "./components/ObservabilityPanel";
+import { TeamBoard } from "./components/TeamBoard";
+import { AppShell, type AppPage } from "./components/shell/AppShell";
+import { useDashboard } from "./hooks/useDashboard";
+import { useTheme } from "./hooks/useTheme";
 import { JarvisRealtimeClient, newEntry, type JarvisConnectionState, type JarvisMood, type MouthShape, type TranscriptEntry } from "./lib/realtime";
 import { artifactTechnicalText } from "./lib/observability";
 import { sanitizeSquadChatReply } from "./lib/chatReplySanitizer";
 import { buildMentionPrefix } from "./lib/squadMentions";
 import { commitTranscript } from "./lib/transcriptGate";
 import type { JarvisArtifact } from "./vite-env";
+import type { HudActivity } from "./components/Hud";
 
 function pushObservabilityEvent(events: ObservabilityEvent[], event: Omit<ObservabilityEvent, "id" | "at">): ObservabilityEvent[] {
   return [
@@ -23,7 +28,29 @@ function pushObservabilityEvent(events: ObservabilityEvent[], event: Omit<Observ
   ].slice(0, 80);
 }
 
+function parseSearchSeed(raw: string): { kind: "user" | "ip" | "host"; value: string } | null {
+  const value = raw.trim();
+  if (!value) return null;
+  const userMatch = value.match(/^(?:user|investigate(?:\s+user)?)\s+(\S+)$/i);
+  if (userMatch) return { kind: "user", value: userMatch[1] };
+  if (/^(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3}$/.test(value)) return { kind: "ip", value };
+  if (/^(?:host|investigate\s+host)\s+(\S+)$/i.test(value)) {
+    return { kind: "host", value: value.replace(/^(?:host|investigate\s+host)\s+/i, "") };
+  }
+  if (/[.\-]/.test(value) || /\d$/.test(value)) return { kind: "host", value };
+  if (/^investigate\s+/i.test(value)) return { kind: "user", value: value.replace(/^investigate\s+/i, "") };
+  return null;
+}
+
 export default function App() {
+  const { theme, toggle: toggleTheme } = useTheme();
+  const dashboard = useDashboard();
+  const [page, setPage] = useState<AppPage>("assurance");
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [lookbackHours, setLookbackHours] = useState(24);
+  const [pendingSeed, setPendingSeed] = useState<{ kind: "user" | "ip" | "host"; value: string } | null>(null);
+
   const [connectionState, setConnectionState] = useState<JarvisConnectionState>("idle");
   const [mood, setMood] = useState<JarvisMood>("idle");
   const [hudActivity, setHudActivity] = useState<HudActivity>({ kind: "idle", text: "" });
@@ -31,11 +58,7 @@ export default function App() {
   const [speakingText, setSpeakingText] = useState("");
   const [hudFeed, setHudFeed] = useState<string[]>([]);
   const [artifact, setArtifact] = useState<JarvisArtifact | null>(null);
-  const [panelTab, setPanelTab] = useState<RightPanelTab>("dashboard");
-  const [panelVisible, setPanelVisible] = useState(true);
-  const [panelFullscreen, setPanelFullscreen] = useState(false);
-  const [showLog, setShowLog] = useState(false);
-  const [showTypeInput, setShowTypeInput] = useState(false);
+  const [showTypeInput, setShowTypeInput] = useState(true);
   const [mouthShape, setMouthShape] = useState<MouthShape>({ open: 0, width: 0.18, round: 0, teeth: 0 });
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([
     newEntry("system", "NetJarvis is ready. Connect voice, then ask how your network is doing."),
@@ -46,8 +69,6 @@ export default function App() {
   const [chatBusy, setChatBusy] = useState(false);
   const clientRef = useRef<JarvisRealtimeClient | null>(null);
   const squadChatExpandedRef = useRef(false);
-
-  const isConnected = connectionState === "connected";
 
   async function connect() {
     if (connectionState === "connecting") return;
@@ -86,11 +107,7 @@ export default function App() {
             status: "done",
           }),
         );
-        setPanelVisible(true);
-        if (!squadChatExpandedRef.current) {
-          setPanelTab("observability");
-          if (nextArtifact.fullscreen) setPanelFullscreen(true);
-        }
+        if (!squadChatExpandedRef.current) setPage("observability");
       },
       onStatus: (message) => {
         setTranscript((items) => [newEntry("system", message), ...items].slice(0, 80));
@@ -159,7 +176,6 @@ export default function App() {
     const trimmed = textPrompt.trim();
     if (!trimmed || chatBusy) return;
     setTextPrompt("");
-    setShowTypeInput(false);
     void deliverUserMessage({ channel: "keyboard", message: trimmed, target: { id: "jarvis", name: "NetJarvis" } });
   }
 
@@ -186,8 +202,8 @@ export default function App() {
         status: "done",
       }),
     );
-    setPanelVisible(true);
-    if (channel === "chat" && panelTab !== "team") setPanelTab("team");
+    if (channel === "chat") setPage("squad");
+    else setAssistantOpen(true);
 
     setChatBusy(true);
     try {
@@ -269,144 +285,124 @@ export default function App() {
     await deliverUserMessage({ channel: "chat", message, target });
   }
 
+  function goInvestigate(seed: { kind: "user" | "ip" | "host"; value: string }) {
+    setPendingSeed({ ...seed, value: seed.value });
+    setPage("investigate");
+  }
+
+  function onSearchSubmit() {
+    const trimmed = search.trim();
+    if (!trimmed) return;
+    const seed = parseSearchSeed(trimmed);
+    if (seed) {
+      setSearch("");
+      goInvestigate(seed);
+      return;
+    }
+    setSearch("");
+    setAssistantOpen(true);
+    setTextPrompt("");
+    void deliverUserMessage({ channel: "keyboard", message: trimmed, target: { id: "jarvis", name: "NetJarvis" } });
+  }
+
+  const sourceLive = dashboard.snapshot ? dashboard.snapshot.reachable !== false : null;
+  const sourceLabel = dashboard.snapshot?.source || "network source";
+
   return (
-    <main className="app-shell">
-      <div className="window-drag-strip" aria-hidden="true" />
-      <div className="window-drag-left-zone" aria-hidden="true" />
-      <section className="companion-window">
-        <section className="face-stage">
-          <NetworkCore mood={mood} mouthShape={mouthShape} />
-        </section>
-
-        <footer className="bottom-console">
-          <Hud
-            connectionState={connectionState}
-            mood={mood}
-            activity={hudActivity}
-            lastHeard={lastHeard}
-            speakingText={speakingText}
-            feed={hudFeed}
+    <>
+      <AppShell
+        page={page}
+        onPage={setPage}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        sourceLive={sourceLive}
+        sourceLabel={sourceLabel}
+        search={search}
+        onSearch={setSearch}
+        onSearchSubmit={onSearchSubmit}
+        lookbackHours={lookbackHours}
+        onLookbackHours={setLookbackHours}
+        assistantOpen={assistantOpen}
+        onToggleAssistant={() => setAssistantOpen((value) => !value)}
+      >
+        {page === "assurance" ? (
+          <AssurancePage
+            snapshot={dashboard.snapshot}
+            loading={dashboard.loading}
+            error={dashboard.error}
+            onRefresh={dashboard.reload}
+            sessionLog={transcript}
+            onInvestigateDevice={(name) => goInvestigate({ kind: "host", value: name })}
           />
-          {showTypeInput ? (
-            <section className="prompt-box">
-              <input
-                value={textPrompt}
-                onChange={(event) => setTextPrompt(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") sendTextPrompt();
-                }}
-                autoFocus
-                placeholder="Type to NetJarvis... e.g. what VLANs are on sw1?"
-              />
-              <button onClick={sendTextPrompt} aria-label="Send typed prompt" title="Send typed prompt">
-                <Send size={15} />
-              </button>
-            </section>
-          ) : null}
-
-          <section className="control-strip">
-            <button
-              className={isConnected ? "simple-button active" : "simple-button"}
-              onClick={isConnected ? disconnect : connect}
-              disabled={connectionState === "connecting"}
-              aria-label={isConnected ? "Disconnect voice" : "Connect voice"}
-              title={isConnected ? "Disconnect voice" : "Connect voice"}
-            >
-              {isConnected ? <MicOff size={16} /> : <Mic size={16} />}
-            </button>
-            <button
-              className={showTypeInput ? "simple-button active" : "simple-button"}
-              onClick={() => setShowTypeInput((value) => !value)}
-              aria-label="Type to NetJarvis"
-              title="Type to NetJarvis"
-            >
-              <Keyboard size={16} />
-            </button>
-            <button
-              className={panelTab === "dashboard" && panelVisible ? "simple-button active" : "simple-button"}
-              onClick={() => {
-                setPanelVisible(true);
-                setPanelTab("dashboard");
-              }}
-              aria-label="Show operations dashboard"
-              title="Show operations dashboard"
-            >
-              <Activity size={16} />
-            </button>
-            <button
-              className={panelVisible ? "simple-button active" : "simple-button"}
-              onClick={() => setPanelVisible((value) => !value)}
-              aria-label="Toggle right panel"
-              title="Toggle right panel"
-            >
-              <PanelRight size={16} />
-            </button>
-            <button
-              className={showLog ? "simple-button active" : "simple-button"}
-              onClick={() => setShowLog((value) => !value)}
-              aria-label="Toggle live log"
-              title="Toggle live log"
-            >
-              <History size={16} />
-            </button>
-          </section>
-        </footer>
-
-        {showLog ? (
-          <section className="transcript">
-            <div className="section-title">
-              <span>Live Log</span>
-              <small>{transcript.length} events</small>
-            </div>
-            <div className="transcript-list">
-              {transcript.map((entry) => (
-                <article className={`entry entry-${entry.role}`} key={entry.id}>
-                  <div>
-                    <strong>{entry.role === "jarvis" ? "NetJarvis" : entry.role}</strong>
-                    <time>{entry.at}</time>
-                  </div>
-                  <p>{entry.text}</p>
-                </article>
-              ))}
-            </div>
-          </section>
         ) : null}
-      </section>
+        {page === "investigate" ? (
+          <InvestigationsPage lookbackHours={lookbackHours} onLookbackHours={setLookbackHours} pendingSeed={pendingSeed} />
+        ) : null}
+        {page === "inventory" ? (
+          <InventoryPage snapshot={dashboard.snapshot} onInvestigate={(name) => goInvestigate({ kind: "host", value: name })} />
+        ) : null}
+        {page === "squad" ? (
+          <div className="page page-embed">
+            <TeamBoard
+              mood={mood}
+              active
+              refreshToken={taskRefreshToken}
+              sessionLog={transcript}
+              connectionState={connectionState}
+              chatBusy={chatBusy}
+              onSendSquadChat={sendSquadChat}
+              onChatExpandedChange={(expanded) => {
+                squadChatExpandedRef.current = expanded;
+              }}
+            />
+          </div>
+        ) : null}
+        {page === "observability" ? (
+          <div className="page">
+            <header className="page-toolbar">
+              <div>
+                <p className="page-kicker">Observability</p>
+                <h1>Current output</h1>
+                <p className="page-sub">Technical, CLI, and narrative from the last tool run.</p>
+              </div>
+            </header>
+            <ObservabilityPanel events={observabilityEvents} artifact={artifact} sessionLog={transcript} />
+          </div>
+        ) : null}
+        {page === "reports" ? (
+          <div className="page">
+            <header className="page-toolbar">
+              <div>
+                <p className="page-kicker">Reports</p>
+                <h1>Artifact library</h1>
+                <p className="page-sub">Download saved CLI, tables, and investigation markdown.</p>
+              </div>
+            </header>
+            <ArtifactsPanel />
+          </div>
+        ) : null}
+      </AppShell>
 
-      <ArtifactPanel
-        artifact={artifact}
-        tab={panelTab}
-        onTabChange={setPanelTab}
-        visible={panelVisible}
-        fullscreen={panelFullscreen}
-        onToggleVisible={() => setPanelVisible((value) => !value)}
-        onToggleFullscreen={() => setPanelFullscreen((value) => !value)}
-        sessionLog={transcript}
-        mood={mood}
-        taskRefreshToken={taskRefreshToken}
-        observabilityEvents={observabilityEvents}
+      <CopilotDrawer
+        open={assistantOpen}
+        onClose={() => setAssistantOpen(false)}
         connectionState={connectionState}
+        mood={mood}
+        mouthShape={mouthShape}
+        activity={hudActivity}
+        lastHeard={lastHeard}
+        speakingText={speakingText}
+        feed={hudFeed}
+        transcript={transcript}
+        textPrompt={textPrompt}
+        onTextPrompt={setTextPrompt}
+        onSend={sendTextPrompt}
+        onConnect={() => void connect()}
+        onDisconnect={disconnect}
         chatBusy={chatBusy}
-        onSendSquadChat={sendSquadChat}
-        onChatExpandedChange={(expanded) => {
-          squadChatExpandedRef.current = expanded;
-        }}
+        showTypeInput={showTypeInput}
+        onToggleType={() => setShowTypeInput((value) => !value)}
       />
-
-      {panelFullscreen ? (
-        <FloatingConsole
-          connectionState={connectionState}
-          mood={mood}
-          mouthShape={mouthShape}
-          activity={hudActivity}
-          lastHeard={lastHeard}
-          speakingText={speakingText}
-          feed={hudFeed}
-          isConnected={isConnected}
-          onConnect={() => void connect()}
-          onDisconnect={disconnect}
-        />
-      ) : null}
-    </main>
+    </>
   );
 }

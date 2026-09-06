@@ -124,22 +124,29 @@ electron/                 Backend (Node, all .cjs, NO electron dependency except
   checks.cjs              Pre/post-check snapshot capture + diff
   tickets.cjs, problem-trends.cjs, mail.cjs, device-facts.cjs, logger.cjs, degradation.cjs, db.cjs
 
-src/                      Frontend (React 19 + Vite + TS)
+src/                      Frontend (React 19 + Vite + TS) — Cisco-class ops console
   main.tsx                Installs webBridge (browser) then renders App
-  App.tsx                 ★ Top-level orchestrator: voice connect(), chat deliverUserMessage(), state
+  App.tsx                 ★ Orchestrator: pages + voice/chat. Chrome is AppShell, not the orb stage.
+  styles/tokens.css       Navy rail / light canvas tokens (Catalyst Center + ThousandEyes language)
+  hooks/useTheme.ts, useDashboard.ts
   lib/
     realtime.ts           ★ JarvisRealtimeClient: WebRTC voice, tool-call handling, mouth-shape meter
     webBridge.ts          Browser shim: window.jarvis → HTTP /api/* (no-ops under Electron)
     transcriptGate.ts     Single write path for chat history (drops interim, dedupes)
     observability.ts, tasks.ts, artifactExport.ts, squadMentions.ts, ...
   components/
-    NetworkCore.tsx       SVG avatar/orb (status ring, packets-in-flight, waveform)
+    shell/AppShell.tsx    Navy left rail + top utility bar (search, window, LIVE badge)
+    AssurancePage.tsx     NOC home: health donuts, inventory, issues, events
+    InvestigationsPage.tsx SOC workspace: hop path viz + coverage + event table
+    InventoryPage.tsx     Device table + L2 topology from Catalyst Center snapshot
+    PathViz.tsx           ThousandEyes-style hop path (identity→…→cloud)
+    TopologyMap.tsx       Role-layered topology of real devices/links
+    CopilotDrawer.tsx     Right-hand assistant (voice + typed ask + transcript)
+    NetworkCore.tsx       SVG avatar (lives in the assistant drawer)
     Hud.tsx               Voice status readout
-    OpsDashboard.tsx      NOC dashboard — self-polls getDashboard() every 30s
     TeamBoard.tsx         Kanban of agent tasks — polls /api/tasks every 1s
-    SquadChatPanel.tsx    Slack/Teams-style chat (921 lines) w/ @mentions, /slash, custom agents
-    ArtifactPanel.tsx     4-tab container: dashboard | team | observability | artifacts
-    ObservabilityPanel.tsx Current-artifact view (behind-the-scenes / CLI / narrative) + audit
+    SquadChatPanel.tsx    Slack/Teams-style chat w/ @mentions, /slash, custom agents
+    ObservabilityPanel.tsx Current-artifact view (CLI / narrative / mermaid) + audit
     ArtifactsPanel.tsx    Download library — polls listArtifacts() every 10s
 
 server/web.cjs            HTTP API for web mode (mirrors IPC), serves dist/
