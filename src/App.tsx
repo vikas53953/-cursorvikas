@@ -31,15 +31,18 @@ function pushObservabilityEvent(events: ObservabilityEvent[], event: Omit<Observ
 function parseSearchSeed(raw: string): { kind: "user" | "ip" | "host"; value: string } | null {
   const value = raw.trim();
   if (!value) return null;
+  // A sentence is an assistant question. A single token (or "investigate user X") is a seed.
+  if (/\s/.test(value) && !/^(?:user|host|ip|investigate)\b/i.test(value)) return null;
   const userMatch = value.match(/^(?:user|investigate(?:\s+user)?)\s+(\S+)$/i);
   if (userMatch) return { kind: "user", value: userMatch[1] };
+  const hostMatch = value.match(/^(?:host|investigate\s+host)\s+(\S+)$/i);
+  if (hostMatch) return { kind: "host", value: hostMatch[1] };
+  const ipMatch = value.match(/^(?:ip|investigate\s+ip)\s+(\S+)$/i);
+  if (ipMatch) return { kind: "ip", value: ipMatch[1] };
   if (/^(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3}$/.test(value)) return { kind: "ip", value };
-  if (/^(?:host|investigate\s+host)\s+(\S+)$/i.test(value)) {
-    return { kind: "host", value: value.replace(/^(?:host|investigate\s+host)\s+/i, "") };
-  }
   if (/[.\-]/.test(value) || /\d$/.test(value)) return { kind: "host", value };
-  if (/^investigate\s+/i.test(value)) return { kind: "user", value: value.replace(/^investigate\s+/i, "") };
-  return null;
+  if (/^investigate\s+/i.test(value)) return { kind: "user", value: value.replace(/^investigate\s+/i, "").trim() };
+  return { kind: "user", value };
 }
 
 export default function App() {

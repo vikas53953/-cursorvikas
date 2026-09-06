@@ -107,7 +107,7 @@ export function InvestigationsPage({ lookbackHours, onLookbackHours, pendingSeed
         >
           <label>
             Seed
-            <select value={kind} onChange={(event) => setKind(event.target.value as "user" | "ip" | "host")}>
+            <select name="seed-kind" value={kind} onChange={(event) => setKind(event.target.value as "user" | "ip" | "host")}>
               <option value="user">User</option>
               <option value="ip">IP</option>
               <option value="host">Host</option>
@@ -116,6 +116,7 @@ export function InvestigationsPage({ lookbackHours, onLookbackHours, pendingSeed
           <label className="investigate-value">
             Value
             <input
+              name="seed-value"
               value={value}
               onChange={(event) => setValue(event.target.value)}
               placeholder={kind === "ip" ? "10.20.0.7" : kind === "host" ? "LT-4421 or sw1" : "jdoe"}

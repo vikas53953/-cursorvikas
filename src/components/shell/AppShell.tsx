@@ -113,6 +113,7 @@ export function AppShell({
         >
           <Search size={14} />
           <input
+            name="global-search"
             value={search}
             onChange={(event) => onSearch(event.target.value)}
             placeholder="Search a device, user, or IP — or ask the assistant"
