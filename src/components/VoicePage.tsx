@@ -21,6 +21,7 @@ type VoicePageProps = {
   chatBusy: boolean;
   showTypeInput: boolean;
   onToggleType: () => void;
+  assistantName?: string;
 };
 
 export function VoicePage({
@@ -40,6 +41,7 @@ export function VoicePage({
   chatBusy,
   showTypeInput,
   onToggleType,
+  assistantName = "NetJarvis",
 }: VoicePageProps) {
   const isConnected = connectionState === "connected";
 
@@ -88,7 +90,7 @@ export function VoicePage({
             <button
               className={showTypeInput ? "simple-button active" : "simple-button"}
               onClick={onToggleType}
-              aria-label="Type to NetJarvis"
+              aria-label={`Type to ${assistantName}`}
               type="button"
             >
               <Keyboard size={16} />
@@ -110,7 +112,7 @@ export function VoicePage({
             .map((entry) => (
               <article className={`entry entry-${entry.role}`} key={entry.id}>
                 <div>
-                  <strong>{entry.role === "jarvis" ? "NetJarvis" : entry.role}</strong>
+                  <strong>{entry.role === "jarvis" ? assistantName : entry.role}</strong>
                   <time>{entry.at}</time>
                 </div>
                 {entry.role === "jarvis" ? <Markdown text={entry.text} /> : <p>{entry.text}</p>}

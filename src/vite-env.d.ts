@@ -200,8 +200,9 @@ export type DashboardIssue = {
 };
 
 export type DashboardSnapshot = {
-  mode?: "live" | "unreachable";
+  mode?: "live" | "unreachable" | "fixture";
   reachable?: boolean;
+  fixture?: boolean;
   source?: string;
   updatedAt?: string;
   overall?: string;

@@ -7,18 +7,28 @@ type TopologyMapProps = {
 };
 
 const ROLE_LAYER: Record<string, number> = {
+  siem: 0,
+  cloud: 0,
   router: 0,
   core: 0,
   wlc: 1,
   controller: 1,
   distribution: 1,
+  firewall: 1,
+  vpn: 1,
+  perimeter: 1,
+  proxy: 1,
+  load: 1,
+  identity: 1,
+  domain: 1,
   access: 2,
   switch: 2,
   ap: 3,
   wireless: 3,
   endpoint: 3,
+  laptop: 3,
+  edr: 3,
   client: 3,
-  firewall: 1,
   unknown: 2,
 };
 
@@ -31,6 +41,7 @@ function layerOf(device: DashboardDevice): number {
 }
 
 function healthTone(device: DashboardDevice): string {
+  if (device.status === "fixture") return "fixture";
   if (device.status === "ok" || device.status === "up") return "ok";
   if (device.status === "warn" || device.status === "warning") return "warn";
   if (device.healthScore != null && device.healthScore >= 8) return "ok";

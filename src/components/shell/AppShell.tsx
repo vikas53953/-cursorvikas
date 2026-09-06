@@ -4,19 +4,19 @@ import {
   Layers3,
   LayoutDashboard,
   Mic,
-  Moon,
+  PanelLeftClose,
+  PanelLeftOpen,
   Search,
+  Settings,
   Shield,
-  Sun,
   Terminal,
   Users,
 } from "lucide-react";
 import { NetworkCore } from "../NetworkCore";
-import { StatusPill } from "../ui/StatusPill";
-import type { Theme } from "../../hooks/useTheme";
+import { BrandMark } from "./BrandMark";
 import type { JarvisConnectionState, JarvisMood, MouthShape } from "../../lib/realtime";
 
-export type AppPage = "voice" | "assurance" | "investigate" | "inventory" | "squad" | "observability" | "reports";
+export type AppPage = "voice" | "assurance" | "investigate" | "inventory" | "squad" | "observability" | "reports" | "settings";
 
 type NavItem = { id: AppPage; label: string; icon: typeof LayoutDashboard };
 type NavGroup = { id: string; label: string; items: NavItem[] };
@@ -55,15 +55,15 @@ const PAGE_CRUMB: Record<AppPage, { section: string; title: string }> = {
   squad: { section: "Workspace", title: "Squad" },
   observability: { section: "Workspace", title: "Observability" },
   reports: { section: "Workspace", title: "Reports" },
+  settings: { section: "Console", title: "Settings" },
 };
 
 type AppShellProps = {
   page: AppPage;
   onPage: (page: AppPage) => void;
-  theme: Theme;
-  onToggleTheme: () => void;
-  sourceLive: boolean | null;
-  sourceLabel: string;
+  productName: string;
+  railCollapsed: boolean;
+  onToggleRail: () => void;
   search: string;
   onSearch: (value: string) => void;
   onSearchSubmit: () => void;
@@ -75,27 +75,12 @@ type AppShellProps = {
   children: ReactNode;
 };
 
-function BrandMark() {
-  return (
-    <svg className="ops-mark" viewBox="0 0 28 28" aria-hidden="true">
-      <rect width="28" height="28" rx="3" fill="#049fd9" />
-      <circle cx="14" cy="14" r="3.2" fill="#fff" />
-      <circle cx="6.5" cy="8" r="1.7" fill="#fff" opacity="0.92" />
-      <circle cx="21.5" cy="8.5" r="1.7" fill="#fff" opacity="0.92" />
-      <circle cx="7" cy="20.5" r="1.7" fill="#fff" opacity="0.92" />
-      <circle cx="21" cy="20" r="1.7" fill="#fff" opacity="0.92" />
-      <path d="M14 14 L6.5 8 M14 14 L21.5 8.5 M14 14 L7 20.5 M14 14 L21 20" stroke="#fff" strokeWidth="1.15" opacity="0.85" />
-    </svg>
-  );
-}
-
 export function AppShell({
   page,
   onPage,
-  theme,
-  onToggleTheme,
-  sourceLive,
-  sourceLabel,
+  productName,
+  railCollapsed,
+  onToggleRail,
   search,
   onSearch,
   onSearchSubmit,
@@ -110,15 +95,26 @@ export function AppShell({
   const voiceLive = connectionState === "connected";
 
   return (
-    <div className={`ops-shell ${page === "voice" ? "ops-shell-voice" : ""}`}>
+    <div
+      className={`ops-shell ${page === "voice" ? "ops-shell-voice" : ""} ${railCollapsed ? "ops-shell-collapsed" : ""}`}
+    >
       <div className="window-drag-strip" aria-hidden="true" />
       <aside className="ops-rail">
         <div className="ops-brand">
           <BrandMark />
-          <div>
-            <strong>NetJarvis</strong>
+          <div className="ops-brand-copy">
+            <strong>{productName}</strong>
             <em>Operations</em>
           </div>
+          <button
+            type="button"
+            className="ops-collapse"
+            onClick={onToggleRail}
+            aria-label={railCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={railCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {railCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+          </button>
         </div>
         {NAV.map((group) => (
           <nav key={group.id} aria-label={group.label}>
@@ -131,6 +127,7 @@ export function AppShell({
                   type="button"
                   className={`${page === item.id ? "active" : ""} ${item.id === "voice" && voiceLive ? "ops-nav-live" : ""}`}
                   onClick={() => onPage(item.id)}
+                  title={item.label}
                 >
                   <Icon size={16} />
                   <span>{item.label}</span>
@@ -141,11 +138,15 @@ export function AppShell({
           </nav>
         ))}
         <div className="ops-rail-foot">
-          <StatusPill
-            tone={sourceLive == null ? "neutral" : sourceLive ? "ok" : "bad"}
-            label={sourceLive == null ? "Source" : sourceLive ? "Live" : "Unreachable"}
-            title={sourceLabel}
-          />
+          <button
+            type="button"
+            className={`ops-settings-btn ${page === "settings" ? "active" : ""}`}
+            onClick={() => onPage("settings")}
+            title="Settings"
+          >
+            <Settings size={16} />
+            <span>Settings</span>
+          </button>
         </div>
       </aside>
 
@@ -184,12 +185,6 @@ export function AppShell({
           <NetworkCore mood={mood} mouthShape={mouthShape} compact compactSize="xs" />
           <span>{voiceLive ? "Listening" : "Voice"}</span>
         </button>
-        <button type="button" className="ui-btn ui-btn-ghost" onClick={onToggleTheme} aria-label="Toggle theme">
-          {theme === "light" ? <Moon size={15} /> : <Sun size={15} />}
-        </button>
-        <span className="ops-operator" title="Signed-in operator">
-          Operator
-        </span>
       </header>
 
       <main className={`ops-main ${page === "voice" ? "ops-main-flush" : ""}`}>{children}</main>

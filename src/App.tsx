@@ -4,10 +4,12 @@ import { AssurancePage } from "./components/AssurancePage";
 import { InvestigationsPage } from "./components/InvestigationsPage";
 import { InventoryPage } from "./components/InventoryPage";
 import { ObservabilityPanel, type ObservabilityEvent } from "./components/ObservabilityPanel";
+import { SettingsPage } from "./components/SettingsPage";
 import { TeamBoard } from "./components/TeamBoard";
 import { VoicePage } from "./components/VoicePage";
 import { AppShell, type AppPage } from "./components/shell/AppShell";
 import { useDashboard } from "./hooks/useDashboard";
+import { usePrefs } from "./hooks/usePrefs";
 import { useTheme } from "./hooks/useTheme";
 import { JarvisRealtimeClient, newEntry, type JarvisConnectionState, type JarvisMood, type MouthShape, type TranscriptEntry } from "./lib/realtime";
 import { artifactTechnicalText } from "./lib/observability";
@@ -46,7 +48,8 @@ function parseSearchSeed(raw: string): { kind: "user" | "ip" | "host"; value: st
 }
 
 export default function App() {
-  const { theme, toggle: toggleTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
+  const { prefs, update: updatePrefs } = usePrefs();
   const dashboard = useDashboard();
   const [page, setPage] = useState<AppPage>("voice");
   const [search, setSearch] = useState("");
@@ -63,7 +66,7 @@ export default function App() {
   const [showTypeInput, setShowTypeInput] = useState(true);
   const [mouthShape, setMouthShape] = useState<MouthShape>({ open: 0, width: 0.18, round: 0, teeth: 0 });
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([
-    newEntry("system", "NetJarvis is ready. Connect voice, then ask how your network is doing."),
+    newEntry("system", `${prefs.assistantName} is ready. Connect voice, then ask how your network is doing.`),
   ]);
   const [textPrompt, setTextPrompt] = useState("");
   const [taskRefreshToken, setTaskRefreshToken] = useState(0);
@@ -178,7 +181,7 @@ export default function App() {
     const trimmed = textPrompt.trim();
     if (!trimmed || chatBusy) return;
     setTextPrompt("");
-    void deliverUserMessage({ channel: "keyboard", message: trimmed, target: { id: "jarvis", name: "NetJarvis" } });
+    void deliverUserMessage({ channel: "keyboard", message: trimmed, target: { id: "jarvis", name: prefs.assistantName } });
   }
 
   async function deliverUserMessage({
@@ -304,21 +307,17 @@ export default function App() {
     setSearch("");
     setPage("voice");
     setTextPrompt("");
-    void deliverUserMessage({ channel: "keyboard", message: trimmed, target: { id: "jarvis", name: "NetJarvis" } });
+    void deliverUserMessage({ channel: "keyboard", message: trimmed, target: { id: "jarvis", name: prefs.assistantName } });
   }
-
-  const sourceLive = dashboard.snapshot ? dashboard.snapshot.reachable !== false : null;
-  const sourceLabel = dashboard.snapshot?.source || "network source";
 
   return (
     <>
       <AppShell
         page={page}
         onPage={setPage}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-        sourceLive={sourceLive}
-        sourceLabel={sourceLabel}
+        productName={prefs.productName}
+        railCollapsed={prefs.railCollapsed}
+        onToggleRail={() => updatePrefs({ railCollapsed: !prefs.railCollapsed })}
         search={search}
         onSearch={setSearch}
         onSearchSubmit={onSearchSubmit}
@@ -346,6 +345,7 @@ export default function App() {
             chatBusy={chatBusy}
             showTypeInput={showTypeInput}
             onToggleType={() => setShowTypeInput((value) => !value)}
+            assistantName={prefs.assistantName}
           />
         ) : null}
         {page === "assurance" ? (
@@ -356,13 +356,19 @@ export default function App() {
             onRefresh={dashboard.reload}
             sessionLog={transcript}
             onInvestigateDevice={(name) => goInvestigate({ kind: "host", value: name })}
+            assistantName={prefs.assistantName}
+            onOpenSettings={() => setPage("settings")}
           />
         ) : null}
         {page === "investigate" ? (
           <InvestigationsPage lookbackHours={lookbackHours} onLookbackHours={setLookbackHours} pendingSeed={pendingSeed} />
         ) : null}
         {page === "inventory" ? (
-          <InventoryPage snapshot={dashboard.snapshot} onInvestigate={(name) => goInvestigate({ kind: "host", value: name })} />
+          <InventoryPage
+            snapshot={dashboard.snapshot}
+            onInvestigate={(name) => goInvestigate({ kind: "host", value: name })}
+            onOpenSettings={() => setPage("settings")}
+          />
         ) : null}
         {page === "squad" ? (
           <div className="page page-embed">
@@ -399,8 +405,17 @@ export default function App() {
                 <p className="page-sub">Saved CLI, tables, and investigation artifacts</p>
               </div>
             </header>
-            <ArtifactsPanel />
+            <ArtifactsPanel assistantName={prefs.assistantName} />
           </div>
+        ) : null}
+        {page === "settings" ? (
+          <SettingsPage
+            prefs={prefs}
+            onPrefs={updatePrefs}
+            theme={theme}
+            onTheme={setTheme}
+            snapshot={dashboard.snapshot}
+          />
         ) : null}
       </AppShell>
     </>

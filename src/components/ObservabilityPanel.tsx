@@ -123,7 +123,7 @@ export function ObservabilityPanel({ events, artifact, sessionLog }: Observabili
           </footer>
         </section>
       ) : (
-        <p className="observability-empty">No active output yet. When Jarvis runs a tool, the latest technical output and narrative summary appear here.</p>
+        <p className="observability-empty">No tool run yet. Ask from Voice — CLI, tables, and the narrative of the last run land here.</p>
       )}
 
       {recentTools.length > 0 ? (

@@ -91,9 +91,11 @@ summary:focus-visible {
   align-items: center;
   gap: 10px;
   height: var(--topbar-h);
-  padding: 0 16px;
+  padding: 0 8px 0 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
+
+.ops-brand-copy { min-width: 0; flex: 1; }
 
 .ops-mark {
   display: block;
@@ -172,8 +174,69 @@ summary:focus-visible {
 
 .ops-rail-foot {
   margin-top: auto;
-  padding: 12px 14px 16px;
+  padding: 10px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.ops-collapse,
+.ops-settings-btn {
+  color: var(--rail-text);
+}
+
+.ops-collapse {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border-radius: 4px;
+  color: #9ab0c6;
+}
+
+.ops-collapse:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+
+.ops-settings-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 4px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.ops-settings-btn:hover { background: rgba(255, 255, 255, 0.06); color: #fff; }
+
+.ops-settings-btn.active {
+  background: rgba(4, 159, 217, 0.16);
+  color: #fff;
+  box-shadow: inset 3px 0 0 var(--nj-blue-500);
+  font-weight: 650;
+}
+
+.ops-shell-collapsed { grid-template-columns: var(--rail-w-collapsed) 1fr; }
+
+.ops-shell-collapsed .ops-brand {
+  flex-direction: column;
+  height: auto;
+  padding: 10px 6px 8px;
+  gap: 8px;
+}
+
+.ops-shell-collapsed .ops-brand-copy,
+.ops-shell-collapsed .ops-nav-label,
+.ops-shell-collapsed .ops-rail nav button span,
+.ops-shell-collapsed .ops-settings-btn span {
+  display: none;
+}
+
+.ops-shell-collapsed .ops-rail nav button,
+.ops-shell-collapsed .ops-settings-btn {
+  justify-content: center;
+  padding: 0;
 }
 
 .ops-topbar {
@@ -443,6 +506,7 @@ summary:focus-visible {
 .status-pill-bad { background: var(--bad-bg); color: var(--bad); }
 .status-pill-info { background: var(--info-bg); color: var(--info); }
 .status-pill-fixture { background: #f3e8ff; color: #7c3aed; }
+[data-theme="dark"] .status-pill-fixture { background: #2a1845; color: #c4b5fd; }
 .status-pill-neutral { background: var(--bg-dashlet-alt); color: var(--text-3); }
 
 .ui-banner {
@@ -458,6 +522,7 @@ summary:focus-visible {
 .ui-banner-bad { border-left-color: var(--bad); background: var(--bad-bg); }
 .ui-banner-warn { border-left-color: var(--warn); background: var(--warn-bg); }
 .ui-banner-fixture { border-left-color: #7c3aed; background: #f3e8ff; color: #4c1d95; }
+[data-theme="dark"] .ui-banner-fixture { border-left-color: #a78bfa; background: #1e1233; color: #ddd6fe; }
 
 .ui-empty {
   margin: 0;
@@ -776,6 +841,7 @@ summary:focus-visible {
 .topo-node-ok rect { stroke: var(--ok); }
 .topo-node-warn rect { stroke: var(--warn); }
 .topo-node-bad rect { stroke: var(--bad); }
+.topo-node-fixture rect { stroke: #7c3aed; }
 .topo-node-name { fill: var(--text); font-size: 11px; font-weight: 700; }
 .topo-node-meta { fill: var(--text-3); font-size: 9px; }
 
@@ -1234,10 +1300,44 @@ summary:focus-visible {
 
 .mermaid-output { overflow: auto; padding: 12px; background: var(--bg-dashlet); border: 1px solid var(--border); }
 
+.settings-field {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 14px;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.settings-field small {
+  font-weight: 400;
+  color: var(--text-3);
+}
+
+.settings-source-list {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+.settings-source-list li {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-dashlet-alt);
+}
+
+.settings-source-list strong { font-size: 13px; color: var(--text); }
+.settings-source-list span { color: var(--text-3); font-size: 12px; font-weight: 400; }
+
 @media (max-width: 1100px) {
-  .ops-shell { grid-template-columns: 56px 1fr; }
-  .ops-brand div, .ops-rail nav button span, .ops-nav-label, .ops-rail-foot, .ops-operator { display: none; }
-  .ops-rail nav button { justify-content: center; }
+  .ops-shell { grid-template-columns: var(--rail-w-collapsed) 1fr; }
+  .ops-brand-copy, .ops-rail nav button span, .ops-nav-label, .ops-settings-btn span { display: none; }
+  .ops-rail nav button, .ops-settings-btn { justify-content: center; padding: 0; }
+  .ops-brand { flex-direction: column; height: auto; padding: 10px 6px 8px; }
   .voice-page { grid-template-columns: 1fr; }
   .dashlet-grid, .health-row, .investigate-form form, .team-board-layout, .team-board-layout-chat, .kanban {
     grid-template-columns: 1fr;

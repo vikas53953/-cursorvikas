@@ -4,7 +4,7 @@ import type { ArtifactRecord } from "../vite-env";
 const PAGE = 30;
 
 // Download library — separate from live Reports.
-export function ArtifactsPanel() {
+export function ArtifactsPanel({ assistantName = "NetJarvis" }: { assistantName?: string }) {
   const [items, setItems] = useState<ArtifactRecord[]>([]);
   const [visible, setVisible] = useState(PAGE);
   const [query, setQuery] = useState("");
@@ -51,7 +51,11 @@ export function ArtifactsPanel() {
 
       {filtered.length === 0 ? (
         <div className="empty-artifact">
-          <p>{items.length === 0 ? "No artifacts saved yet. Ask NetJarvis for a report — it will appear here for download." : "No artifacts match your search."}</p>
+          <p>
+            {items.length === 0
+              ? `No artifacts saved yet. Ask ${assistantName} for a report from Voice — downloads land here.`
+              : "No artifacts match your search."}
+          </p>
         </div>
       ) : (
         <>

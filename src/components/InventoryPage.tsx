@@ -6,6 +6,7 @@ import type { DashboardSnapshot } from "../vite-env";
 type InventoryPageProps = {
   snapshot: DashboardSnapshot | null;
   onInvestigate?: (name: string) => void;
+  onOpenSettings?: () => void;
 };
 
 function shortPort(port?: string): string {
@@ -16,12 +17,13 @@ function shortPort(port?: string): string {
     .replace("HundredGigE", "Hu");
 }
 
-export function InventoryPage({ snapshot, onInvestigate }: InventoryPageProps) {
+export function InventoryPage({ snapshot, onInvestigate, onOpenSettings }: InventoryPageProps) {
   const [query, setQuery] = useState("");
   const [view, setView] = useState<"table" | "topology">("topology");
   const devices = snapshot?.devices || [];
   const links = snapshot?.links || [];
-  const unreachable = snapshot?.reachable === false;
+  const fixture = Boolean(snapshot?.fixture || snapshot?.mode === "fixture");
+  const unreachable = snapshot?.reachable === false && !fixture;
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -56,8 +58,24 @@ export function InventoryPage({ snapshot, onInvestigate }: InventoryPageProps) {
         </div>
       </header>
 
+      {fixture ? (
+        <div className="ui-banner ui-banner-fixture">
+          Mock-lab inventory (FIXTURE). Devices are labelled — not a live Catalyst Center fabric. Topology links stay empty until a live source returns them.
+        </div>
+      ) : null}
       {unreachable ? (
-        <div className="ui-banner ui-banner-bad">Source unreachable — topology and inventory are empty on purpose.</div>
+        <div className="ui-banner ui-banner-bad">
+          Source unreachable — topology and inventory are empty on purpose.
+          {onOpenSettings ? (
+            <>
+              {" "}
+              <button type="button" className="linkish" onClick={onOpenSettings}>
+                Open Settings
+              </button>{" "}
+              to enable the mock lab.
+            </>
+          ) : null}
+        </div>
       ) : null}
 
       {view === "topology" ? (
@@ -78,7 +96,13 @@ export function InventoryPage({ snapshot, onInvestigate }: InventoryPageProps) {
           </span>
         </header>
         {filtered.length === 0 ? (
-          <p className="ui-empty">No devices match.</p>
+          <p className="ui-empty">
+            {devices.length === 0
+              ? unreachable
+                ? "No devices — Catalyst Center is unreachable, and the mock lab is off."
+                : "No devices in the current snapshot."
+              : "No devices match."}
+          </p>
         ) : (
           <table className="data-table">
             <thead>
@@ -123,7 +147,11 @@ export function InventoryPage({ snapshot, onInvestigate }: InventoryPageProps) {
           <span>{links.length}</span>
         </header>
         {links.length === 0 ? (
-          <p className="ui-empty">No link records in this snapshot.</p>
+          <p className="ui-empty">
+            {fixture
+              ? "No invented links. Enable a live Catalyst Center source for fabric topology."
+              : "No link records in this snapshot."}
+          </p>
         ) : (
           <table className="data-table">
             <thead>

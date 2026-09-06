@@ -11,6 +11,8 @@ type AssurancePageProps = {
   onRefresh: (force: boolean) => void;
   sessionLog?: TranscriptEntry[];
   onInvestigateDevice?: (name: string) => void;
+  assistantName?: string;
+  onOpenSettings?: () => void;
 };
 
 function eventTone(event: DashboardEvent): "ok" | "warn" | "bad" | "info" | "neutral" {
@@ -28,7 +30,16 @@ function titleCase(value?: string) {
   return value.replace(/[_-]+/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase());
 }
 
-export function AssurancePage({ snapshot, loading, error, onRefresh, sessionLog = [], onInvestigateDevice }: AssurancePageProps) {
+export function AssurancePage({
+  snapshot,
+  loading,
+  error,
+  onRefresh,
+  sessionLog = [],
+  onInvestigateDevice,
+  assistantName = "NetJarvis",
+  onOpenSettings,
+}: AssurancePageProps) {
   if (!snapshot) {
     return (
       <div className="page-loading">
@@ -38,7 +49,8 @@ export function AssurancePage({ snapshot, loading, error, onRefresh, sessionLog 
     );
   }
 
-  const unreachable = snapshot.reachable === false;
+  const fixture = Boolean(snapshot.fixture || snapshot.mode === "fixture");
+  const unreachable = snapshot.reachable === false && !fixture;
   const devices = snapshot.devices || [];
   const links = snapshot.links || [];
   const events = snapshot.events || [];
@@ -60,7 +72,10 @@ export function AssurancePage({ snapshot, loading, error, onRefresh, sessionLog 
           </p>
         </div>
         <div className="page-toolbar-actions">
-          <StatusPill tone={unreachable ? "bad" : "ok"} label={unreachable ? "UNREACHABLE" : "LIVE"} />
+          <StatusPill
+            tone={unreachable ? "bad" : fixture ? "fixture" : "ok"}
+            label={unreachable ? "UNREACHABLE" : fixture ? "FIXTURE" : "LIVE"}
+          />
           <StatusPill tone={toneFromStatus(overall)} label={overall} />
           <button className="ui-btn" type="button" onClick={() => onRefresh(true)} disabled={loading}>
             <RefreshCw size={14} className={loading ? "spin" : ""} />
@@ -69,12 +84,26 @@ export function AssurancePage({ snapshot, loading, error, onRefresh, sessionLog 
         </div>
       </header>
 
-      {unreachable ? (
-        <div className="ui-banner ui-banner-bad">
-          Network source unreachable{snapshot.error ? `: ${snapshot.error}` : ""}. Retrying — no inventory is invented.
+      {fixture ? (
+        <div className="ui-banner ui-banner-fixture">
+          {snapshot.error || "Catalyst Center is unreachable."} Inventory and events below are the opt-in mock lab — not a live network.
         </div>
       ) : null}
-      {error && !unreachable ? <div className="ui-banner ui-banner-warn">Live source problem: {error}</div> : null}
+      {unreachable ? (
+        <div className="ui-banner ui-banner-bad">
+          Network source unreachable{snapshot.error ? `: ${snapshot.error}` : ""}. No inventory is invented.
+          {onOpenSettings ? (
+            <>
+              {" "}
+              <button type="button" className="linkish" onClick={onOpenSettings}>
+                Open Settings
+              </button>{" "}
+              to enable the mock lab or point at Catalyst Center.
+            </>
+          ) : null}
+        </div>
+      ) : null}
+      {error && !unreachable && !fixture ? <div className="ui-banner ui-banner-warn">Live source problem: {error}</div> : null}
 
       <section className="dashlet-row health-row">
         <HealthDonut
@@ -102,7 +131,7 @@ export function AssurancePage({ snapshot, loading, error, onRefresh, sessionLog 
           <div className="health-stat-num">{devices.length || "—"}</div>
           <div>
             <strong>Inventory</strong>
-            <p>{unreachable ? "Source down" : "Managed devices"}</p>
+            <p>{unreachable ? "Source down" : fixture ? "Mock-lab devices" : "Managed devices"}</p>
           </div>
         </article>
       </section>
@@ -114,7 +143,11 @@ export function AssurancePage({ snapshot, loading, error, onRefresh, sessionLog 
             <span>{devices.length} devices</span>
           </header>
           {devices.length === 0 ? (
-            <p className="ui-empty">No devices in the current snapshot.</p>
+            <p className="ui-empty">
+              {unreachable
+                ? "No devices — Catalyst Center is unreachable, and the mock lab is off."
+                : "No devices in the current snapshot."}
+            </p>
           ) : (
             <table className="data-table">
               <thead>
@@ -158,7 +191,9 @@ export function AssurancePage({ snapshot, loading, error, onRefresh, sessionLog 
             <span>{issues.length}</span>
           </header>
           {issues.length === 0 ? (
-            <p className="ui-empty">No active issues from Catalyst Center.</p>
+            <p className="ui-empty">
+              {fixture ? "No open issues in the mock lab." : "No active issues from Catalyst Center."}
+            </p>
           ) : (
             <table className="data-table">
               <thead>
@@ -191,7 +226,9 @@ export function AssurancePage({ snapshot, loading, error, onRefresh, sessionLog 
             <span>{events.length}</span>
           </header>
           {events.length === 0 ? (
-            <p className="ui-empty">No recent Catalyst Center events.</p>
+            <p className="ui-empty">
+              {fixture ? "No mock-lab network events in this window." : "No recent Catalyst Center events."}
+            </p>
           ) : (
             <table className="data-table">
               <thead>
@@ -228,7 +265,7 @@ export function AssurancePage({ snapshot, loading, error, onRefresh, sessionLog 
               {sessionLog.slice(0, 12).map((entry) => (
                 <li key={entry.id}>
                   <time>{entry.at}</time>
-                  <strong>{entry.role === "jarvis" ? "NetJarvis" : entry.role}</strong>
+                  <strong>{entry.role === "jarvis" ? assistantName : entry.role}</strong>
                   <span>{entry.text}</span>
                 </li>
               ))}

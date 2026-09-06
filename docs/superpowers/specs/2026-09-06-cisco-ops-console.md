@@ -44,6 +44,18 @@ From **SOC consoles (SecureX / XDR-class)**
 | Squad | Kanban + roster + squad chat | existing TeamBoard |
 | Observability | Current tool output + audit | existing ObservabilityPanel |
 | Reports | Artifact library | existing ArtifactsPanel |
+| Settings (rail footer) | Identity + theme + source | local prefs; source status once |
+
+The visible product name defaults to **Vigil**. **NetJarvis** is the assistant
+name and lives under Settings, not as a cheap lockup on the rail. Theme and
+operator live in Settings so every page stays clean. The rail is collapsible
+from the brand row. Source Unreachable / Live / Fixture is shown on Assurance,
+Inventory, and Settings — not duplicated in the rail footer.
+
+When Catalyst Center is down and `NETJARVIS_SOURCE` is `auto` (default) and
+`NETJARVIS_EVIDENCE_FIXTURE` is set, Assurance and Inventory overlay the
+labelled mock lab (no invented health scores or topology links). Forced
+`NETJARVIS_SOURCE=live` stays empty if CATC is unreachable.
 
 **Voice is a first-class workspace**, not a drawer. The original orb
 (`NetworkCore`) fills the Assistant → Voice page: talk or type, tools run,
