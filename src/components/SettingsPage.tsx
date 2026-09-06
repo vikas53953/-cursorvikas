@@ -7,6 +7,7 @@ type SettingsPageProps = {
   prefs: Prefs;
   onPrefs: (patch: Partial<Prefs>) => void;
   snapshot: DashboardSnapshot | null;
+  onOpenPalette: () => void;
 };
 
 const FAMILIES: Array<{ id: Palette["family"]; label: string }> = [
@@ -16,7 +17,7 @@ const FAMILIES: Array<{ id: Palette["family"]; label: string }> = [
   { id: "studio", label: "Studio" },
 ];
 
-export function SettingsPage({ prefs, onPrefs, snapshot }: SettingsPageProps) {
+export function SettingsPage({ prefs, onPrefs, snapshot, onOpenPalette }: SettingsPageProps) {
   const live = snapshot?.reachable === true;
   const fixture = Boolean(snapshot?.fixture);
   const scheme = resolveScheme(prefs.displayMode);
@@ -94,8 +95,30 @@ export function SettingsPage({ prefs, onPrefs, snapshot }: SettingsPageProps) {
 
       <section className="dashlet">
         <header className="dashlet-head">
+          <h2>Jump</h2>
+        </header>
+        <p className="page-sub">Open the command palette to go to a page, device, user, or IP. Search on the signed-in operator block opens the same palette.</p>
+        <button type="button" className="ui-btn ui-btn-primary" onClick={onOpenPalette}>
+          Open command palette
+        </button>
+      </section>
+
+      <section className="dashlet">
+        <header className="dashlet-head">
           <h2>Appearance</h2>
         </header>
+
+        <p className="settings-label">Density</p>
+        <div className="ui-seg" role="tablist" aria-label="Density">
+          <button type="button" className={prefs.density === "comfortable" ? "active" : ""} onClick={() => onPrefs({ density: "comfortable" })}>
+            Comfortable
+          </button>
+          <button type="button" className={prefs.density === "compact" ? "active" : ""} onClick={() => onPrefs({ density: "compact" })}>
+            Compact
+          </button>
+        </div>
+        <p className="page-sub">Compact tightens the rail, tables, and page chrome for a long shift.</p>
+
 
         <p className="settings-label">Display mode</p>
         <div className="ui-seg" role="tablist" aria-label="Display mode">

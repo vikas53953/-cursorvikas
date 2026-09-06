@@ -19,6 +19,8 @@ export type Prefs = {
   recentPalettes: PaletteId[];
   highlightRecent: boolean;
   pinAppearance: boolean;
+  onboarded: boolean;
+  density: "comfortable" | "compact";
 };
 
 const KEY = "vigil.prefs";
@@ -34,6 +36,8 @@ const DEFAULTS: Prefs = {
   recentPalettes: ["vigil"],
   highlightRecent: true,
   pinAppearance: true,
+  onboarded: false,
+  density: "comfortable",
 };
 
 function asPalette(value: unknown): PaletteId {
@@ -72,6 +76,8 @@ function readPrefs(): Prefs {
       recentPalettes: recent.length ? recent : DEFAULTS.recentPalettes,
       highlightRecent: parsed.highlightRecent !== false,
       pinAppearance,
+      onboarded: parsed.onboarded !== false,
+      density: parsed.density === "compact" ? "compact" : "comfortable",
     };
   } catch {
     return { ...DEFAULTS };
@@ -100,7 +106,8 @@ export function usePrefs() {
   useEffect(() => {
     applyAppearance({ palette: prefs.palette, displayMode: prefs.displayMode, intensity: prefs.intensity });
     document.title = `${prefs.productName} — Network operations`;
-  }, [prefs.palette, prefs.displayMode, prefs.intensity, prefs.productName]);
+    document.documentElement.dataset.density = prefs.density;
+  }, [prefs.palette, prefs.displayMode, prefs.intensity, prefs.productName, prefs.density]);
 
   useEffect(() => {
     if (prefs.displayMode !== "auto") return;

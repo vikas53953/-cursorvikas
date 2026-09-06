@@ -10,6 +10,7 @@ type InvestigationsPageProps = {
   lookbackHours: number;
   onLookbackHours: (hours: number) => void;
   pendingSeed?: { kind: "user" | "ip" | "host"; value: string } | null;
+  onRecord?: (seed: { kind: "user" | "ip" | "host"; value: string }) => void;
 };
 
 function parseSeed(raw: string): { kind: "user" | "ip" | "host"; value: string } | null {
@@ -23,7 +24,7 @@ function parseSeed(raw: string): { kind: "user" | "ip" | "host"; value: string }
   return { kind: "user", value };
 }
 
-export function InvestigationsPage({ lookbackHours, onLookbackHours, pendingSeed }: InvestigationsPageProps) {
+export function InvestigationsPage({ lookbackHours, onLookbackHours, pendingSeed, onRecord }: InvestigationsPageProps) {
   const [kind, setKind] = useState<"user" | "ip" | "host">(pendingSeed?.kind || "user");
   const [value, setValue] = useState(pendingSeed?.value || "");
   const [busy, setBusy] = useState(false);
@@ -62,6 +63,7 @@ export function InvestigationsPage({ lookbackHours, onLookbackHours, pendingSeed
         return;
       }
       setResult(response);
+      onRecord?.(seed);
     } catch (runError) {
       setResult(null);
       setError(runError instanceof Error ? runError.message : String(runError));

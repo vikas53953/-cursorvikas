@@ -65,9 +65,9 @@ type AppShellProps = {
   operatorName: string;
   railCollapsed: boolean;
   onToggleRail: () => void;
-  search: string;
-  onSearch: (value: string) => void;
-  onSearchSubmit: () => void;
+  onOpenPalette: () => void;
+  sourceLabel: string;
+  sourceTone: "ok" | "warn" | "bad" | "fixture" | "neutral";
   lookbackHours: number;
   onLookbackHours: (hours: number) => void;
   connectionState: JarvisConnectionState;
@@ -76,6 +76,13 @@ type AppShellProps = {
   children: ReactNode;
 };
 
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "OP";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+}
+
 export function AppShell({
   page,
   onPage,
@@ -83,9 +90,9 @@ export function AppShell({
   operatorName,
   railCollapsed,
   onToggleRail,
-  search,
-  onSearch,
-  onSearchSubmit,
+  onOpenPalette,
+  sourceLabel,
+  sourceTone,
   lookbackHours,
   onLookbackHours,
   connectionState,
@@ -114,17 +121,8 @@ export function AppShell({
           </button>
           <div className="ops-brand-copy">
             <strong>{productName}</strong>
-            <em>{operatorName}</em>
+            <em>Operations</em>
           </div>
-          <button
-            type="button"
-            className="ops-collapse"
-            onClick={onToggleRail}
-            aria-label={railCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            title={railCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            {railCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-          </button>
         </div>
         {NAV.map((group) => (
           <nav key={group.id} aria-label={group.label}>
@@ -147,7 +145,29 @@ export function AppShell({
             })}
           </nav>
         ))}
-        <div className="ops-rail-foot">
+        <div className="ops-account">
+          <div className="ops-account-who">
+            <span className="ops-account-avatar">{initials(operatorName)}</span>
+            <div className="ops-account-copy">
+              <strong>{operatorName}</strong>
+              <em>Signed in</em>
+            </div>
+          </div>
+          <div className="ops-account-tools">
+            <button type="button" onClick={onOpenPalette} title="Search" aria-label="Open command palette">
+              <Search size={16} />
+              <span>Search</span>
+            </button>
+            <button
+              type="button"
+              onClick={onToggleRail}
+              title={railCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              aria-label={railCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              {railCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+              <span>{railCollapsed ? "Expand" : "Collapse"}</span>
+            </button>
+          </div>
           <button
             type="button"
             className={`ops-settings-btn ${page === "settings" ? "active" : ""}`}
@@ -166,31 +186,25 @@ export function AppShell({
           <span className="ops-crumb-sep" />
           <strong>{crumb.title}</strong>
         </div>
-        <form
-          className="ops-search"
-          onSubmit={(event) => {
-            event.preventDefault();
-            onSearchSubmit();
-          }}
-        >
-          <Search size={14} />
-          <input
-            name="global-search"
-            value={search}
-            onChange={(event) => onSearch(event.target.value)}
-            placeholder="Find a device, user, or IP"
-          />
-        </form>
-        <label className="ops-window">
-          <span>Window</span>
-          <select value={lookbackHours} onChange={(event) => onLookbackHours(Number(event.target.value))}>
-            <option value={1}>Last 1 hour</option>
-            <option value={6}>Last 6 hours</option>
-            <option value={12}>Last 12 hours</option>
-            <option value={24}>Last 24 hours</option>
-            <option value={72}>Last 72 hours</option>
-          </select>
-        </label>
+        <div className="ops-status">
+          <span className={`ops-status-dot ops-status-${sourceTone}`} />
+          <span className="ops-status-source" title={sourceLabel}>
+            {sourceLabel}
+          </span>
+          <span className="ops-status-sep" />
+          <label className="ops-window">
+            <span>Window</span>
+            <select value={lookbackHours} onChange={(event) => onLookbackHours(Number(event.target.value))}>
+              <option value={1}>Last 1 hour</option>
+              <option value={6}>Last 6 hours</option>
+              <option value={12}>Last 12 hours</option>
+              <option value={24}>Last 24 hours</option>
+              <option value={72}>Last 72 hours</option>
+            </select>
+          </label>
+          <span className="ops-status-sep" />
+          <span>{operatorName}</span>
+        </div>
         <button type="button" className="ops-orb-chip" onClick={() => onPage("voice")} aria-label="Open voice" title="Voice">
           <NetworkCore mood={mood} mouthShape={mouthShape} compact compactSize="xs" />
           <span>{voiceLive ? "Listening" : "Voice"}</span>

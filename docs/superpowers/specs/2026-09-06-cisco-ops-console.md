@@ -51,7 +51,12 @@ name and lives under Settings, not as a cheap lockup on the rail. Appearance is
 a Kiro-style gallery (Auto / Light / Dark, palette intensity, named themes)
 so rail and top bar share one chrome. Active nav is a filled row — no inset
 accent bar. Operator can follow the console name. The rail is collapsible
-from the brand row. Source Unreachable / Live / Fixture is shown on Assurance,
+from the signed-in operator block, next to Search. Settings sits under that
+login block only. A command palette (opened from Search or Settings → Jump)
+goes to a page, device, user, or IP — it is not labelled with a shortcut.
+First session asks for a name and palette, then lands on Voice. Density is
+Comfortable or Compact. The top bar holds one status strip: source, window,
+operator. Voice shows last investigations. Source Unreachable / Live / Fixture is shown on Assurance,
 Inventory, and Settings — not duplicated in the rail footer.
 
 When Catalyst Center is down and `NETJARVIS_SOURCE` is `auto` (default) and

@@ -3,6 +3,7 @@ import { NetworkCore } from "./NetworkCore";
 import { Hud, type HudActivity } from "./Hud";
 import { Markdown } from "./Markdown";
 import type { JarvisConnectionState, JarvisMood, MouthShape, TranscriptEntry } from "../lib/realtime";
+import type { RecentInvestigation } from "../lib/commandSearch";
 
 type VoicePageProps = {
   connectionState: JarvisConnectionState;
@@ -22,6 +23,8 @@ type VoicePageProps = {
   showTypeInput: boolean;
   onToggleType: () => void;
   assistantName?: string;
+  recentInvestigations?: RecentInvestigation[];
+  onOpenInvestigation?: (seed: RecentInvestigation) => void;
 };
 
 export function VoicePage({
@@ -42,6 +45,8 @@ export function VoicePage({
   showTypeInput,
   onToggleType,
   assistantName = "NetJarvis",
+  recentInvestigations = [],
+  onOpenInvestigation,
 }: VoicePageProps) {
   const isConnected = connectionState === "connected";
 
@@ -97,6 +102,24 @@ export function VoicePage({
               <span>Type</span>
             </button>
           </div>
+          {recentInvestigations.length > 0 ? (
+            <div className="voice-recent">
+              <p>Last investigations</p>
+              <div>
+                {recentInvestigations.slice(0, 4).map((item) => (
+                  <button
+                    key={`${item.kind}-${item.value}`}
+                    type="button"
+                    onClick={() => onOpenInvestigation?.(item)}
+                  >
+                    {item.kind} {item.value}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="voice-recent-empty">No investigations yet. Search from the signed-in operator block to start one.</p>
+          )}
         </div>
       </section>
 

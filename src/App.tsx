@@ -1,6 +1,8 @@
 import { useRef, useState } from "react";
 import { ArtifactsPanel } from "./components/ArtifactsPanel";
 import { AssurancePage } from "./components/AssurancePage";
+import { CommandPalette } from "./components/CommandPalette";
+import { FirstRun } from "./components/FirstRun";
 import { InvestigationsPage } from "./components/InvestigationsPage";
 import { InventoryPage } from "./components/InventoryPage";
 import { ObservabilityPanel, type ObservabilityEvent } from "./components/ObservabilityPanel";
@@ -15,6 +17,7 @@ import { artifactTechnicalText } from "./lib/observability";
 import { sanitizeSquadChatReply } from "./lib/chatReplySanitizer";
 import { buildMentionPrefix } from "./lib/squadMentions";
 import { commitTranscript } from "./lib/transcriptGate";
+import { readRecentInvestigations, writeRecentInvestigation, type RecentInvestigation } from "./lib/commandSearch";
 import type { JarvisArtifact } from "./vite-env";
 import type { HudActivity } from "./components/Hud";
 
@@ -29,28 +32,13 @@ function pushObservabilityEvent(events: ObservabilityEvent[], event: Omit<Observ
   ].slice(0, 80);
 }
 
-function parseSearchSeed(raw: string): { kind: "user" | "ip" | "host"; value: string } | null {
-  const value = raw.trim();
-  if (!value) return null;
-  // A sentence is an assistant question. A single token (or "investigate user X") is a seed.
-  if (/\s/.test(value) && !/^(?:user|host|ip|investigate)\b/i.test(value)) return null;
-  const userMatch = value.match(/^(?:user|investigate(?:\s+user)?)\s+(\S+)$/i);
-  if (userMatch) return { kind: "user", value: userMatch[1] };
-  const hostMatch = value.match(/^(?:host|investigate\s+host)\s+(\S+)$/i);
-  if (hostMatch) return { kind: "host", value: hostMatch[1] };
-  const ipMatch = value.match(/^(?:ip|investigate\s+ip)\s+(\S+)$/i);
-  if (ipMatch) return { kind: "ip", value: ipMatch[1] };
-  if (/^(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3}$/.test(value)) return { kind: "ip", value };
-  if (/[.\-]/.test(value) || /\d$/.test(value)) return { kind: "host", value };
-  if (/^investigate\s+/i.test(value)) return { kind: "user", value: value.replace(/^investigate\s+/i, "").trim() };
-  return { kind: "user", value };
-}
-
 export default function App() {
   const { prefs, update: updatePrefs } = usePrefs();
   const dashboard = useDashboard();
   const [page, setPage] = useState<AppPage>("voice");
   const [search, setSearch] = useState("");
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [recentInvestigations, setRecentInvestigations] = useState<RecentInvestigation[]>(readRecentInvestigations);
   const [lookbackHours, setLookbackHours] = useState(24);
   const [pendingSeed, setPendingSeed] = useState<{ kind: "user" | "ip" | "host"; value: string } | null>(null);
 
@@ -288,28 +276,54 @@ export default function App() {
     await deliverUserMessage({ channel: "chat", message, target });
   }
 
-  function goInvestigate(seed: { kind: "user" | "ip" | "host"; value: string }) {
-    setPendingSeed({ ...seed, value: seed.value });
-    setPage("investigate");
+  function recordInvestigation(seed: { kind: "user" | "ip" | "host"; value: string }) {
+    setRecentInvestigations(writeRecentInvestigation(seed));
   }
 
-  function onSearchSubmit() {
-    const trimmed = search.trim();
-    if (!trimmed) return;
-    const seed = parseSearchSeed(trimmed);
-    if (seed) {
-      setSearch("");
-      goInvestigate(seed);
-      return;
-    }
+  function goInvestigate(seed: { kind: "user" | "ip" | "host"; value: string }) {
+    recordInvestigation(seed);
+    setPendingSeed({ ...seed, value: seed.value });
+    setPage("investigate");
+    setPaletteOpen(false);
     setSearch("");
-    setPage("voice");
-    setTextPrompt("");
-    void deliverUserMessage({ channel: "keyboard", message: trimmed, target: { id: "jarvis", name: prefs.assistantName } });
+  }
+
+  if (!prefs.onboarded) {
+    return (
+      <FirstRun
+        prefs={prefs}
+        onPrefs={updatePrefs}
+        onDone={() => {
+          updatePrefs({ onboarded: true });
+          setPage("voice");
+        }}
+      />
+    );
   }
 
   return (
     <>
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        query={search}
+        onQuery={setSearch}
+        devices={dashboard.snapshot?.devices || []}
+        recent={recentInvestigations}
+        onGoPage={(next) => {
+          setPage(next);
+          setPaletteOpen(false);
+          setSearch("");
+        }}
+        onInvestigate={goInvestigate}
+        onAsk={(text) => {
+          setPaletteOpen(false);
+          setSearch("");
+          setPage("voice");
+          setTextPrompt("");
+          void deliverUserMessage({ channel: "keyboard", message: text, target: { id: "jarvis", name: prefs.assistantName } });
+        }}
+      />
       <AppShell
         page={page}
         onPage={setPage}
@@ -317,9 +331,19 @@ export default function App() {
         operatorName={prefs.operatorName}
         railCollapsed={prefs.railCollapsed}
         onToggleRail={() => updatePrefs({ railCollapsed: !prefs.railCollapsed })}
-        search={search}
-        onSearch={setSearch}
-        onSearchSubmit={onSearchSubmit}
+        onOpenPalette={() => setPaletteOpen(true)}
+        sourceLabel={
+          dashboard.snapshot?.fixture
+            ? "Fixture lab"
+            : dashboard.snapshot?.reachable === false
+              ? "Unreachable"
+              : dashboard.snapshot
+                ? "Live"
+                : "Source"
+        }
+        sourceTone={
+          dashboard.snapshot?.fixture ? "fixture" : dashboard.snapshot?.reachable === false ? "bad" : dashboard.snapshot ? "ok" : "neutral"
+        }
         lookbackHours={lookbackHours}
         onLookbackHours={setLookbackHours}
         connectionState={connectionState}
@@ -345,6 +369,8 @@ export default function App() {
             showTypeInput={showTypeInput}
             onToggleType={() => setShowTypeInput((value) => !value)}
             assistantName={prefs.assistantName}
+            recentInvestigations={recentInvestigations}
+            onOpenInvestigation={goInvestigate}
           />
         ) : null}
         {page === "assurance" ? (
@@ -360,7 +386,12 @@ export default function App() {
           />
         ) : null}
         {page === "investigate" ? (
-          <InvestigationsPage lookbackHours={lookbackHours} onLookbackHours={setLookbackHours} pendingSeed={pendingSeed} />
+          <InvestigationsPage
+            lookbackHours={lookbackHours}
+            onLookbackHours={setLookbackHours}
+            pendingSeed={pendingSeed}
+            onRecord={recordInvestigation}
+          />
         ) : null}
         {page === "inventory" ? (
           <InventoryPage
@@ -408,7 +439,7 @@ export default function App() {
           </div>
         ) : null}
         {page === "settings" ? (
-          <SettingsPage prefs={prefs} onPrefs={updatePrefs} snapshot={dashboard.snapshot} />
+          <SettingsPage prefs={prefs} onPrefs={updatePrefs} snapshot={dashboard.snapshot} onOpenPalette={() => setPaletteOpen(true)} />
         ) : null}
       </AppShell>
     </>
