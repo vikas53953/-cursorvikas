@@ -101,7 +101,15 @@ export function AppShell({
       <div className="window-drag-strip" aria-hidden="true" />
       <aside className="ops-rail">
         <div className="ops-brand">
-          <BrandMark />
+          <button
+            type="button"
+            className="ops-mark-btn"
+            onClick={railCollapsed ? onToggleRail : undefined}
+            title={railCollapsed ? "Expand sidebar" : productName}
+            aria-label={railCollapsed ? "Expand sidebar" : productName}
+          >
+            <BrandMark />
+          </button>
           <div className="ops-brand-copy">
             <strong>{productName}</strong>
             <em>Operations</em>

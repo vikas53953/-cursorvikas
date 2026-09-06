@@ -76,7 +76,7 @@ export function AssurancePage({
             tone={unreachable ? "bad" : fixture ? "fixture" : "ok"}
             label={unreachable ? "UNREACHABLE" : fixture ? "FIXTURE" : "LIVE"}
           />
-          <StatusPill tone={toneFromStatus(overall)} label={overall} />
+          {!fixture && overall && overall !== "unknown" ? <StatusPill tone={toneFromStatus(overall)} label={overall} /> : null}
           <button className="ui-btn" type="button" onClick={() => onRefresh(true)} disabled={loading}>
             <RefreshCw size={14} className={loading ? "spin" : ""} />
             Refresh
@@ -86,7 +86,7 @@ export function AssurancePage({
 
       {fixture ? (
         <div className="ui-banner ui-banner-fixture">
-          {snapshot.error || "Catalyst Center is unreachable."} Inventory and events below are the opt-in mock lab — not a live network.
+          Mock lab (FIXTURE). Catalyst Center is not reachable from this host — the inventory and events below are labelled mock data, not a live network.
         </div>
       ) : null}
       {unreachable ? (
@@ -118,7 +118,7 @@ export function AssurancePage({
           }
         />
         <HealthDonut
-          score={issues.length === 0 && !unreachable ? 10 : issues.length >= 5 ? 2 : issues.length >= 1 ? 5 : null}
+          score={issues.length === 0 && !unreachable && !fixture ? 10 : issues.length >= 5 ? 2 : issues.length >= 1 ? 5 : null}
           label="Issues"
           caption={`${snapshot.issues?.active ?? issues.length} open`}
         />
