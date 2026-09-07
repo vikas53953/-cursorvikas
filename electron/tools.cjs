@@ -25,6 +25,9 @@ const trends = require("./problem-trends.cjs");
 const mail = require("./mail.cjs");
 const prometheus = require("./sources/prometheus.cjs");
 const snmp = require("./sources/snmp.cjs");
+const { createSplunkClient } = require("./sources/evidence/splunk.cjs");
+const { createEvidenceProviders, collectEvidence } = require("./sources/evidence/index.cjs");
+const investigation = require("./core/investigation.cjs");
 const { createScheduler } = require("./scheduler.cjs");
 const { createAlertWatcher } = require("./alert-watcher.cjs");
 const { createAgents, chatCompletion, compactToolResult } = require("./agents.cjs");
@@ -34,6 +37,7 @@ const { listSkills } = require("./skills/index.cjs");
 const { routerInstructionsAppendix } = require("./message-router.cjs");
 const { validateToolCall } = require("./guardrails.cjs");
 const { createHandleUserMessage } = require("./handle-user-message.cjs");
+const { extractDevicesFromText } = require("./device-facts.cjs");
 const logger = require("./logger.cjs");
 
 const exportsDir = path.join(process.cwd(), "data", "exports");
@@ -75,10 +79,11 @@ Talk like a sharp NOC colleague, not a chatbot. Confident, concise, calm. Lead w
 # Your team (hierarchy and delegation)
 You are the SME lead. Your org chart (shown on the left panel):
 - Data Team: Data Network Agent (switching, routing, STP, VLANs, interfaces, capacity)
-- Security Team: Firewall Agent, Proxy Agent, Load Balancer Agent
+- Security Team: Firewall Agent, Proxy Agent, Load Balancer Agent, Investigation Agent (cross-platform SOC correlation)
 - Incident Management: Change Management Agent, Incident Management Agent, Problem Management Agent
 Every tool you run AND every delegation appears live on the Team Board and the agent roster on the left.
-- Deep investigations or explicit handoffs: announce briefly ("Handing this to the Data agent") and call delegate_task. Teams: data, firewall, loadbalancer, proxy, change, incident, problem.
+- Deep investigations or explicit handoffs: announce briefly ("Handing this to the Data agent") and call delegate_task. Teams: data, firewall, loadbalancer, proxy, soc, change, incident, problem.
+- Cross-platform investigation ("investigate user jdoe", "what did 10.20.0.7 do in the last 6 hours", "timeline for host LT-4421", "correlate the VPN, proxy and firewall logs for..."): call investigate with the entity (user, ip, or host) and the window. It pulls Splunk-indexed VPN, proxy, firewall, endpoint, identity and cloud evidence plus Catalyst Center network events into ONE timestamped timeline with coverage and gaps. Speak the summary line and the observations; the full timeline renders in the Reports tab. If a platform is reported "unconfigured" or "failed", say so - never fill the gap yourself.
 - Delegation blocks 15-60s until the specialist finishes; summarize the report aloud.
 - Quick facts (one show command, a health check): run the tool yourself - it still shows on the board under the routed specialist team.
 - Use team_board when the engineer asks what the team is working on.
@@ -86,7 +91,7 @@ Every tool you run AND every delegation appears live on the Team Board and the a
 - Use problem_trends for recurring-issue history from accumulated snapshots.
 - Use send_email when the engineer wants email delivery (not just copy-paste). SMTP must be configured in .env.local.
 - Use shift_briefing for an on-demand shift rundown (scheduled briefings also run automatically).
-- Use multi_source_status to report Catalyst Center plus optional Prometheus/SNMP adapters.
+- Use multi_source_status to report Catalyst Center plus optional Prometheus/SNMP/Splunk adapters.
 
 # Pre-checks and comparisons
 - Device-specific pre-check ("pre-check on sw1", label "precheck-sw1", "@agent run precheck on sw2"): call run_show_command with the full standard show-command bundle on that device. Do NOT use precheck_capture for single-device CLI pre-checks.
@@ -351,6 +356,28 @@ const toolSpecs = [
   },
   {
     type: "function",
+    name: "investigate",
+    description: "Cross-platform SOC investigation: correlates evidence about ONE entity (a user, an IP address, or a host) from Splunk-indexed VPN, proxy, firewall, endpoint (EDR), identity and cloud logs plus Catalyst Center network issues/events into one timestamped, time-ordered timeline with per-platform coverage, related-entity pivots, factual observations and an explicit list of gaps (platforms that are unconfigured, failed, or returned nothing). Read-only. Use for 'investigate user X', 'what did IP Y do', 'timeline for host Z', 'correlate the logs for ...'.",
+    parameters: {
+      type: "object",
+      properties: {
+        user: { type: "string", description: "Seed username / UPN / email (exactly one of user, ip, host)." },
+        ip: { type: "string", description: "Seed IPv4 address." },
+        host: { type: "string", description: "Seed hostname (endpoint or network device)." },
+        lookbackHours: { type: "number", minimum: 1, maximum: 720, description: "Window ending now (default 24, max 720)." },
+        from: { type: "string", description: "Optional ISO-8601 window start (overrides lookbackHours)." },
+        to: { type: "string", description: "Optional ISO-8601 window end (default now)." },
+        platforms: {
+          type: "array",
+          items: { type: "string", enum: ["network", "vpn", "proxy", "firewall", "endpoint", "identity", "cloud", "siem"] },
+          description: "Optional subset of platforms to query. Default: all.",
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    type: "function",
     name: "artifact_show",
     description: "Show structured content in the Reports panel. Use for ad-hoc notes, markdown summaries, code/config snippets, or tables you compose yourself.",
     parameters: {
@@ -445,7 +472,7 @@ const toolSpecs = [
   {
     type: "function",
     name: "multi_source_status",
-    description: "Report status across all configured data sources: Catalyst Center (primary), plus optional Prometheus and SNMP adapters.",
+    description: "Report status across all configured data sources: Catalyst Center (primary), plus optional Prometheus, SNMP, and Splunk (investigation evidence) adapters.",
     parameters: { type: "object", properties: {}, additionalProperties: false },
   },
   {
@@ -489,17 +516,13 @@ const PRECHECK_COMMANDS = [
 ];
 
 function extractDeviceFromText(text) {
-  const lower = String(text || "").toLowerCase();
-  const onSw = lower.match(/\b(?:on|for|to)\s+(sw[1-9]\w*)\b/);
-  if (onSw) return onSw[1];
-  const bareSw = lower.match(/\b(sw[1-9]\w*)\b/);
-  if (bareSw) return bareSw[1];
-  const switchNum = lower.match(/\bswitch\s+(\d+)\b/);
-  if (switchNum) return `sw${switchNum[1]}`;
-  return null;
+  const inventory = typeof source.peekInventory === "function" ? source.peekInventory() : [];
+  return extractDevicesFromText(text, inventory)[0] || null;
 }
 
 function extractDeviceFromPrecheckLabel(label) {
+  const fromInventory = extractDeviceFromText(label);
+  if (fromInventory) return fromInventory;
   const text = String(label || "").toLowerCase();
   const swMatch = text.match(/(?:^|[-_])(sw\d+)\b/);
   if (swMatch) return swMatch[1];
@@ -650,6 +673,12 @@ function createTools({ readDb, updateDb }) {
   }
   const queryLayer = createQueryLayer({ registry });
 
+  // Evidence plane for cross-platform investigations: Splunk lenses (VPN,
+  // proxy, firewall, endpoint, identity, cloud, SIEM notables) plus Catalyst
+  // Center network evidence. Unconfigured providers report themselves as such.
+  const splunk = createSplunkClient();
+  const evidenceProviders = createEvidenceProviders({ splunk, catc, source });
+
   // Per-tools-instance grounding session: deterministic anaphora ("its uptime")
   // resolves against the last device ask_network actually grounded, not a
   // model guess.
@@ -779,6 +808,8 @@ function createTools({ readDb, updateDb }) {
           return await dropReport(args);
         case "vulnerability_check":
           return await vulnerabilityCheck(args);
+        case "investigate":
+          return await investigate(args);
         case "delegate_task":
           return await delegateTask(args);
         case "team_board":
@@ -865,11 +896,35 @@ function createTools({ readDb, updateDb }) {
   // -------------------------------------------------------------------------
 
   async function deviceHealth(args) {
+    const snapshot = await source.getSnapshot();
+    if (snapshot?.fixture) {
+      const query = String(args.scope || "").trim().toLowerCase();
+      let rows = snapshot.devices || [];
+      if (query && query !== "all") rows = rows.filter((device) => device.name.toLowerCase().includes(query));
+      const table = rows.map((device) => ({
+        device: device.name,
+        ip: device.ip,
+        role: device.role,
+        status: "fixture",
+        healthScore: "",
+        reachability: "fixture",
+        cpu: "",
+        memory: "",
+        uptime: device.uptime || "",
+        software: device.software || "",
+      }));
+      return {
+        ok: true,
+        mode: "fixture",
+        fixture: true,
+        devices: table,
+        artifact: { title: "FIXTURE · Device Health", kind: "table", content: JSON.stringify(table) },
+      };
+    }
     const { mode } = await source.getMode();
     if (mode !== "live") {
       return { ok: false, mode, error: "Network source is unreachable." };
     }
-    const snapshot = await source.getSnapshot();
     const query = String(args.scope || "").trim().toLowerCase();
     let rows = snapshot.devices;
     if (query && query !== "all") rows = rows.filter((device) => device.name.toLowerCase().includes(query));
@@ -914,22 +969,33 @@ function createTools({ readDb, updateDb }) {
   }
 
   async function runShowCommand(args) {
-    const { mode } = await source.getMode();
+    const snapshot = await source.getSnapshot();
     const commands = (Array.isArray(args.commands) ? args.commands : []).map(String).filter(Boolean);
     if (commands.length === 0) {
       return { ok: false, error: "Provide at least one read-only 'show' command." };
     }
-    // The tool spec documents `device: "all"` (or omitted) as "every device",
-    // but scope-resolver has no "all" keyword — resolving the text "on all"
-    // would match zero devices. Route it through queryLayer.runAll so it still
-    // respects the same hardCap / interactiveCap / concurrency safety limits.
+    if (snapshot?.fixture) {
+      const result = await source.runFixtureShowCommands(args.device, commands);
+      if (!result.ok) return result;
+      const device = String(args.device || "device");
+      const title =
+        commands.length === 1 ? `${device} · ${commands[0]}` : commands.length <= 3 ? `${device} · ${commands.join(" / ")}` : `Pre-check: ${device}`;
+      return {
+        ok: true,
+        mode: "fixture",
+        fixture: true,
+        scope: result.scope,
+        outputs: trimOutputs(result.outputs),
+        artifact: { title: `FIXTURE · ${title}`, kind: "code", content: formatCliOutputs(result.outputs) },
+      };
+    }
+    const { mode } = await source.getMode();
     const deviceArg = String(args.device || "").trim();
     const isAllDevices = !deviceArg || /^all(\s+devices)?$/i.test(deviceArg);
     const result = isAllDevices
       ? await queryLayer.runAll(commands)
       : await queryLayer.run(`on ${deviceArg}`, commands);
     if (!result.ok) {
-      // Distinguish an unreachable source from a name that simply didn't match.
       if (mode !== "live") {
         return { ok: false, mode, error: "run_show_command needs the live Catalyst Center source, which is not reachable right now." };
       }
@@ -995,6 +1061,23 @@ function createTools({ readDb, updateDb }) {
   }
 
   async function topologyShow() {
+    const snapshot = await source.getSnapshot();
+    if (snapshot?.fixture) {
+      const names = (snapshot.devices || []).map((device) => device.name);
+      return {
+        ok: true,
+        mode: "fixture",
+        fixture: true,
+        nodes: names,
+        linkCount: 0,
+        links: [],
+        artifact: {
+          title: "FIXTURE · Inventory (no topology links)",
+          kind: "markdown",
+          content: ["# Mock lab", "", "Topology links stay empty until a live source returns them.", "", ...names.map((name) => `- ${name}`)].join("\n"),
+        },
+      };
+    }
     const { mode } = await source.getMode();
     if (mode !== "live") {
       return { ok: false, mode, error: "Network source is unreachable." };
@@ -1150,6 +1233,46 @@ function createTools({ readDb, updateDb }) {
       severityCounts: counts,
       topCves: result.cves.map((cve) => ({ id: cve.id, severity: cve.severity, score: cve.score, published: cve.published })),
       artifact: { title: `Vulnerabilities: ${keyword}`, kind: "markdown", content: lines.join("\n") },
+    };
+  }
+
+  // -------------------------------------------------------------------------
+  // Cross-platform investigation (AI-Ready SOC, Part II)
+  // -------------------------------------------------------------------------
+
+  async function investigate(args = {}) {
+    const entity = investigation.normalizeEntity({ user: args.user, ip: args.ip, host: args.host });
+    if (!entity) {
+      return { ok: false, error: "investigate needs exactly one seed entity: user, ip, or host." };
+    }
+    const window = investigation.resolveWindow({ lookbackHours: args.lookbackHours, from: args.from, to: args.to });
+    const platforms = Array.isArray(args.platforms) ? args.platforms.map(String) : undefined;
+    const results = await collectEvidence({ providers: evidenceProviders, entity, window, platforms, limit: 200 });
+    const inv = investigation.buildInvestigation({ entity, window: { from: window.from, to: window.to }, results });
+    if (inv.ok === false) return inv;
+    const summary = investigation.summarizeInvestigation(inv);
+    logger.log("investigation.done", {
+      id: inv.id,
+      entity,
+      hours: inv.window.hours,
+      events: inv.counts.total,
+      coverage: inv.coverage.map((c) => `${c.platform}:${c.status}:${c.count}`),
+    });
+    return {
+      ok: true,
+      id: inv.id,
+      fixture: inv.fixture,
+      entity: inv.entity,
+      window: inv.window,
+      summary,
+      counts: inv.counts,
+      coverage: inv.coverage.map(({ query, ...rest }) => rest),
+      observations: inv.observations.map((o) => o.text),
+      pivots: inv.pivots.slice(0, 10),
+      gaps: inv.gaps,
+      timeline: inv.timeline.slice(0, 60).map((e) => ({ ts: e.ts, platform: e.platform, severity: e.severity, summary: e.summary, entities: e.entities, provider: e.provider })),
+      note: "State only what this tool returns. Platforms listed under gaps produced no evidence - say so instead of guessing.",
+      artifact: { title: `Investigation ${inv.id}: ${inv.entity.kind} ${inv.entity.value}`, kind: "markdown", content: investigation.renderInvestigationMarkdown(inv) },
     };
   }
 
@@ -1465,8 +1588,7 @@ function createTools({ readDb, updateDb }) {
 
   async function multiSourceStatus() {
     const snapshot = await source.getSnapshot();
-    const prom = await prometheus.getSummary();
-    const snmpStatus = await snmp.getSummary();
+    const [prom, snmpStatus, splunkStatus] = await Promise.all([prometheus.getSummary(), snmp.getSummary(), splunk.health()]);
     const lines = [
       "# Multi-source status",
       "",
@@ -1480,12 +1602,28 @@ function createTools({ readDb, updateDb }) {
       "",
       "## SNMP",
       snmpStatus.ok ? `- Host: ${snmpStatus.host} (${snmpStatus.note})` : `- ${snmpStatus.error || "not configured"}`,
+      "",
+      "## Splunk (investigation evidence)",
+      splunkStatus.ok
+        ? `- ${splunk.config.baseUrl} reachable${splunkStatus.version ? `, version ${splunkStatus.version}` : ""} (${splunkStatus.ms} ms)`
+        : `- ${splunkStatus.configured ? `configured but unreachable: ${splunkStatus.error}` : "not configured (SPLUNK_URL + SPLUNK_TOKEN)"}`,
     ];
+    if (evidenceProviders.lab) {
+      const lab = evidenceProviders.lab;
+      lines.push(
+        "",
+        `## Mock lab (FIXTURE DATA - ${lab.name || "fixtures"})`,
+        `- Enabled via NETJARVIS_EVIDENCE_FIXTURE; ${lab.devices.length} mock devices, ${lab.files.length} evidence feeds (${lab.files.map((f) => f.platform).join(", ")}). Not a real network.`,
+        ...lab.errors.map((e) => `- ⚠ ${e}`),
+      );
+    }
     return {
       ok: true,
       catalyst: { mode: snapshot.mode, overall: snapshot.overall },
       prometheus: prom,
       snmp: snmpStatus,
+      splunk: splunkStatus,
+      mockLab: evidenceProviders.lab ? { name: evidenceProviders.lab.name, devices: evidenceProviders.lab.devices.length, feeds: evidenceProviders.lab.files.map((f) => f.platform) } : null,
       artifact: { title: "Multi-source Status", kind: "markdown", content: lines.join("\n") },
     };
   }

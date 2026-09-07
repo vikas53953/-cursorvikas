@@ -1,0 +1,148 @@
+/* Cisco-class operations tokens.
+   Palette is adjacent to Catalyst Center / ThousandEyes (navy rail, Cisco blue,
+   green/amber/red health) — not a Cisco trademark skin. */
+
+:root {
+  --nj-navy-900: #071426;
+  --nj-navy-800: #0b1f3a;
+  --nj-navy-700: #123056;
+  --nj-navy-600: #1b3f6f;
+  --nj-blue-500: #049fd9;
+  --nj-blue-600: #0076a8;
+  --nj-blue-100: #d7f1fb;
+  --nj-teal-500: #00bceb;
+
+  --nj-ok: #3d9b3a;
+  --nj-ok-bg: #e7f5e6;
+  --nj-warn: #d9890d;
+  --nj-warn-bg: #fff4d6;
+  --nj-bad: #c41230;
+  --nj-bad-bg: #fde8ec;
+  --nj-info: #0076a8;
+  --nj-info-bg: #e6f4fb;
+  --nj-neutral: #6b7280;
+
+  --font-sans: "Segoe UI Variable", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Cascadia Mono", "Consolas", "Source Code Pro", ui-monospace, monospace;
+
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-md: 13px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 28px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+
+  --rail-w: 216px;
+  --rail-w-collapsed: 56px;
+  --topbar-h: 52px;
+  --drawer-w: 380px;
+  --motion: 150ms;
+
+  --shadow-dashlet: 0 1px 2px rgba(11, 31, 58, 0.06), 0 8px 20px rgba(11, 31, 58, 0.04);
+}
+
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+  --bg-app: #eef2f6;
+  --bg-canvas: #eef2f6;
+  --bg-dashlet: #ffffff;
+  --bg-dashlet-alt: #f6f8fa;
+  --bg-input: #ffffff;
+  --bg-hover: #eef3f7;
+  --border: #c9d3dc;
+  --border-strong: #9aabba;
+  --text: #1b2430;
+  --text-2: #4b5563;
+  --text-3: #6b7280;
+  --text-inv: #f4f7fb;
+  --accent: var(--nj-blue-500);
+  --accent-hover: var(--nj-blue-600);
+  --accent-muted: var(--nj-blue-100);
+  --focus-ring: 0 0 0 2px #fff, 0 0 0 4px var(--nj-blue-500);
+  --ok: var(--nj-ok);
+  --ok-bg: var(--nj-ok-bg);
+  --warn: var(--nj-warn);
+  --warn-bg: var(--nj-warn-bg);
+  --bad: var(--nj-bad);
+  --bad-bg: var(--nj-bad-bg);
+  --info: var(--nj-info);
+  --info-bg: var(--nj-info-bg);
+  --rail-bg: #dce6ef;
+  --rail-border: #16325a;
+  --rail-text: #c5d4e6;
+  --rail-text-2: #8ea3bb;
+  --rail-active: #0a3d56;
+  --rail-active-bg: #c5dcea;
+  --rail-hover: rgba(18, 32, 51, 0.06);
+  --topbar-bg: #dce6ef;
+  --table-head: #f0f4f7;
+  --path-idle: #c5d0da;
+  --chrome-bg: #dce6ef;
+  --chrome-border: #c5d0db;
+  --chrome-text: #2a3644;
+  --chrome-title: #122033;
+  --chrome-muted: #5b6b7c;
+  --mark-fill: #12324a;
+  --voice-stage: #d3dee8;
+  --voice-ink: #1b2430;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-app: #0a1422;
+  --bg-canvas: #0a1422;
+  --bg-dashlet: #122033;
+  --bg-dashlet-alt: #0e1a2b;
+  --bg-input: #0e1a2b;
+  --bg-hover: #1a2c44;
+  --border: #24364d;
+  --border-strong: #3a516b;
+  --text: #e8eef6;
+  --text-2: #9aabc0;
+  --text-3: #6f8298;
+  --text-inv: #e8eef6;
+  --accent: #2eb5e8;
+  --accent-hover: #57c7ef;
+  --accent-muted: rgba(46, 181, 232, 0.16);
+  --focus-ring: 0 0 0 2px #0a1422, 0 0 0 4px #2eb5e8;
+  --ok: #5cbe58;
+  --ok-bg: rgba(61, 155, 58, 0.18);
+  --warn: #e0a33a;
+  --warn-bg: rgba(217, 137, 13, 0.18);
+  --bad: #e35a70;
+  --bad-bg: rgba(196, 18, 48, 0.18);
+  --info: #2eb5e8;
+  --info-bg: rgba(4, 159, 217, 0.16);
+  --rail-bg: #07101c;
+  --rail-border: #1a2a3e;
+  --rail-text: #b7c6d8;
+  --rail-text-2: #7d90a6;
+  --rail-active: #f4f7fb;
+  --rail-active-bg: #17344d;
+  --rail-hover: rgba(255, 255, 255, 0.06);
+  --topbar-bg: #0e1c2c;
+  --table-head: #0e1a2b;
+  --path-idle: #33485f;
+  --shadow-dashlet: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --chrome-bg: #0e1c2c;
+  --chrome-border: #24364d;
+  --chrome-text: #c5d4e6;
+  --chrome-title: #f4f7fb;
+  --chrome-muted: #7d90a6;
+  --mark-fill: #071018;
+  --voice-stage: #08141f;
+  --voice-ink: #d7e4f2;
+}

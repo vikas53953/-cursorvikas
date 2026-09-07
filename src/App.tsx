@@ -1,16 +1,25 @@
-import { useRef, useState } from "react";
-import { Activity, History, Keyboard, Mic, MicOff, PanelRight, Send } from "lucide-react";
-import { ArtifactPanel, type RightPanelTab } from "./components/ArtifactPanel";
-import { FloatingConsole } from "./components/FloatingConsole";
-import { Hud, type HudActivity } from "./components/Hud";
-import { NetworkCore } from "./components/NetworkCore";
-import type { ObservabilityEvent } from "./components/ObservabilityPanel";
+import { useEffect, useRef, useState } from "react";
+import { AssurancePage } from "./components/AssurancePage";
+import { CommandPalette } from "./components/CommandPalette";
+import { FirstRun } from "./components/FirstRun";
+import { InvestigationsPage } from "./components/InvestigationsPage";
+import { InventoryPage } from "./components/InventoryPage";
+import { type ObservabilityEvent } from "./components/ObservabilityPanel";
+import { SettingsPage } from "./components/SettingsPage";
+import { TeamBoard } from "./components/TeamBoard";
+import { VoicePage } from "./components/VoicePage";
+import { WorkPage } from "./components/WorkPage";
+import { AppShell, type AppPage } from "./components/shell/AppShell";
+import { useDashboard } from "./hooks/useDashboard";
+import { usePrefs } from "./hooks/usePrefs";
 import { JarvisRealtimeClient, newEntry, type JarvisConnectionState, type JarvisMood, type MouthShape, type TranscriptEntry } from "./lib/realtime";
 import { artifactTechnicalText } from "./lib/observability";
 import { sanitizeSquadChatReply } from "./lib/chatReplySanitizer";
 import { buildMentionPrefix } from "./lib/squadMentions";
 import { commitTranscript } from "./lib/transcriptGate";
+import { readRecentInvestigations, writeRecentInvestigation, type RecentInvestigation } from "./lib/commandSearch";
 import type { JarvisArtifact } from "./vite-env";
+import type { HudActivity } from "./components/Hud";
 
 function pushObservabilityEvent(events: ObservabilityEvent[], event: Omit<ObservabilityEvent, "id" | "at">): ObservabilityEvent[] {
   return [
@@ -24,6 +33,16 @@ function pushObservabilityEvent(events: ObservabilityEvent[], event: Omit<Observ
 }
 
 export default function App() {
+  const { prefs, update: updatePrefs } = usePrefs();
+  const dashboard = useDashboard();
+  const [page, setPage] = useState<AppPage>("voice");
+  const [returnPage, setReturnPage] = useState<AppPage>("voice");
+  const [search, setSearch] = useState("");
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [recentInvestigations, setRecentInvestigations] = useState<RecentInvestigation[]>(readRecentInvestigations);
+  const [lookbackHours, setLookbackHours] = useState(24);
+  const [pendingSeed, setPendingSeed] = useState<{ kind: "user" | "ip" | "host"; value: string } | null>(null);
+
   const [connectionState, setConnectionState] = useState<JarvisConnectionState>("idle");
   const [mood, setMood] = useState<JarvisMood>("idle");
   const [hudActivity, setHudActivity] = useState<HudActivity>({ kind: "idle", text: "" });
@@ -31,14 +50,10 @@ export default function App() {
   const [speakingText, setSpeakingText] = useState("");
   const [hudFeed, setHudFeed] = useState<string[]>([]);
   const [artifact, setArtifact] = useState<JarvisArtifact | null>(null);
-  const [panelTab, setPanelTab] = useState<RightPanelTab>("dashboard");
-  const [panelVisible, setPanelVisible] = useState(true);
-  const [panelFullscreen, setPanelFullscreen] = useState(false);
-  const [showLog, setShowLog] = useState(false);
-  const [showTypeInput, setShowTypeInput] = useState(false);
+  const [showTypeInput, setShowTypeInput] = useState(true);
   const [mouthShape, setMouthShape] = useState<MouthShape>({ open: 0, width: 0.18, round: 0, teeth: 0 });
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([
-    newEntry("system", "NetJarvis is ready. Connect voice, then ask how your network is doing."),
+    newEntry("system", `${prefs.assistantName} is ready. Connect voice, then ask how your network is doing.`),
   ]);
   const [textPrompt, setTextPrompt] = useState("");
   const [taskRefreshToken, setTaskRefreshToken] = useState(0);
@@ -47,7 +62,29 @@ export default function App() {
   const clientRef = useRef<JarvisRealtimeClient | null>(null);
   const squadChatExpandedRef = useRef(false);
 
-  const isConnected = connectionState === "connected";
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      const key = event.key.toLowerCase();
+      if ((event.metaKey || event.ctrlKey) && key === "k") {
+        event.preventDefault();
+        setPaletteOpen((open) => !open);
+        return;
+      }
+      if (event.key === "Escape" && paletteOpen) {
+        setPaletteOpen(false);
+        return;
+      }
+      const target = event.target as HTMLElement | null;
+      const typing = Boolean(target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable));
+      if (typing) return;
+      if (event.key === "/" && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        event.preventDefault();
+        setPaletteOpen(true);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [paletteOpen]);
 
   async function connect() {
     if (connectionState === "connecting") return;
@@ -86,11 +123,7 @@ export default function App() {
             status: "done",
           }),
         );
-        setPanelVisible(true);
-        if (!squadChatExpandedRef.current) {
-          setPanelTab("observability");
-          if (nextArtifact.fullscreen) setPanelFullscreen(true);
-        }
+        if (!squadChatExpandedRef.current && page !== "voice") setPage("work");
       },
       onStatus: (message) => {
         setTranscript((items) => [newEntry("system", message), ...items].slice(0, 80));
@@ -129,6 +162,7 @@ export default function App() {
           );
           if (activity.kind === "tool_start" || activity.kind === "tool_done" || activity.kind === "tool_error") {
             setTaskRefreshToken((value) => value + 1);
+            void dashboard.reload(false);
           }
         }
       },
@@ -159,8 +193,7 @@ export default function App() {
     const trimmed = textPrompt.trim();
     if (!trimmed || chatBusy) return;
     setTextPrompt("");
-    setShowTypeInput(false);
-    void deliverUserMessage({ channel: "keyboard", message: trimmed, target: { id: "jarvis", name: "NetJarvis" } });
+    void deliverUserMessage({ channel: "keyboard", message: trimmed, target: { id: "jarvis", name: prefs.assistantName } });
   }
 
   async function deliverUserMessage({
@@ -186,8 +219,8 @@ export default function App() {
         status: "done",
       }),
     );
-    setPanelVisible(true);
-    if (channel === "chat" && panelTab !== "team") setPanelTab("team");
+    if (channel === "chat") setPage("squad");
+    else setPage("voice");
 
     setChatBusy(true);
     try {
@@ -255,6 +288,7 @@ export default function App() {
         }),
       );
       setTaskRefreshToken((value) => value + 1);
+      void dashboard.reload(false);
     } catch (error) {
       const err = error instanceof Error ? error.message : String(error);
       setTranscript((items) => commitTranscript(items, newEntry("system", err), "system"));
@@ -269,144 +303,175 @@ export default function App() {
     await deliverUserMessage({ channel: "chat", message, target });
   }
 
-  return (
-    <main className="app-shell">
-      <div className="window-drag-strip" aria-hidden="true" />
-      <div className="window-drag-left-zone" aria-hidden="true" />
-      <section className="companion-window">
-        <section className="face-stage">
-          <NetworkCore mood={mood} mouthShape={mouthShape} />
-        </section>
+  function recordInvestigation(seed: { kind: "user" | "ip" | "host"; value: string }) {
+    setRecentInvestigations(writeRecentInvestigation(seed));
+  }
 
-        <footer className="bottom-console">
-          <Hud
+  function goPage(next: AppPage | "observability" | "reports") {
+    const pageId: AppPage = next === "observability" || next === "reports" ? "work" : next;
+    if (pageId === "settings") {
+      if (page !== "settings") setReturnPage(page);
+      setPage("settings");
+      return;
+    }
+    setPage(pageId);
+  }
+
+  function goInvestigate(seed: { kind: "user" | "ip" | "host"; value: string }) {
+    recordInvestigation(seed);
+    setPendingSeed({ ...seed, value: seed.value });
+    setPage("investigate");
+    setPaletteOpen(false);
+    setSearch("");
+  }
+
+  if (!prefs.onboarded) {
+    return (
+      <FirstRun
+        prefs={prefs}
+        onPrefs={updatePrefs}
+        onDone={() => {
+          updatePrefs({ onboarded: true });
+          setPage("voice");
+        }}
+      />
+    );
+  }
+
+  return (
+    <>
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        query={search}
+        onQuery={setSearch}
+        devices={dashboard.snapshot?.devices || []}
+        recent={recentInvestigations}
+        onGoPage={(next) => {
+          goPage(next);
+          setPaletteOpen(false);
+          setSearch("");
+        }}
+        onInvestigate={goInvestigate}
+        onAsk={(text) => {
+          setPaletteOpen(false);
+          setSearch("");
+          setPage("voice");
+          setTextPrompt("");
+          void deliverUserMessage({ channel: "keyboard", message: text, target: { id: "jarvis", name: prefs.assistantName } });
+        }}
+      />
+      {page === "settings" ? (
+        <SettingsPage
+          prefs={prefs}
+          onPrefs={updatePrefs}
+          snapshot={dashboard.snapshot}
+          onOpenPalette={() => setPaletteOpen(true)}
+          onBack={() => setPage(returnPage === "settings" ? "voice" : returnPage)}
+        />
+      ) : (
+      <AppShell
+        page={page}
+        onPage={goPage}
+        productName={prefs.productName}
+        operatorName={prefs.operatorName}
+        railCollapsed={prefs.railCollapsed}
+        onToggleRail={() => updatePrefs({ railCollapsed: !prefs.railCollapsed })}
+        onOpenPalette={() => setPaletteOpen(true)}
+        sourceLabel={
+          dashboard.snapshot?.fixture
+            ? "Fixture lab"
+            : dashboard.snapshot?.reachable === false
+              ? "Unreachable"
+              : dashboard.snapshot
+                ? "Live"
+                : "Source"
+        }
+        sourceTone={
+          dashboard.snapshot?.fixture ? "fixture" : dashboard.snapshot?.reachable === false ? "bad" : dashboard.snapshot ? "ok" : "neutral"
+        }
+        lookbackHours={lookbackHours}
+        onLookbackHours={setLookbackHours}
+        connectionState={connectionState}
+        mood={mood}
+        mouthShape={mouthShape}
+      >
+        {page === "voice" ? (
+          <VoicePage
             connectionState={connectionState}
             mood={mood}
+            mouthShape={mouthShape}
             activity={hudActivity}
             lastHeard={lastHeard}
             speakingText={speakingText}
             feed={hudFeed}
+            transcript={transcript}
+            textPrompt={textPrompt}
+            onTextPrompt={setTextPrompt}
+            onSend={sendTextPrompt}
+            onConnect={() => void connect()}
+            onDisconnect={disconnect}
+            chatBusy={chatBusy}
+            showTypeInput={showTypeInput}
+            onToggleType={() => setShowTypeInput((value) => !value)}
+            assistantName={prefs.assistantName}
+            recentInvestigations={recentInvestigations}
+            onOpenInvestigation={goInvestigate}
           />
-          {showTypeInput ? (
-            <section className="prompt-box">
-              <input
-                value={textPrompt}
-                onChange={(event) => setTextPrompt(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") sendTextPrompt();
-                }}
-                autoFocus
-                placeholder="Type to NetJarvis... e.g. what VLANs are on sw1?"
-              />
-              <button onClick={sendTextPrompt} aria-label="Send typed prompt" title="Send typed prompt">
-                <Send size={15} />
-              </button>
-            </section>
-          ) : null}
-
-          <section className="control-strip">
-            <button
-              className={isConnected ? "simple-button active" : "simple-button"}
-              onClick={isConnected ? disconnect : connect}
-              disabled={connectionState === "connecting"}
-              aria-label={isConnected ? "Disconnect voice" : "Connect voice"}
-              title={isConnected ? "Disconnect voice" : "Connect voice"}
-            >
-              {isConnected ? <MicOff size={16} /> : <Mic size={16} />}
-            </button>
-            <button
-              className={showTypeInput ? "simple-button active" : "simple-button"}
-              onClick={() => setShowTypeInput((value) => !value)}
-              aria-label="Type to NetJarvis"
-              title="Type to NetJarvis"
-            >
-              <Keyboard size={16} />
-            </button>
-            <button
-              className={panelTab === "dashboard" && panelVisible ? "simple-button active" : "simple-button"}
-              onClick={() => {
-                setPanelVisible(true);
-                setPanelTab("dashboard");
-              }}
-              aria-label="Show operations dashboard"
-              title="Show operations dashboard"
-            >
-              <Activity size={16} />
-            </button>
-            <button
-              className={panelVisible ? "simple-button active" : "simple-button"}
-              onClick={() => setPanelVisible((value) => !value)}
-              aria-label="Toggle right panel"
-              title="Toggle right panel"
-            >
-              <PanelRight size={16} />
-            </button>
-            <button
-              className={showLog ? "simple-button active" : "simple-button"}
-              onClick={() => setShowLog((value) => !value)}
-              aria-label="Toggle live log"
-              title="Toggle live log"
-            >
-              <History size={16} />
-            </button>
-          </section>
-        </footer>
-
-        {showLog ? (
-          <section className="transcript">
-            <div className="section-title">
-              <span>Live Log</span>
-              <small>{transcript.length} events</small>
-            </div>
-            <div className="transcript-list">
-              {transcript.map((entry) => (
-                <article className={`entry entry-${entry.role}`} key={entry.id}>
-                  <div>
-                    <strong>{entry.role === "jarvis" ? "NetJarvis" : entry.role}</strong>
-                    <time>{entry.at}</time>
-                  </div>
-                  <p>{entry.text}</p>
-                </article>
-              ))}
-            </div>
-          </section>
         ) : null}
-      </section>
-
-      <ArtifactPanel
-        artifact={artifact}
-        tab={panelTab}
-        onTabChange={setPanelTab}
-        visible={panelVisible}
-        fullscreen={panelFullscreen}
-        onToggleVisible={() => setPanelVisible((value) => !value)}
-        onToggleFullscreen={() => setPanelFullscreen((value) => !value)}
-        sessionLog={transcript}
-        mood={mood}
-        taskRefreshToken={taskRefreshToken}
-        observabilityEvents={observabilityEvents}
-        connectionState={connectionState}
-        chatBusy={chatBusy}
-        onSendSquadChat={sendSquadChat}
-        onChatExpandedChange={(expanded) => {
-          squadChatExpandedRef.current = expanded;
-        }}
-      />
-
-      {panelFullscreen ? (
-        <FloatingConsole
-          connectionState={connectionState}
-          mood={mood}
-          mouthShape={mouthShape}
-          activity={hudActivity}
-          lastHeard={lastHeard}
-          speakingText={speakingText}
-          feed={hudFeed}
-          isConnected={isConnected}
-          onConnect={() => void connect()}
-          onDisconnect={disconnect}
-        />
-      ) : null}
-    </main>
+        {page === "assurance" ? (
+          <AssurancePage
+            snapshot={dashboard.snapshot}
+            loading={dashboard.loading}
+            error={dashboard.error}
+            onRefresh={dashboard.reload}
+            sessionLog={transcript}
+            onInvestigateDevice={(name) => goInvestigate({ kind: "host", value: name })}
+            assistantName={prefs.assistantName}
+            onOpenSettings={() => goPage("settings")}
+          />
+        ) : null}
+        {page === "investigate" ? (
+          <InvestigationsPage
+            lookbackHours={lookbackHours}
+            onLookbackHours={setLookbackHours}
+            pendingSeed={pendingSeed}
+            onRecord={recordInvestigation}
+          />
+        ) : null}
+        {page === "inventory" ? (
+          <InventoryPage
+            snapshot={dashboard.snapshot}
+            onInvestigate={(name) => goInvestigate({ kind: "host", value: name })}
+            onOpenSettings={() => goPage("settings")}
+          />
+        ) : null}
+        {page === "squad" ? (
+          <div className="page page-embed">
+            <TeamBoard
+              mood={mood}
+              active
+              refreshToken={taskRefreshToken}
+              sessionLog={transcript}
+              connectionState={connectionState}
+              chatBusy={chatBusy}
+              onSendSquadChat={sendSquadChat}
+              onChatExpandedChange={(expanded) => {
+                squadChatExpandedRef.current = expanded;
+              }}
+            />
+          </div>
+        ) : null}
+        {page === "work" ? (
+          <WorkPage
+            events={observabilityEvents}
+            artifact={artifact}
+            sessionLog={transcript}
+            assistantName={prefs.assistantName}
+          />
+        ) : null}
+      </AppShell>
+      )}
+    </>
   );
 }

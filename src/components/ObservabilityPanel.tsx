@@ -6,6 +6,9 @@ import { artifactNarrativeText, artifactTechnicalText } from "../lib/observabili
 import type { TranscriptEntry } from "../lib/realtime";
 import type { JarvisArtifact, SessionAuditTurn, SessionIndexEntry } from "../vite-env";
 import { CliOutputView } from "./CliOutput";
+import { MermaidView } from "./MermaidView";
+import { Markdown } from "./Markdown";
+import { EmptyState } from "./ui/EmptyState";
 
 export type ObservabilityEvent = {
   id: string;
@@ -80,6 +83,8 @@ export function ObservabilityPanel({ events, artifact, sessionLog }: Observabili
             <span>{artifact.kind}</span>
           </header>
           <h4>{artifact.title}</h4>
+          {artifact.kind === "mermaid" ? <MermaidView source={artifact.content} /> : null}
+          {artifact.kind === "markdown" ? <Markdown text={artifact.content} mentions={false} /> : null}
           <div className="observability-split">
             {hasSession ? (
               <div className="observability-technical">
@@ -119,7 +124,7 @@ export function ObservabilityPanel({ events, artifact, sessionLog }: Observabili
           </footer>
         </section>
       ) : (
-        <p className="observability-empty">No active output yet. When Jarvis runs a tool, the latest technical output and narrative summary appear here.</p>
+        <EmptyState title="No tool run yet" detail="Ask from Voice or Investigate. CLI, tables, and the narrative of the last run land here." />
       )}
 
       {recentTools.length > 0 ? (

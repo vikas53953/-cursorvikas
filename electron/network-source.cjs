@@ -14,14 +14,18 @@
 
 const catc = require("./sources/catalyst-center.cjs");
 const { assertReadOnly } = require("./core/read-only-policy.cjs");
+const { fixtureDirFromEnv, loadLab } = require("./sources/evidence/fixture.cjs");
+const { runFixtureShow, matchFixtureDevices } = require("./sources/fixture-cli.cjs");
 
-const configuredMode = (process.env.NETJARVIS_SOURCE || "auto").toLowerCase();
+function currentSourceMode() {
+  return (process.env.NETJARVIS_SOURCE || "auto").toLowerCase();
+}
 
 let resolvedMode = null; // "live" | "unreachable"
 let lastProbeAt = 0;
 
 async function resolveMode() {
-  if (configuredMode === "live") return "live";
+  if (currentSourceMode() === "live") return "live";
   const probeTtl = 5 * 60 * 1000;
   if (resolvedMode && Date.now() - lastProbeAt < probeTtl) return resolvedMode;
   try {
@@ -138,6 +142,58 @@ function unreachableSnapshot(error) {
   };
 }
 
+function fixtureDashboard() {
+  const dir = fixtureDirFromEnv();
+  if (!dir) return null;
+  const lab = loadLab(dir);
+  if (!lab.devices.length) return null;
+  const now = Date.now();
+  const net = lab.files.find((file) => file.platform === "network");
+  const events = (net?.events || []).map((event) => {
+    let epoch = now;
+    if (event.offsetMinutes != null && Number.isFinite(Number(event.offsetMinutes))) {
+      epoch = now + Number(event.offsetMinutes) * 60000;
+    }
+    return {
+      time: hhmm(new Date(epoch)),
+      severity: String(event.severity || "info"),
+      device: event.entities?.device || event.entities?.host || "",
+      text: event.summary || event.kind || "",
+      type: event.kind || "",
+    };
+  });
+  return {
+    fixture: true,
+    mode: "fixture",
+    reachable: false,
+    source: `Mock lab · ${lab.name || "fixtures"} (FIXTURE DATA)`,
+    error: "Catalyst Center is unreachable. Inventory below is the opt-in mock lab, not a live network.",
+    updatedAt: hhmm(),
+    overall: "fixture",
+    health: {
+      score: null,
+      totalDevices: lab.devices.length,
+      healthyDevices: lab.devices.length,
+      unhealthyDevices: 0,
+    },
+    issues: { active: 0, items: [] },
+    devices: lab.devices.map((device) => ({
+      id: device.name,
+      name: device.name,
+      role: device.role || "",
+      platform: device.platform || "",
+      ip: device.mgmtIp || "",
+      site: device.site || "",
+      reachability: "fixture",
+      status: "fixture",
+      healthScore: null,
+      note: device.note || "",
+    })),
+    links: [],
+    events,
+  };
+}
+
 let snapshotCache = null; // { at, data }
 
 async function getSnapshot(force = false) {
@@ -152,7 +208,7 @@ async function getSnapshot(force = false) {
       data = unreachableSnapshot(error);
     }
   } else {
-    data = unreachableSnapshot("Live network source is not reachable.");
+    data = fixtureDashboard() || unreachableSnapshot("Live network source is not reachable.");
   }
   snapshotCache = { at: Date.now(), data };
   return data;
@@ -264,6 +320,38 @@ function shortPort(port) {
   return String(port).replace("GigabitEthernet", "Gi").replace("TenGigabitEthernet", "Te").replace("FortyGigabitEthernet", "Fo");
 }
 
+function peekInventory() {
+  const devices = snapshotCache?.data?.devices;
+  if (!Array.isArray(devices)) return [];
+  return devices.map((device) => ({
+    id: device.id || device.name,
+    name: device.name,
+    mgmtIp: device.ip || device.mgmtIp || "",
+    role: device.role || "",
+    site: device.site || "",
+    platform: device.platform || "",
+    ip: device.ip || "",
+  }));
+}
+
+async function runFixtureShowCommands(deviceQuery, commands) {
+  const snapshot = await getSnapshot();
+  if (!snapshot?.fixture) {
+    return { ok: false, error: "Mock lab is not loaded." };
+  }
+  const devices = matchFixtureDevices(snapshot.devices || [], deviceQuery);
+  if (devices.length === 0) {
+    return { ok: false, fixture: true, mode: "fixture", error: "No mock-lab device matched that name." };
+  }
+  return runFixtureShow(devices, commands);
+}
+
+function resetResolveCache() {
+  resolvedMode = null;
+  lastProbeAt = 0;
+  snapshotCache = null;
+}
+
 module.exports = {
   resolveMode,
   getMode,
@@ -271,7 +359,10 @@ module.exports = {
   getInventoryRows,
   getLiveInterfaces,
   runLiveShowCommands,
+  runFixtureShowCommands,
+  peekInventory,
   getLiveTopologyMermaid,
   findLiveDevices,
+  resetResolveCache,
   catc,
 };

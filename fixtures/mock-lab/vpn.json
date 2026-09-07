@@ -1,0 +1,11 @@
+{
+  "$comment": "FIXTURE DATA - mock lab. Cisco ASA AnyConnect remote-access VPN (vpn-asa-1).",
+  "platform": "vpn",
+  "devices": ["vpn-asa-1"],
+  "events": [
+    { "offsetMinutes": -180, "product": "cisco:asa", "kind": "vpn.session", "severity": "info", "entities": { "user": "jdoe", "srcIp": "203.0.113.9", "assignedIp": "10.20.0.7", "app": "anyconnect", "action": "connected", "device": "vpn-asa-1" }, "summary": "ASA-6-722022 Group <Employees> User <jdoe> IP <203.0.113.9> TCP SVC connection established action=connected assigned 10.20.0.7", "raw": { "signature": "ASA-6-722022", "Group": "Employees", "tunnel_group": "RA-VPN", "sourcetype": "cisco:asa" } },
+    { "offsetMinutes": -180, "product": "cisco:asa", "kind": "vpn.session", "severity": "info", "entities": { "user": "jdoe", "srcIp": "203.0.113.9", "assignedIp": "10.20.0.7", "app": "anyconnect", "action": "address-assigned", "device": "vpn-asa-1" }, "summary": "ASA-6-737026 IPAA: Client assigned 10.20.0.7 from local pool RA-POOL", "raw": { "signature": "ASA-6-737026", "sourcetype": "cisco:asa" } },
+    { "offsetMinutes": -140, "product": "cisco:asa", "kind": "vpn.session", "severity": "info", "entities": { "user": "asmith", "srcIp": "192.0.2.44", "assignedIp": "10.20.0.31", "app": "anyconnect", "action": "connected", "device": "vpn-asa-1" }, "summary": "ASA-6-722022 Group <Employees> User <asmith> IP <192.0.2.44> TCP SVC connection established action=connected assigned 10.20.0.31", "raw": { "signature": "ASA-6-722022", "sourcetype": "cisco:asa" } },
+    { "offsetMinutes": -20, "product": "cisco:asa", "kind": "vpn.disconnect", "severity": "info", "entities": { "user": "jdoe", "srcIp": "203.0.113.9", "assignedIp": "10.20.0.7", "app": "anyconnect", "action": "disconnected", "device": "vpn-asa-1" }, "summary": "ASA-4-113019 Session disconnected. Username = jdoe, IP = 203.0.113.9, Duration 2h40m, Bytes xmt 812MB rcv 34MB, Reason: User Requested", "raw": { "signature": "ASA-4-113019", "bytes_out": 851443712, "bytes_in": 35651584, "duration": "2h:40m:11s", "sourcetype": "cisco:asa" } }
+  ]
+}

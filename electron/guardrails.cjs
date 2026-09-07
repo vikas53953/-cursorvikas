@@ -29,6 +29,16 @@ function validateToolCall(name, args = {}) {
     }
   }
 
+  if (name === "investigate") {
+    const seeds = ["user", "ip", "host"].filter((key) => String(args[key] || "").trim());
+    if (seeds.length !== 1) {
+      return { ok: false, error: "investigate needs exactly one seed entity: user, ip, or host." };
+    }
+    if (args.lookbackHours != null && !(Number(args.lookbackHours) > 0)) {
+      return { ok: false, error: "investigate: lookbackHours must be a positive number of hours." };
+    }
+  }
+
   if (name === "acknowledge_alert" && args.confirmed !== true) {
     return { ok: false, error: "Confirmation required before acknowledging an alert." };
   }

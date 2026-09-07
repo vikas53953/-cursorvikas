@@ -1,4 +1,4 @@
-// SNMP adapter (read-only stub for multi-source inventory/health).
+// SNMP adapter. Honest until a real client is wired.
 
 async function getSummary() {
   const host = process.env.SNMP_HOST;
@@ -10,16 +10,15 @@ async function getSummary() {
     };
   }
 
-  // Lightweight placeholder until a native SNMP client is wired in.
   return {
-    ok: true,
+    ok: false,
     configured: true,
     source: "snmp",
     host,
     community: process.env.SNMP_COMMUNITY ? "(set)" : "public",
-    note: "SNMP polling stub is active. Install a native SNMP client dependency to return live sysDescr/sysUpTime here.",
     sysDescr: null,
     sysUpTime: null,
+    error: "SNMP is configured but not implemented. No sysDescr/sysUpTime until a native client is wired.",
   };
 }
 

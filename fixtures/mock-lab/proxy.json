@@ -1,0 +1,12 @@
+{
+  "$comment": "FIXTURE DATA - mock lab. Zscaler ZIA web proxy (proxy-zs-1), NSS web feed.",
+  "platform": "proxy",
+  "devices": ["proxy-zs-1"],
+  "events": [
+    { "offsetMinutes": -175, "product": "zscaler:web", "kind": "proxy.request", "severity": "info", "entities": { "user": "jdoe", "srcIp": "10.20.0.7", "url": "https://login.microsoftonline.com/common/oauth2/authorize", "action": "allowed", "device": "proxy-zs-1" }, "summary": "GET https://login.microsoftonline.com/common/oauth2/authorize [allowed] cat=Web Mail", "raw": { "http_method": "GET", "urlcategory": "Web Mail", "reason": "Allowed", "bytes_out": 1820, "bytes_in": 44120, "sourcetype": "zscalernss-web" } },
+    { "offsetMinutes": -150, "product": "zscaler:web", "kind": "proxy.blocked", "severity": "medium", "entities": { "user": "jdoe", "srcIp": "10.20.0.7", "url": "https://pastebin.com/raw/Qx7Lk2Vt", "action": "blocked", "device": "proxy-zs-1" }, "summary": "GET https://pastebin.com/raw/Qx7Lk2Vt [blocked] cat=Anonymizer/Paste Sites", "raw": { "http_method": "GET", "urlcategory": "Anonymizer/Paste Sites", "reason": "Blocked by URL filtering policy", "sourcetype": "zscalernss-web" } },
+    { "offsetMinutes": -149, "product": "zscaler:web", "kind": "proxy.blocked", "severity": "medium", "entities": { "user": "jdoe", "srcIp": "10.20.0.7", "url": "https://pastebin.com/raw/Qx7Lk2Vt", "action": "blocked", "device": "proxy-zs-1" }, "summary": "GET https://pastebin.com/raw/Qx7Lk2Vt [blocked] cat=Anonymizer/Paste Sites (retry)", "raw": { "http_method": "GET", "urlcategory": "Anonymizer/Paste Sites", "sourcetype": "zscalernss-web" } },
+    { "offsetMinutes": -138, "product": "zscaler:web", "kind": "proxy.request", "severity": "low", "entities": { "user": "jdoe", "srcIp": "10.20.0.7", "url": "https://files.transfer.example/upload", "action": "allowed", "device": "proxy-zs-1" }, "summary": "POST https://files.transfer.example/upload [allowed] cat=File Sharing 48.2 MB uploaded", "raw": { "http_method": "POST", "urlcategory": "File Sharing", "bytes_out": 50544640, "bytes_in": 2210, "sourcetype": "zscalernss-web" } },
+    { "offsetMinutes": -130, "product": "zscaler:web", "kind": "proxy.request", "severity": "info", "entities": { "user": "asmith", "srcIp": "10.20.0.31", "url": "https://docs.example.com/", "action": "allowed", "device": "proxy-zs-1" }, "summary": "GET https://docs.example.com/ [allowed] cat=Business", "raw": { "http_method": "GET", "urlcategory": "Business", "sourcetype": "zscalernss-web" } }
+  ]
+}

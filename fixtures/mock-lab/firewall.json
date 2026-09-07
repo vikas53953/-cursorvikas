@@ -1,0 +1,12 @@
+{
+  "$comment": "FIXTURE DATA - mock lab. Palo Alto perimeter firewall (fw-pan-1) traffic log.",
+  "platform": "firewall",
+  "devices": ["fw-pan-1"],
+  "events": [
+    { "offsetMinutes": -160, "product": "pan:traffic", "kind": "fw.deny", "severity": "medium", "entities": { "srcIp": "10.20.0.7", "destIp": "198.51.100.4", "action": "deny", "app": "ms-ds-smb", "device": "fw-pan-1", "user": "jdoe" }, "summary": "deny to 198.51.100.4:445 tcp app=ms-ds-smb rule=block-smb-outbound", "raw": { "dest_port": "445", "transport": "tcp", "rule": "block-smb-outbound", "src_zone": "vpn-users", "dest_zone": "untrust", "sourcetype": "pan:traffic" } },
+    { "offsetMinutes": -159, "product": "pan:traffic", "kind": "fw.deny", "severity": "medium", "entities": { "srcIp": "10.20.0.7", "destIp": "198.51.100.4", "action": "deny", "app": "ms-ds-smb", "device": "fw-pan-1", "user": "jdoe" }, "summary": "deny to 198.51.100.4:445 tcp app=ms-ds-smb rule=block-smb-outbound", "raw": { "dest_port": "445", "transport": "tcp", "rule": "block-smb-outbound", "sourcetype": "pan:traffic" } },
+    { "offsetMinutes": -158, "product": "pan:traffic", "kind": "fw.deny", "severity": "medium", "entities": { "srcIp": "10.20.0.7", "destIp": "198.51.100.4", "action": "deny", "app": "ms-rdp", "device": "fw-pan-1", "user": "jdoe" }, "summary": "deny to 198.51.100.4:3389 tcp app=ms-rdp rule=block-rdp-outbound", "raw": { "dest_port": "3389", "transport": "tcp", "rule": "block-rdp-outbound", "sourcetype": "pan:traffic" } },
+    { "offsetMinutes": -145, "product": "pan:traffic", "kind": "fw.allow", "severity": "info", "entities": { "srcIp": "10.20.0.7", "destIp": "198.51.100.8", "action": "allow", "app": "ssl", "device": "fw-pan-1", "user": "jdoe" }, "summary": "allow to 198.51.100.8:443 tcp app=ssl rule=allow-web-out bytes_out=50.6MB", "raw": { "dest_port": "443", "transport": "tcp", "rule": "allow-web-out", "bytes_out": 53084160, "bytes_in": 18944, "sourcetype": "pan:traffic" } },
+    { "offsetMinutes": -120, "product": "pan:traffic", "kind": "fw.allow", "severity": "info", "entities": { "srcIp": "10.20.0.31", "destIp": "198.51.100.20", "action": "allow", "app": "ssl", "device": "fw-pan-1", "user": "asmith" }, "summary": "allow to 198.51.100.20:443 tcp app=ssl rule=allow-web-out", "raw": { "dest_port": "443", "transport": "tcp", "rule": "allow-web-out", "sourcetype": "pan:traffic" } }
+  ]
+}

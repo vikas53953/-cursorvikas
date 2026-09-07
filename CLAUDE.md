@@ -45,14 +45,21 @@ npm start            # Electron against an already-built dist/
 npm run build        # tsc --noEmit && vite build  → dist/
 npm run web          # node server/web.cjs → http://localhost:8080 (needs a prior build)
 npm run typecheck    # tsc --noEmit
+npm test             # node --test → test/*.test.cjs (backend unit + integration tests, no network needed)
 npm run test:behavior # scripts/behavior-cycle.cjs — smoke-tests core tools + activity board
 ```
 
-There is **no unit-test suite and no linter** configured. `test:behavior` is the only automated
-check — it exercises ~6 tools against whatever source is live/sim and asserts they return `ok`.
-`npm run build`'s `tsc --noEmit` is the main correctness gate for the frontend/TS.
+`npm test` (`node --test`) is the backend correctness gate — pure-function and injected-fake tests
+for the core engines, sources, router, guardrails and skills. `test:behavior` exercises ~6 tools
+against whatever source is live/sim and asserts they return `ok`. `npm run build`'s `tsc --noEmit`
+is the correctness gate for the frontend/TS. There is no linter.
 
 Node 20+ required. Voice needs `OPENAI_API_KEY` (Realtime access). Web search needs `EXA_API_KEY`.
+Cross-platform investigations need `SPLUNK_URL` + `SPLUNK_TOKEN` (or basic creds) for the
+VPN/proxy/firewall/endpoint/identity/cloud lenses; without them those platforms report
+"unconfigured" and only the Catalyst Center network lens contributes evidence. For development
+without Splunk, `NETJARVIS_EVIDENCE_FIXTURE=1` loads the mock lab (`fixtures/mock-lab/`) — every
+result it touches is labelled FIXTURE DATA; it is never on by default.
 Everything else (dashboard, all network tools, simulator) works with no keys.
 
 ## The single most important thing to understand: two answer paths
@@ -80,11 +87,17 @@ electron/                 Backend (Node, all .cjs, NO electron dependency except
   main.cjs                Electron entry: window, IPC handlers, background services
   preload.cjs             contextBridge → window.jarvis (IPC impl of the backend surface)
   tools.cjs               ★ Heart: JARVIS_INSTRUCTIONS persona, toolSpecs, execute(), createTools()
-  message-router.cjs      Chat-only regex intent classifier (device_fact, cli_show, etc.)
+  message-router.cjs      Chat-only regex intent classifier (device_fact, cli_show, investigate, etc.)
   action-planner.cjs      Maps classified intent → {skill, mode, tool}
   handle-user-message.cjs Chat orchestrator: classify → plan → skill → audit
   skills/                 Chat skill handlers (device-fact, network-overview, device-precheck,
-                          interface-status, cli-show, llm-loop) + index.cjs registry
+                          interface-status, cli-show, investigation, llm-loop) + index.cjs registry
+  core/
+    investigation.cjs     ★ Cross-platform investigation engine: EvidenceEvent contract, correlation,
+                          timeline / pivots / observations / gaps, markdown render (pure, no I/O)
+    spl-policy.cjs        Read-only SPL guard (blocks delete/collect/outputlookup/sendemail/script/rest/…)
+    grounding.cjs, command-former.cjs, answer-composer.cjs, query-layer.cjs, source-registry.cjs,
+    read-only-policy.cjs, scope-resolver.cjs, contracts.cjs, fact-*.cjs  (grounded-answers engine)
   answer-policy.cjs       Reply-shape rules per intent (truncate, strip preamble/next-steps)
   chat-reply.cjs          Strips robotic "next steps" sections from replies
   guardrails.cjs          Read-only CLI enforcement (only `show ...`, blocklist)
@@ -97,7 +110,13 @@ electron/                 Backend (Node, all .cjs, NO electron dependency except
                           topology, issues, events, Command Runner for show commands)
     nvd.cjs               Real NVD CVE lookup (keyless) — powers vulnerability_check
     prometheus.cjs        Thin real adapter (only queries `up` metric); off unless PROMETHEUS_URL set
-    snmp.cjs              ⚠ STUB — returns null placeholder data but reports ok:true
+    snmp.cjs              Stub — ok:false until a native client exists (even if SNMP_HOST is set)
+    fixture-cli.cjs       Labelled mock-lab `show` output when NETJARVIS_EVIDENCE_FIXTURE is on
+    evidence/             Evidence plane for `investigate` (AI-Ready SOC, Part II)
+      splunk.cjs          Real Splunk REST search client (export endpoint; bearer/basic; TLS verify on)
+      lenses.cjs          CIM-based SPL lens per platform: vpn, proxy, firewall, endpoint, identity, cloud, siem
+      index.cjs           Provider contract, Catalyst Center network-evidence provider, collectEvidence()
+      fixture.cjs         Mock-lab providers (FIXTURE DATA) — opt-in via NETJARVIS_EVIDENCE_FIXTURE only
   realtime-token.cjs      Mints OpenAI Realtime ephemeral client secret (model gpt-realtime-2)
   session-store.cjs       Per-conversation JSONL audit (data/sessions/)
   artifacts.cjs           Persists every tool artifact for download (data/artifacts/)
@@ -106,26 +125,40 @@ electron/                 Backend (Node, all .cjs, NO electron dependency except
   checks.cjs              Pre/post-check snapshot capture + diff
   tickets.cjs, problem-trends.cjs, mail.cjs, device-facts.cjs, logger.cjs, degradation.cjs, db.cjs
 
-src/                      Frontend (React 19 + Vite + TS)
+src/                      Frontend (React 19 + Vite + TS) — Cisco-class ops console
   main.tsx                Installs webBridge (browser) then renders App
-  App.tsx                 ★ Top-level orchestrator: voice connect(), chat deliverUserMessage(), state
+  App.tsx                 ★ Orchestrator: pages + voice/chat. Chrome is AppShell, not the orb stage.
+  styles/tokens.css       Navy rail / light canvas tokens (Catalyst Center + ThousandEyes language)
+  hooks/useTheme.ts, useDashboard.ts
   lib/
     realtime.ts           ★ JarvisRealtimeClient: WebRTC voice, tool-call handling, mouth-shape meter
     webBridge.ts          Browser shim: window.jarvis → HTTP /api/* (no-ops under Electron)
     transcriptGate.ts     Single write path for chat history (drops interim, dedupes)
     observability.ts, tasks.ts, artifactExport.ts, squadMentions.ts, ...
   components/
-    NetworkCore.tsx       SVG avatar/orb (status ring, packets-in-flight, waveform)
+    shell/AppShell.tsx    Navy left rail + top utility bar (search, window, compact orb)
+    VoicePage.tsx         Full orb workspace — voice/type, HUD, conversation (same tools as before)
+    AssurancePage.tsx     NOC home: health donuts, inventory, issues, events
+    InvestigationsPage.tsx Views workspace: seed + window on the hop path, then events
+    InventoryPage.tsx     Device table + L2 topology from Catalyst Center snapshot
+    PathViz.tsx           ThousandEyes-style hop path (identity→…→cloud)
+    TopologyMap.tsx       Role-layered topology of real devices/links
+    CopilotDrawer.tsx     Right-hand assistant (voice + typed ask + transcript)
+    NetworkCore.tsx       SVG avatar (lives in the assistant drawer)
     Hud.tsx               Voice status readout
-    OpsDashboard.tsx      NOC dashboard — self-polls getDashboard() every 30s
     TeamBoard.tsx         Kanban of agent tasks — polls /api/tasks every 1s
-    SquadChatPanel.tsx    Slack/Teams-style chat (921 lines) w/ @mentions, /slash, custom agents
-    ArtifactPanel.tsx     4-tab container: dashboard | team | observability | artifacts
-    ObservabilityPanel.tsx Current-artifact view (behind-the-scenes / CLI / narrative) + audit
+    SquadChatPanel.tsx    Slack/Teams-style chat w/ @mentions, /slash, custom agents
+    WorkPage.tsx          One result surface: current output + download library
+    ObservabilityPanel.tsx Current-artifact view (CLI / narrative / mermaid) + audit
     ArtifactsPanel.tsx    Download library — polls listArtifacts() every 10s
+    SettingsPage.tsx      Full Settings page (Search Settings filters rows)
 
 server/web.cjs            HTTP API for web mode (mirrors IPC), serves dist/
 scripts/behavior-cycle.cjs Smoke test
+scripts/investigate-demo.cjs `npm run demo:investigate` — investigation against the mock lab
+fixtures/mock-lab/        FIXTURE DATA: 12 mock SOC devices (devices.json) + one evidence feed per
+                          platform (vpn, proxy, firewall, endpoint, identity, cloud, siem, network).
+                          Loaded ONLY when NETJARVIS_EVIDENCE_FIXTURE is set; always labelled FIXTURE.
 data/                     Runtime state (gitignored): db, sessions, artifacts, tasks, exports, logs
 ```
 
@@ -137,8 +170,12 @@ data/                     Runtime state (gitignored): db, sessions, artifacts, t
   `main.cjs`/`preload.cjs`) so `tools.cjs` and friends run under plain Node for the web server and
   `test:behavior`. Keep it that way.
 - **Tool contract**: a tool is a `case` in `tools.cjs` `executeInner()` returning
-  `{ ok, ...data, artifact?: {title, kind, content} }`. Add the spec to `toolSpecs`, the routing to
-  `TOOL_ROUTING` in `agents.cjs`, and (if it changes state) a guard in `guardrails.cjs`.
+ `{ ok, ...data, artifact?: {title, kind, content} }`. Add the spec to `toolSpecs`, the routing to
+ `TOOL_ROUTING` in `agents.cjs`, and (if it changes state) a guard in `guardrails.cjs`.
+- **Evidence provider contract** (investigations): `{ id, platform, configured(), collect({entity,
+ window, limit}) → { status: "ok"|"empty"|"unconfigured"|"failed", events: EvidenceEvent[], query?,
+ error?, ms? } }`. Register it in `sources/evidence/index.cjs` `createEvidenceProviders`. A
+ provider that is not configured must say so — never return placeholder rows.
 - **Skill contract** (chat path only): a module `{ id, run({route, plan, deps, message, target,
   channel}) }` registered in `skills/index.cjs`. `deps` carries `execute`, `agents`,
   `chatCompletion`, `toolSpecs`, formatting helpers.
@@ -152,25 +189,21 @@ data/                     Runtime state (gitignored): db, sessions, artifacts, t
 
 ## Known gotchas (see docs/KNOWN-ISSUES.md for the full, prioritized list)
 
-- `run_show_command` is **live-only** — it returns `ok:false` in sim/offline mode. So the
-  `cli_show` and `device_precheck` chat skills hard-fail when Catalyst Center is unreachable.
-- The `device-facts.cjs` device-name parser only matches `swN` names, but the **simulator** devices
-  are `CORE-R1`/`EDGE-R1`/`DIST-SW1`/`FW-1` and live devices are sandbox hostnames — so the chat
-  fast-path device matching is mismatched to the actual inventory.
-- `sources/snmp.cjs` is a **stub that reports success** with null data (misleads multi_source_status).
+- `run_show_command` still fails honestly when CATC is down **and** the mock lab is off. With
+  `NETJARVIS_EVIDENCE_FIXTURE=1` it returns labelled FIXTURE CLI instead of a live-only error.
+- Device names resolve from inventory (`peekInventory` / scope resolver). Fallback also matches
+  hyphenated hostnames (`CORE-R1`, `vpn-asa-1`), not only `swN`.
+- `sources/snmp.cjs` is still a stub, but it reports `ok:false` (not healthy-with-null).
 - **TLS verification is globally disabled** in the Catalyst Center adapter (`rejectUnauthorized:false`)
   for the self-signed sandbox cert — a real risk if pointed at production.
-- Electron `preload.cjs` `listArtifacts` has an **arity bug** (`limit` binds to `_event`).
-- `ArtifactPanel.tsx` contains ~300 lines of **dead artifact-rendering code** (superseded by
-  `ObservabilityPanel`); mermaid topology artifacts are no longer rendered anywhere as a result.
-- The **dashboard does not react to tool activity** — it only refreshes on its 30s poll.
-- README describes 3 right-hand tabs ("Reports"); the code now has **4** (Reports split into
-  Observability + Artifacts). Treat README as aspirational where it drifts from code.
+- `ArtifactPanel.tsx` still contains dead artifact-rendering code (Work uses ObservabilityPanel).
+- Assurance reloads when a tool runs; the 30s poll is a backstop.
+- The rail is Voice / Assurance / Investigate / Inventory / Squad / **Work**. Observability and
+  Reports are not separate pages. Treat README as aspirational where it drifts from code.
 
 ## Rolling back
 
 `ROLLBACK.md` has git tags/SHAs for known-good states. Notably
 `rollback-pre-enterprise-layers` (`9d00b7a`) predates the classifier/planner/skills layer, and
 voice was reset to direct-Realtime behavior on 2026-07-04.
-</content>
-</invoke>
+

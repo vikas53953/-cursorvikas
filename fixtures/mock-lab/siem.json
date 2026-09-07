@@ -1,0 +1,10 @@
+{
+  "$comment": "FIXTURE DATA - mock lab. Splunk Enterprise Security notable events (index=notable) on splunk-es.",
+  "platform": "siem",
+  "devices": ["splunk-es"],
+  "events": [
+    { "offsetMinutes": -181, "product": "splunk:es", "kind": "siem.notable", "severity": "high", "entities": { "user": "jdoe", "srcIp": "203.0.113.9", "device": "splunk-es" }, "summary": "Access - Excessive Failed Logins Followed by Success - Rule urgency=high", "raw": { "search_name": "Access - Excessive Failed Logins Followed by Success - Rule", "urgency": "high", "status_label": "New", "security_domain": "access", "sourcetype": "stash" } },
+    { "offsetMinutes": -152, "product": "splunk:es", "kind": "siem.notable", "severity": "critical", "entities": { "user": "jdoe", "host": "LT-4421", "device": "splunk-es" }, "summary": "Endpoint - High Or Critical Priority EDR Detection - Rule urgency=critical", "raw": { "search_name": "Endpoint - High Or Critical Priority EDR Detection - Rule", "urgency": "critical", "status_label": "In Progress", "owner": "soc-l2", "security_domain": "endpoint", "sourcetype": "stash" } },
+    { "offsetMinutes": -115, "product": "splunk:es", "kind": "siem.notable", "severity": "high", "entities": { "user": "jdoe", "srcIp": "203.0.113.9", "app": "iam.amazonaws.com", "device": "splunk-es" }, "summary": "Cloud - AWS IAM Privilege Escalation (AttachUserPolicy AdministratorAccess) - Rule urgency=high", "raw": { "search_name": "Cloud - AWS IAM Privilege Escalation - Rule", "urgency": "high", "status_label": "New", "security_domain": "threat", "sourcetype": "stash" } }
+  ]
+}
