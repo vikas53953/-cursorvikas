@@ -25,7 +25,7 @@ const PAGES: Array<{ id: AppPage; label: string; hint: string; icon: typeof Sear
   { id: "squad", label: "Squad", hint: "Team board", icon: Users },
   { id: "observability", label: "Observability", hint: "Last tool run", icon: Terminal },
   { id: "reports", label: "Reports", hint: "Saved artifacts", icon: FileText },
-  { id: "settings", label: "Settings", hint: "Identity and appearance", icon: Settings },
+  { id: "settings", label: "Settings", hint: "General, profile, appearance, network", icon: Settings },
 ];
 
 export function CommandPalette({

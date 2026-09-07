@@ -36,6 +36,7 @@ export default function App() {
   const { prefs, update: updatePrefs } = usePrefs();
   const dashboard = useDashboard();
   const [page, setPage] = useState<AppPage>("voice");
+  const [returnPage, setReturnPage] = useState<AppPage>("voice");
   const [search, setSearch] = useState("");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [recentInvestigations, setRecentInvestigations] = useState<RecentInvestigation[]>(readRecentInvestigations);
@@ -280,6 +281,15 @@ export default function App() {
     setRecentInvestigations(writeRecentInvestigation(seed));
   }
 
+  function goPage(next: AppPage) {
+    if (next === "settings") {
+      if (page !== "settings") setReturnPage(page);
+      setPage("settings");
+      return;
+    }
+    setPage(next);
+  }
+
   function goInvestigate(seed: { kind: "user" | "ip" | "host"; value: string }) {
     recordInvestigation(seed);
     setPendingSeed({ ...seed, value: seed.value });
@@ -311,7 +321,7 @@ export default function App() {
         devices={dashboard.snapshot?.devices || []}
         recent={recentInvestigations}
         onGoPage={(next) => {
-          setPage(next);
+          goPage(next);
           setPaletteOpen(false);
           setSearch("");
         }}
@@ -324,9 +334,18 @@ export default function App() {
           void deliverUserMessage({ channel: "keyboard", message: text, target: { id: "jarvis", name: prefs.assistantName } });
         }}
       />
+      {page === "settings" ? (
+        <SettingsPage
+          prefs={prefs}
+          onPrefs={updatePrefs}
+          snapshot={dashboard.snapshot}
+          onOpenPalette={() => setPaletteOpen(true)}
+          onBack={() => setPage(returnPage === "settings" ? "voice" : returnPage)}
+        />
+      ) : (
       <AppShell
         page={page}
-        onPage={setPage}
+        onPage={goPage}
         productName={prefs.productName}
         operatorName={prefs.operatorName}
         railCollapsed={prefs.railCollapsed}
@@ -382,7 +401,7 @@ export default function App() {
             sessionLog={transcript}
             onInvestigateDevice={(name) => goInvestigate({ kind: "host", value: name })}
             assistantName={prefs.assistantName}
-            onOpenSettings={() => setPage("settings")}
+            onOpenSettings={() => goPage("settings")}
           />
         ) : null}
         {page === "investigate" ? (
@@ -397,7 +416,7 @@ export default function App() {
           <InventoryPage
             snapshot={dashboard.snapshot}
             onInvestigate={(name) => goInvestigate({ kind: "host", value: name })}
-            onOpenSettings={() => setPage("settings")}
+            onOpenSettings={() => goPage("settings")}
           />
         ) : null}
         {page === "squad" ? (
@@ -438,10 +457,8 @@ export default function App() {
             <ArtifactsPanel assistantName={prefs.assistantName} />
           </div>
         ) : null}
-        {page === "settings" ? (
-          <SettingsPage prefs={prefs} onPrefs={updatePrefs} snapshot={dashboard.snapshot} onOpenPalette={() => setPaletteOpen(true)} />
-        ) : null}
       </AppShell>
+      )}
     </>
   );
 }

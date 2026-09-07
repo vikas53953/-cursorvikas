@@ -52,7 +52,9 @@ a Kiro-style gallery (Auto / Light / Dark, palette intensity, named themes)
 so rail and top bar share one chrome. Active nav is a filled row — no inset
 accent bar. Operator can follow the console name. The rail is collapsible
 from the collapse control at the top of the rail. Search is a visible row
-under the brand. Settings is only the gear on the signed-in operator row.
+under the brand. Settings is only the gear on the signed-in operator row;
+the gear opens a full Settings page (Back, Search Settings, category list,
+row controls) instead of a dump inside the ops rail.
 A command palette (opened from Search, Search Settings, or Settings → Jump)
 goes to a page, device, user, or IP — it is not labelled with a shortcut.
 First session asks for a name and palette, then lands on Voice. Density is
