@@ -67,7 +67,9 @@ export function Hud({
             {primaryLine}
           </p>
         ) : (
-          <p className="hud-primary-text hud-primary-muted">Press the mic to start voice.</p>
+          <p className="hud-primary-text hud-primary-muted">
+            {offline ? "Voice is off." : mood === "listening" ? "Listening." : "Connected."}
+          </p>
         )}
       </header>
 

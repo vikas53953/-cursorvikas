@@ -37,14 +37,13 @@ From **SOC consoles (SecureX / XDR-class)**
 
 | Rail item | Page | Data |
 |---|---|---|
-| Voice | Full orb + conversation | Realtime voice + typed ask (same tools as before) |
-| Assurance | NOC home | `getDashboard()` |
-| Investigate | Path + timeline | `executeTool("investigate")` |
+| Voice | Full orb; conversation hides while connected | Realtime voice + typed ask |
+| Assurance | NOC home | `getDashboard()` — refreshes when a tool runs, and every 30s |
+| Investigate | Views: seed + window on the path, then events | `executeTool("investigate")` |
 | Inventory | Device table + L2 topology | dashboard devices + links |
 | Squad | Kanban + roster + squad chat | existing TeamBoard |
-| Observability | Current tool output + audit | existing ObservabilityPanel |
-| Reports | Artifact library | existing ArtifactsPanel |
-| Settings (rail footer) | Identity + theme + source | local prefs; source status once |
+| Work | Current tool output + download library | ObservabilityPanel + ArtifactsPanel |
+| Settings (gear on the signed-in row) | Full page: General, Profile, Appearance, Network, Jump | local prefs; source status |
 
 The visible product name defaults to **Vigil**. **NetJarvis** is the assistant
 name and lives under Settings, not as a cheap lockup on the rail. Appearance is
@@ -57,15 +56,20 @@ the gear opens a full Settings page (Back, Search Settings, category list,
 row controls) instead of a dump inside the ops rail.
 A command palette (opened from Search, Search Settings, or Settings → Jump)
 goes to a page, device, user, or IP — it is not labelled with a shortcut.
-First session asks for a name and palette, then lands on Voice. Density is
-Comfortable or Compact. The top bar holds one status strip: source, window,
-operator. Voice shows last investigations. Source Unreachable / Live / Fixture is shown on Assurance,
-Inventory, and Settings — not duplicated in the rail footer.
+Search Settings filters real setting rows (Cursor-style), then Enter jumps to
+the matching row. First session asks for a name and palette, then lands on Voice.
+Density is Comfortable or Compact (compact is a 12-hour seat: tighter tables,
+rail, and chrome). Rail collapse animates 150ms without snapping the canvas.
+The top bar holds one status strip: source, window, operator. Voice connected is
+a quiet stage (conversation column closed). Source Unreachable / Live / Fixture
+is shown on Assurance, Inventory, and Settings — not duplicated in the rail footer.
 
 When Catalyst Center is down and `NETJARVIS_SOURCE` is `auto` (default) and
-`NETJARVIS_EVIDENCE_FIXTURE` is set, Assurance and Inventory overlay the
-labelled mock lab (no invented health scores or topology links). Forced
-`NETJARVIS_SOURCE=live` stays empty if CATC is unreachable.
+`NETJARVIS_EVIDENCE_FIXTURE` is set, Assurance, Inventory, Investigate, and
+`run_show_command` overlay the labelled mock lab (CLI banners say FIXTURE; no
+invented health scores or topology links). Forced `NETJARVIS_SOURCE=live` stays
+empty if CATC is unreachable. Device names resolve from the live/fixture inventory
+(not only `swN`). SNMP reports `ok:false` until a real client exists.
 
 **Voice is a first-class workspace**, not a drawer. The original orb
 (`NetworkCore`) fills the Assistant → Voice page: talk or type, tools run,
@@ -78,7 +82,8 @@ unchanged.
 - No fabricated devices, events, or health.
 - Unreachable Catalyst Center renders empty + badge, not fake scores.
 - Mock-lab investigations show a FIXTURE banner.
-- `run_show_command` / live-only tools still fail honestly offline.
+- `run_show_command` in fixture mode returns labelled mock CLI. Live-only tools
+  still fail honestly when CATC is down and the mock lab is off.
 
 ## Out of scope
 

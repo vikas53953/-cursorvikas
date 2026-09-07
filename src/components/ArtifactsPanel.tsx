@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { EmptyState } from "./ui/EmptyState";
 import type { ArtifactRecord } from "../vite-env";
 
 const PAGE = 30;
@@ -36,7 +37,7 @@ export function ArtifactsPanel({ assistantName = "NetJarvis" }: { assistantName?
       <header className="artifacts-library-header">
         <div>
           <h3>Artifact library</h3>
-          <p>Download any saved report, table, CLI output, or diagram. Live voice output still lands on Reports first.</p>
+          <p>Download any saved report, table, CLI output, or diagram. Live output lands on Work first.</p>
         </div>
         <input
           className="artifacts-search"
@@ -50,13 +51,14 @@ export function ArtifactsPanel({ assistantName = "NetJarvis" }: { assistantName?
       </header>
 
       {filtered.length === 0 ? (
-        <div className="empty-artifact">
-          <p>
-            {items.length === 0
-              ? `No artifacts saved yet. Ask ${assistantName} for a report from Voice — downloads land here.`
-              : "No artifacts match your search."}
-          </p>
-        </div>
+        <EmptyState
+          title={items.length === 0 ? "No artifacts yet" : "No match"}
+          detail={
+            items.length === 0
+              ? `Ask ${assistantName} from Voice or Investigate. Downloads land here.`
+              : "No artifacts match this filter."
+          }
+        />
       ) : (
         <>
           <p className="artifacts-meta">

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { TopologyMap } from "./TopologyMap";
+import { EmptyState } from "./ui/EmptyState";
 import { StatusPill, toneFromHealth, toneFromStatus } from "./ui/StatusPill";
 import type { DashboardSnapshot } from "../vite-env";
 
@@ -32,6 +33,20 @@ export function InventoryPage({ snapshot, onInvestigate, onOpenSettings }: Inven
       `${device.name} ${device.role} ${device.ip} ${device.site} ${device.platform}`.toLowerCase().includes(q),
     );
   }, [devices, query]);
+
+  if (!snapshot) {
+    return (
+      <div className="page inventory-page">
+        <header className="page-toolbar">
+          <div>
+            <h1>Inventory</h1>
+            <p className="page-sub">Waiting on the network source.</p>
+          </div>
+        </header>
+        <EmptyState title="Contacting the network" detail="Device table and topology stay empty until a snapshot arrives." />
+      </div>
+    );
+  }
 
   return (
     <div className="page inventory-page">
@@ -96,13 +111,18 @@ export function InventoryPage({ snapshot, onInvestigate, onOpenSettings }: Inven
           </span>
         </header>
         {filtered.length === 0 ? (
-          <p className="ui-empty">
-            {devices.length === 0
-              ? unreachable
-                ? "No devices — Catalyst Center is unreachable, and the mock lab is off."
-                : "No devices in the current snapshot."
-              : "No devices match."}
-          </p>
+          <EmptyState
+            tone={devices.length === 0 && unreachable ? "warn" : "idle"}
+            title={devices.length === 0 ? "No devices" : "No match"}
+            detail={
+              devices.length === 0
+                ? unreachable
+                  ? "Catalyst Center is unreachable, and the mock lab is off. Nothing is invented."
+                  : "No devices in the current snapshot."
+                : "No devices match this filter."
+            }
+            action={devices.length === 0 && unreachable && onOpenSettings ? { label: "Open Settings", onClick: onOpenSettings } : undefined}
+          />
         ) : (
           <table className="data-table">
             <thead>
@@ -119,7 +139,7 @@ export function InventoryPage({ snapshot, onInvestigate, onOpenSettings }: Inven
             </thead>
             <tbody>
               {filtered.map((device) => (
-                <tr key={device.id || device.name}>
+                <tr key={device.id || device.name} tabIndex={0}>
                   <td>
                     <button type="button" className="linkish" onClick={() => onInvestigate?.(device.name)}>
                       {device.name}
@@ -147,11 +167,14 @@ export function InventoryPage({ snapshot, onInvestigate, onOpenSettings }: Inven
           <span>{links.length}</span>
         </header>
         {links.length === 0 ? (
-          <p className="ui-empty">
-            {fixture
-              ? "No invented links. Enable a live Catalyst Center source for fabric topology."
-              : "No link records in this snapshot."}
-          </p>
+          <EmptyState
+            title="No links"
+            detail={
+              fixture
+                ? "No invented links. Enable a live Catalyst Center source for fabric topology."
+                : "No link records in this snapshot."
+            }
+          />
         ) : (
           <table className="data-table">
             <thead>
@@ -165,7 +188,7 @@ export function InventoryPage({ snapshot, onInvestigate, onOpenSettings }: Inven
             </thead>
             <tbody>
               {links.map((link, index) => (
-                <tr key={`${link.source}-${link.target}-${index}`}>
+                <tr key={`${link.source}-${link.target}-${index}`} tabIndex={0}>
                   <td>{link.source}</td>
                   <td className="mono">{shortPort(link.sourcePort)}</td>
                   <td>{link.target}</td>

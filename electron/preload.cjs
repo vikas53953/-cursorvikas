@@ -11,7 +11,7 @@ contextBridge.exposeInMainWorld("jarvis", {
   listCustomAgents: () => ipcRenderer.invoke("agents:custom:list"),
   createCustomAgent: (payload) => ipcRenderer.invoke("agents:custom:create", payload),
   deleteCustomAgent: (id) => ipcRenderer.invoke("agents:custom:delete", id),
-  listArtifacts: (_event, limit) => ipcRenderer.invoke("artifacts:list", limit),
+  listArtifacts: (limit) => ipcRenderer.invoke("artifacts:list", limit),
   getProactiveEvents: () => ipcRenderer.invoke("proactive:pending"),
   markProactiveSpoken: (id) => ipcRenderer.invoke("proactive:spoken", id),
   listSessions: (limit) => ipcRenderer.invoke("sessions:list", limit),

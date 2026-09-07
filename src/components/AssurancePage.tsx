@@ -1,4 +1,5 @@
 import { RefreshCw } from "lucide-react";
+import { EmptyState } from "./ui/EmptyState";
 import { HealthDonut } from "./ui/HealthDonut";
 import { StatusPill, toneFromHealth, toneFromStatus } from "./ui/StatusPill";
 import type { DashboardEvent, DashboardSnapshot } from "../vite-env";
@@ -42,9 +43,19 @@ export function AssurancePage({
 }: AssurancePageProps) {
   if (!snapshot) {
     return (
-      <div className="page-loading">
-        <div className="progress-pulse" />
-        <p>{error ? `Dashboard error: ${error}` : "Contacting Catalyst Center…"}</p>
+      <div className="page assurance-page">
+        <header className="page-toolbar">
+          <div>
+            <h1>Assurance</h1>
+            <p className="page-sub">Waiting on the network source.</p>
+          </div>
+        </header>
+        <EmptyState
+          tone={error ? "bad" : "idle"}
+          title={error ? "Dashboard error" : "Contacting the network"}
+          detail={error || "Catalyst Center first. If it is down, enable the mock lab in Settings — fixture data stays labelled."}
+          action={onOpenSettings ? { label: "Open Settings", onClick: onOpenSettings } : undefined}
+        />
       </div>
     );
   }
@@ -68,7 +79,8 @@ export function AssurancePage({
           <h1>Assurance</h1>
           <p className="page-sub">
             {snapshot.source || "Network source"}
-            {snapshot.updatedAt ? ` · updated ${snapshot.updatedAt}` : ""} · refreshes every 30 seconds
+            {snapshot.updatedAt ? ` · updated ${snapshot.updatedAt}` : ""}
+            {loading ? " · updating" : " · updates when a tool runs"}
           </p>
         </div>
         <div className="page-toolbar-actions">
@@ -143,11 +155,16 @@ export function AssurancePage({
             <span>{devices.length} devices</span>
           </header>
           {devices.length === 0 ? (
-            <p className="ui-empty">
-              {unreachable
-                ? "No devices — Catalyst Center is unreachable, and the mock lab is off."
-                : "No devices in the current snapshot."}
-            </p>
+            <EmptyState
+              tone={unreachable ? "warn" : "idle"}
+              title={unreachable ? "No inventory" : "Empty snapshot"}
+              detail={
+                unreachable
+                  ? "Catalyst Center is unreachable, and the mock lab is off. Nothing is invented."
+                  : "No devices in the current snapshot."
+              }
+              action={unreachable && onOpenSettings ? { label: "Open Settings", onClick: onOpenSettings } : undefined}
+            />
           ) : (
             <table className="data-table">
               <thead>
@@ -161,7 +178,7 @@ export function AssurancePage({
               </thead>
               <tbody>
                 {devices.map((device) => (
-                  <tr key={device.id || device.name}>
+                  <tr key={device.id || device.name} tabIndex={0}>
                     <td>
                       <button type="button" className="linkish" onClick={() => onInvestigateDevice?.(device.name)}>
                         {device.name}
@@ -191,9 +208,10 @@ export function AssurancePage({
             <span>{issues.length}</span>
           </header>
           {issues.length === 0 ? (
-            <p className="ui-empty">
-              {fixture ? "No open issues in the mock lab." : "No active issues from Catalyst Center."}
-            </p>
+            <EmptyState
+              title="No open issues"
+              detail={fixture ? "The mock lab has no active issues." : "Catalyst Center reports none."}
+            />
           ) : (
             <table className="data-table">
               <thead>
@@ -205,7 +223,7 @@ export function AssurancePage({
               </thead>
               <tbody>
                 {issues.map((issue, index) => (
-                  <tr key={issue.issueId || issue.id || index}>
+                  <tr key={issue.issueId || issue.id || index} tabIndex={0}>
                     <td>
                       <StatusPill tone={toneFromStatus(issue.priority)} label={issue.priority || "issue"} />
                     </td>
@@ -226,9 +244,10 @@ export function AssurancePage({
             <span>{events.length}</span>
           </header>
           {events.length === 0 ? (
-            <p className="ui-empty">
-              {fixture ? "No mock-lab network events in this window." : "No recent Catalyst Center events."}
-            </p>
+            <EmptyState
+              title="No recent events"
+              detail={fixture ? "No mock-lab network events in this window." : "No recent Catalyst Center events."}
+            />
           ) : (
             <table className="data-table">
               <thead>
@@ -240,7 +259,7 @@ export function AssurancePage({
               </thead>
               <tbody>
                 {events.slice(0, 12).map((event, index) => (
-                  <tr key={index}>
+                  <tr key={index} tabIndex={0}>
                     <td className="mono">{event.time || event.when || "—"}</td>
                     <td>
                       <StatusPill tone={eventTone(event)} label={String(event.severity || event.type || "info")} />
@@ -259,7 +278,7 @@ export function AssurancePage({
             <span>{sessionLog.length}</span>
           </header>
           {sessionLog.length === 0 ? (
-            <p className="ui-empty">No assistant turns yet.</p>
+            <EmptyState title="No assistant turns" detail={`Ask ${assistantName} from Voice. This log is the same session, not a second chat.`} />
           ) : (
             <ul className="session-log">
               {sessionLog.slice(0, 12).map((entry) => (

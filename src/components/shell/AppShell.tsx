@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import {
-  FileText,
   Layers3,
   LayoutDashboard,
   Mic,
@@ -9,14 +8,14 @@ import {
   Search,
   Settings,
   Shield,
-  Terminal,
+  SquareStack,
   Users,
 } from "lucide-react";
 import { NetworkCore } from "../NetworkCore";
 import { BrandMark } from "./BrandMark";
 import type { JarvisConnectionState, JarvisMood, MouthShape } from "../../lib/realtime";
 
-export type AppPage = "voice" | "assurance" | "investigate" | "inventory" | "squad" | "observability" | "reports" | "settings";
+export type AppPage = "voice" | "assurance" | "investigate" | "inventory" | "squad" | "work" | "settings";
 
 type NavItem = { id: AppPage; label: string; icon: typeof LayoutDashboard };
 type NavGroup = { id: string; label: string; items: NavItem[] };
@@ -41,8 +40,7 @@ const NAV: NavGroup[] = [
     label: "Workspace",
     items: [
       { id: "squad", label: "Squad", icon: Users },
-      { id: "observability", label: "Observability", icon: Terminal },
-      { id: "reports", label: "Reports", icon: FileText },
+      { id: "work", label: "Work", icon: SquareStack },
     ],
   },
 ];
@@ -53,8 +51,7 @@ const PAGE_CRUMB: Record<AppPage, { section: string; title: string }> = {
   investigate: { section: "Monitor", title: "Investigate" },
   inventory: { section: "Monitor", title: "Inventory" },
   squad: { section: "Workspace", title: "Squad" },
-  observability: { section: "Workspace", title: "Observability" },
-  reports: { section: "Workspace", title: "Reports" },
+  work: { section: "Workspace", title: "Work" },
   settings: { section: "Console", title: "Settings" },
 };
 

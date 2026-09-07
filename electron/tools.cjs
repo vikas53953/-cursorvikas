@@ -37,6 +37,7 @@ const { listSkills } = require("./skills/index.cjs");
 const { routerInstructionsAppendix } = require("./message-router.cjs");
 const { validateToolCall } = require("./guardrails.cjs");
 const { createHandleUserMessage } = require("./handle-user-message.cjs");
+const { extractDevicesFromText } = require("./device-facts.cjs");
 const logger = require("./logger.cjs");
 
 const exportsDir = path.join(process.cwd(), "data", "exports");
@@ -515,17 +516,13 @@ const PRECHECK_COMMANDS = [
 ];
 
 function extractDeviceFromText(text) {
-  const lower = String(text || "").toLowerCase();
-  const onSw = lower.match(/\b(?:on|for|to)\s+(sw[1-9]\w*)\b/);
-  if (onSw) return onSw[1];
-  const bareSw = lower.match(/\b(sw[1-9]\w*)\b/);
-  if (bareSw) return bareSw[1];
-  const switchNum = lower.match(/\bswitch\s+(\d+)\b/);
-  if (switchNum) return `sw${switchNum[1]}`;
-  return null;
+  const inventory = typeof source.peekInventory === "function" ? source.peekInventory() : [];
+  return extractDevicesFromText(text, inventory)[0] || null;
 }
 
 function extractDeviceFromPrecheckLabel(label) {
+  const fromInventory = extractDeviceFromText(label);
+  if (fromInventory) return fromInventory;
   const text = String(label || "").toLowerCase();
   const swMatch = text.match(/(?:^|[-_])(sw\d+)\b/);
   if (swMatch) return swMatch[1];
@@ -899,6 +896,31 @@ function createTools({ readDb, updateDb }) {
   // -------------------------------------------------------------------------
 
   async function deviceHealth(args) {
+    const snapshot = await source.getSnapshot();
+    if (snapshot?.fixture) {
+      const query = String(args.scope || "").trim().toLowerCase();
+      let rows = snapshot.devices || [];
+      if (query && query !== "all") rows = rows.filter((device) => device.name.toLowerCase().includes(query));
+      const table = rows.map((device) => ({
+        device: device.name,
+        ip: device.ip,
+        role: device.role,
+        status: "fixture",
+        healthScore: "",
+        reachability: "fixture",
+        cpu: "",
+        memory: "",
+        uptime: device.uptime || "",
+        software: device.software || "",
+      }));
+      return {
+        ok: true,
+        mode: "fixture",
+        fixture: true,
+        devices: table,
+        artifact: { title: "FIXTURE · Device Health", kind: "table", content: JSON.stringify(table) },
+      };
+    }
     const { mode } = await source.getMode();
     if (mode !== "live") {
       return { ok: false, mode, error: "Network source is unreachable." };
@@ -948,22 +970,33 @@ function createTools({ readDb, updateDb }) {
   }
 
   async function runShowCommand(args) {
-    const { mode } = await source.getMode();
+    const snapshot = await source.getSnapshot();
     const commands = (Array.isArray(args.commands) ? args.commands : []).map(String).filter(Boolean);
     if (commands.length === 0) {
       return { ok: false, error: "Provide at least one read-only 'show' command." };
     }
-    // The tool spec documents `device: "all"` (or omitted) as "every device",
-    // but scope-resolver has no "all" keyword — resolving the text "on all"
-    // would match zero devices. Route it through queryLayer.runAll so it still
-    // respects the same hardCap / interactiveCap / concurrency safety limits.
+    if (snapshot?.fixture) {
+      const result = await source.runFixtureShowCommands(args.device, commands);
+      if (!result.ok) return result;
+      const device = String(args.device || "device");
+      const title =
+        commands.length === 1 ? `${device} · ${commands[0]}` : commands.length <= 3 ? `${device} · ${commands.join(" / ")}` : `Pre-check: ${device}`;
+      return {
+        ok: true,
+        mode: "fixture",
+        fixture: true,
+        scope: result.scope,
+        outputs: trimOutputs(result.outputs),
+        artifact: { title: `FIXTURE · ${title}`, kind: "code", content: formatCliOutputs(result.outputs) },
+      };
+    }
+    const { mode } = await source.getMode();
     const deviceArg = String(args.device || "").trim();
     const isAllDevices = !deviceArg || /^all(\s+devices)?$/i.test(deviceArg);
     const result = isAllDevices
       ? await queryLayer.runAll(commands)
       : await queryLayer.run(`on ${deviceArg}`, commands);
     if (!result.ok) {
-      // Distinguish an unreachable source from a name that simply didn't match.
       if (mode !== "live") {
         return { ok: false, mode, error: "run_show_command needs the live Catalyst Center source, which is not reachable right now." };
       }
@@ -1029,6 +1062,23 @@ function createTools({ readDb, updateDb }) {
   }
 
   async function topologyShow() {
+    const snapshot = await source.getSnapshot();
+    if (snapshot?.fixture) {
+      const names = (snapshot.devices || []).map((device) => device.name);
+      return {
+        ok: true,
+        mode: "fixture",
+        fixture: true,
+        nodes: names,
+        linkCount: 0,
+        links: [],
+        artifact: {
+          title: "FIXTURE · Inventory (no topology links)",
+          kind: "markdown",
+          content: ["# Mock lab", "", "Topology links stay empty until a live source returns them.", "", ...names.map((name) => `- ${name}`)].join("\n"),
+        },
+      };
+    }
     const { mode } = await source.getMode();
     if (mode !== "live") {
       return { ok: false, mode, error: "Network source is unreachable." };

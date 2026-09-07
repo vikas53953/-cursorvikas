@@ -1,14 +1,14 @@
-import { useRef, useState } from "react";
-import { ArtifactsPanel } from "./components/ArtifactsPanel";
+import { useEffect, useRef, useState } from "react";
 import { AssurancePage } from "./components/AssurancePage";
 import { CommandPalette } from "./components/CommandPalette";
 import { FirstRun } from "./components/FirstRun";
 import { InvestigationsPage } from "./components/InvestigationsPage";
 import { InventoryPage } from "./components/InventoryPage";
-import { ObservabilityPanel, type ObservabilityEvent } from "./components/ObservabilityPanel";
+import { type ObservabilityEvent } from "./components/ObservabilityPanel";
 import { SettingsPage } from "./components/SettingsPage";
 import { TeamBoard } from "./components/TeamBoard";
 import { VoicePage } from "./components/VoicePage";
+import { WorkPage } from "./components/WorkPage";
 import { AppShell, type AppPage } from "./components/shell/AppShell";
 import { useDashboard } from "./hooks/useDashboard";
 import { usePrefs } from "./hooks/usePrefs";
@@ -62,6 +62,30 @@ export default function App() {
   const clientRef = useRef<JarvisRealtimeClient | null>(null);
   const squadChatExpandedRef = useRef(false);
 
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      const key = event.key.toLowerCase();
+      if ((event.metaKey || event.ctrlKey) && key === "k") {
+        event.preventDefault();
+        setPaletteOpen((open) => !open);
+        return;
+      }
+      if (event.key === "Escape" && paletteOpen) {
+        setPaletteOpen(false);
+        return;
+      }
+      const target = event.target as HTMLElement | null;
+      const typing = Boolean(target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable));
+      if (typing) return;
+      if (event.key === "/" && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        event.preventDefault();
+        setPaletteOpen(true);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [paletteOpen]);
+
   async function connect() {
     if (connectionState === "connecting") return;
     if (connectionState === "connected" && clientRef.current?.isActive()) return;
@@ -99,7 +123,7 @@ export default function App() {
             status: "done",
           }),
         );
-        if (!squadChatExpandedRef.current && page !== "voice") setPage("observability");
+        if (!squadChatExpandedRef.current && page !== "voice") setPage("work");
       },
       onStatus: (message) => {
         setTranscript((items) => [newEntry("system", message), ...items].slice(0, 80));
@@ -138,6 +162,7 @@ export default function App() {
           );
           if (activity.kind === "tool_start" || activity.kind === "tool_done" || activity.kind === "tool_error") {
             setTaskRefreshToken((value) => value + 1);
+            void dashboard.reload(false);
           }
         }
       },
@@ -263,6 +288,7 @@ export default function App() {
         }),
       );
       setTaskRefreshToken((value) => value + 1);
+      void dashboard.reload(false);
     } catch (error) {
       const err = error instanceof Error ? error.message : String(error);
       setTranscript((items) => commitTranscript(items, newEntry("system", err), "system"));
@@ -281,13 +307,14 @@ export default function App() {
     setRecentInvestigations(writeRecentInvestigation(seed));
   }
 
-  function goPage(next: AppPage) {
-    if (next === "settings") {
+  function goPage(next: AppPage | "observability" | "reports") {
+    const pageId: AppPage = next === "observability" || next === "reports" ? "work" : next;
+    if (pageId === "settings") {
       if (page !== "settings") setReturnPage(page);
       setPage("settings");
       return;
     }
-    setPage(next);
+    setPage(pageId);
   }
 
   function goInvestigate(seed: { kind: "user" | "ip" | "host"; value: string }) {
@@ -435,27 +462,13 @@ export default function App() {
             />
           </div>
         ) : null}
-        {page === "observability" ? (
-          <div className="page">
-            <header className="page-toolbar">
-              <div>
-                <h1>Observability</h1>
-                <p className="page-sub">Technical, CLI, and narrative from the last tool run</p>
-              </div>
-            </header>
-            <ObservabilityPanel events={observabilityEvents} artifact={artifact} sessionLog={transcript} />
-          </div>
-        ) : null}
-        {page === "reports" ? (
-          <div className="page">
-            <header className="page-toolbar">
-              <div>
-                <h1>Reports</h1>
-                <p className="page-sub">Saved CLI, tables, and investigation artifacts</p>
-              </div>
-            </header>
-            <ArtifactsPanel assistantName={prefs.assistantName} />
-          </div>
+        {page === "work" ? (
+          <WorkPage
+            events={observabilityEvents}
+            artifact={artifact}
+            sessionLog={transcript}
+            assistantName={prefs.assistantName}
+          />
         ) : null}
       </AppShell>
       )}

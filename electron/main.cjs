@@ -24,15 +24,21 @@ function asObject(value) {
 
 async function createWindow() {
   await db.ensureData();
+  const isMac = process.platform === "darwin";
+  const isWin = process.platform === "win32";
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
     minWidth: 520,
     minHeight: 560,
-    title: "NetJarvis",
-    frame: false,
-    transparent: true,
-    backgroundColor: "#00000000",
+    title: "Vigil",
+    show: false,
+    autoHideMenuBar: true,
+    frame: true,
+    titleBarStyle: isMac ? "hiddenInset" : isWin ? "hidden" : "default",
+    trafficLightPosition: isMac ? { x: 14, y: 16 } : undefined,
+    titleBarOverlay: isWin ? { color: "#00000000", symbolColor: "#4b5563", height: 36 } : undefined,
+    backgroundColor: "#eef2f6",
     icon: nativeImage.createEmpty(),
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
@@ -41,6 +47,7 @@ async function createWindow() {
     },
   });
   mainWindow = win;
+  win.once("ready-to-show", () => win.show());
 
   win.webContents.session.setPermissionRequestHandler((_webContents, permission, callback) => {
     callback(permission === "media");

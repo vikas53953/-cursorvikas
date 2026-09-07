@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ArrowLeft, Globe, Palette as PaletteIcon, Search, Settings, Shield, User } from "lucide-react";
 import { NAME_IDEAS, PALETTES, resolveScheme, swatchesFor, type Palette, type PaletteId } from "../theme/palettes";
 import type { Prefs } from "../hooks/usePrefs";
@@ -13,6 +13,26 @@ type SettingsPageProps = {
 };
 
 type SectionId = "general" | "profile" | "appearance" | "network" | "jump";
+
+type SettingRow = { id: string; section: SectionId; title: string; detail: string };
+
+const SETTING_ROWS: SettingRow[] = [
+  { id: "density", section: "general", title: "Density", detail: "Compact tightens the rail, tables, and page chrome for a long shift." },
+  { id: "keep-look", section: "general", title: "Keep this look", detail: "Remember the current palette and display mode for new sessions." },
+  { id: "highlight", section: "general", title: "Highlight recent palettes", detail: "Mark the last few themes you picked in Appearance." },
+  { id: "console-name", section: "profile", title: "Console name", detail: "Shown on the rail. Pick a short word an operator would say out loud." },
+  { id: "use-console", section: "profile", title: "Use console name as operator", detail: "The signed-in name follows the console name." },
+  { id: "operator", section: "profile", title: "Operator", detail: "Who is signed in on this seat." },
+  { id: "assistant", section: "profile", title: "Assistant name", detail: "Used in Voice. Default is NetJarvis." },
+  { id: "display-mode", section: "appearance", title: "Display mode", detail: "Auto follows the operating system. Light and Dark filter the same gallery." },
+  { id: "intensity", section: "appearance", title: "Palette intensity", detail: "How strong the selected theme reads." },
+  { id: "themes", section: "appearance", title: "Themes", detail: "Named palettes for the whole console." },
+  { id: "source", section: "network", title: "Status", detail: "Live, fixture lab, or unreachable." },
+  { id: "catc", section: "network", title: "Catalyst Center", detail: "Intent API inventory and command runner." },
+  { id: "mock", section: "network", title: "Mock lab", detail: "Opt-in labelled fixtures, never presented as live." },
+  { id: "splunk", section: "network", title: "Splunk", detail: "Optional evidence plane for investigations." },
+  { id: "palette", section: "jump", title: "Search Settings", detail: "Jump to a page, device, user, or IP." },
+];
 
 const SECTIONS: Array<{ id: SectionId; label: string; group: "core" | "ops"; icon: typeof Settings; hint: string }> = [
   { id: "general", label: "General", group: "core", icon: Settings, hint: "density console defaults" },
@@ -36,9 +56,21 @@ function initials(name: string) {
   return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
 }
 
-function Row({ title, detail, children }: { title: string; detail?: string; children: ReactNode }) {
+function Row({
+  id,
+  title,
+  detail,
+  children,
+  highlight,
+}: {
+  id?: string;
+  title: string;
+  detail?: string;
+  children: ReactNode;
+  highlight?: boolean;
+}) {
   return (
-    <div className="set-row">
+    <div id={id ? `setting-${id}` : undefined} className={`set-row ${highlight ? "set-row-hit" : ""}`}>
       <div>
         <strong>{title}</strong>
         {detail ? <p>{detail}</p> : null}
@@ -57,18 +89,31 @@ function Toggle({ on, onClick, label }: { on: boolean; onClick: () => void; labe
 export function SettingsPage({ prefs, onPrefs, snapshot, onOpenPalette, onBack }: SettingsPageProps) {
   const [section, setSection] = useState<SectionId>("general");
   const [filter, setFilter] = useState("");
+  const [highlight, setHighlight] = useState<string | null>(null);
   const live = snapshot?.reachable === true;
   const fixture = Boolean(snapshot?.fixture);
   const scheme = resolveScheme(prefs.displayMode);
   const operatorLocked = prefs.useConsoleAsOperator;
   const q = filter.trim().toLowerCase();
-
-  const visible = useMemo(
-    () => SECTIONS.filter((item) => !q || item.label.toLowerCase().includes(q) || item.hint.includes(q)),
-    [q],
-  );
-
   const current = SECTIONS.find((item) => item.id === section) || SECTIONS[0];
+
+  const rowHits = useMemo(() => {
+    if (!q) return [];
+    return SETTING_ROWS.filter((row) => `${row.title} ${row.detail} ${row.section}`.toLowerCase().includes(q));
+  }, [q]);
+
+  const visible = useMemo(() => {
+    if (!q) return SECTIONS;
+    const hitSections = new Set(rowHits.map((row) => row.section));
+    return SECTIONS.filter(
+      (item) => item.label.toLowerCase().includes(q) || item.hint.includes(q) || hitSections.has(item.id),
+    );
+  }, [q, rowHits]);
+
+  useEffect(() => {
+    if (!highlight) return;
+    document.getElementById(`setting-${highlight}`)?.scrollIntoView({ block: "center" });
+  }, [highlight, section]);
 
   function choosePalette(id: PaletteId) {
     onPrefs({ palette: id });
@@ -88,7 +133,12 @@ export function SettingsPage({ prefs, onPrefs, snapshot, onOpenPalette, onBack }
             value={filter}
             onChange={(event) => setFilter(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === "Enter") onOpenPalette();
+              if (event.key !== "Enter") return;
+              if (rowHits[0]) {
+                setSection(rowHits[0].section);
+                setHighlight(rowHits[0].id);
+                setFilter("");
+              }
             }}
             placeholder="Search Settings"
           />
@@ -107,7 +157,11 @@ export function SettingsPage({ prefs, onPrefs, snapshot, onOpenPalette, onBack }
                       key={item.id}
                       type="button"
                       className={section === item.id ? "active" : ""}
-                      onClick={() => setSection(item.id)}
+                      onClick={() => {
+                        setSection(item.id);
+                        setFilter("");
+                        setHighlight(null);
+                      }}
                     >
                       <Icon size={16} />
                       <span>{item.label}</span>
@@ -131,22 +185,48 @@ export function SettingsPage({ prefs, onPrefs, snapshot, onOpenPalette, onBack }
       </aside>
 
       <main className="set-main">
+        {q ? (
+          <>
+            <h1>Search Settings</h1>
+            {rowHits.length === 0 ? (
+              <p className="set-muted">No matching settings.</p>
+            ) : (
+              rowHits.map((row) => (
+                <button
+                  key={row.id}
+                  type="button"
+                  className="set-hit"
+                  onClick={() => {
+                    setSection(row.section);
+                    setHighlight(row.id);
+                    setFilter("");
+                  }}
+                >
+                  <em>{row.section}</em>
+                  <strong>{row.title}</strong>
+                  <p>{row.detail}</p>
+                </button>
+              ))
+            )}
+          </>
+        ) : (
+          <>
         <h1>{current.label}</h1>
 
         {section === "general" ? (
           <>
             <section className="set-block">
               <h2>Console</h2>
-              <Row title="Density" detail="Compact tightens the rail, tables, and page chrome for a long shift.">
+              <Row id="density" highlight={highlight === "density"} title="Density" detail="Compact tightens the rail, tables, and page chrome for a long shift.">
                 <select value={prefs.density} onChange={(event) => onPrefs({ density: event.target.value as Prefs["density"] })}>
                   <option value="comfortable">Comfortable</option>
                   <option value="compact">Compact</option>
                 </select>
               </Row>
-              <Row title="Keep this look" detail="Remember the current palette and display mode for new sessions.">
+              <Row id="keep-look" highlight={highlight === "keep-look"} title="Keep this look" detail="Remember the current palette and display mode for new sessions.">
                 <Toggle on={prefs.pinAppearance} onClick={() => onPrefs({ pinAppearance: !prefs.pinAppearance })} label="Keep this look" />
               </Row>
-              <Row title="Highlight recent palettes" detail="Mark the last few themes you picked in Appearance.">
+              <Row id="highlight" highlight={highlight === "highlight"} title="Highlight recent palettes" detail="Mark the last few themes you picked in Appearance.">
                 <Toggle on={prefs.highlightRecent} onClick={() => onPrefs({ highlightRecent: !prefs.highlightRecent })} label="Highlight recent palettes" />
               </Row>
             </section>
@@ -159,7 +239,7 @@ export function SettingsPage({ prefs, onPrefs, snapshot, onOpenPalette, onBack }
         {section === "profile" ? (
           <section className="set-block">
             <h2>Identity</h2>
-            <Row title="Console name" detail="Shown on the rail. Pick a short word an operator would say out loud.">
+            <Row id="console-name" highlight={highlight === "console-name"} title="Console name" detail="Shown on the rail. Pick a short word an operator would say out loud.">
               <input className="set-input" name="product-name" value={prefs.productName} onChange={(event) => onPrefs({ productName: event.target.value })} />
             </Row>
             <div className="name-ideas set-chips">
@@ -169,14 +249,14 @@ export function SettingsPage({ prefs, onPrefs, snapshot, onOpenPalette, onBack }
                 </button>
               ))}
             </div>
-            <Row title="Use console name as operator" detail="The signed-in name follows the console name.">
+            <Row id="use-console" highlight={highlight === "use-console"} title="Use console name as operator" detail="The signed-in name follows the console name.">
               <Toggle
                 on={prefs.useConsoleAsOperator}
                 onClick={() => onPrefs({ useConsoleAsOperator: !prefs.useConsoleAsOperator })}
                 label="Use console name as operator"
               />
             </Row>
-            <Row title="Operator" detail={operatorLocked ? "Following the console name." : "Who is signed in on this seat."}>
+            <Row id="operator" highlight={highlight === "operator"} title="Operator" detail={operatorLocked ? "Following the console name." : "Who is signed in on this seat."}>
               <input
                 className="set-input"
                 name="operator-name"
@@ -185,7 +265,7 @@ export function SettingsPage({ prefs, onPrefs, snapshot, onOpenPalette, onBack }
                 disabled={operatorLocked}
               />
             </Row>
-            <Row title="Assistant name" detail="Used in Voice. Default is NetJarvis.">
+            <Row id="assistant" highlight={highlight === "assistant"} title="Assistant name" detail="Used in Voice. Default is NetJarvis.">
               <input className="set-input" name="assistant-name" value={prefs.assistantName} onChange={(event) => onPrefs({ assistantName: event.target.value })} />
             </Row>
           </section>
@@ -195,14 +275,14 @@ export function SettingsPage({ prefs, onPrefs, snapshot, onOpenPalette, onBack }
           <>
             <section className="set-block">
               <h2>Display</h2>
-              <Row title="Display mode" detail="Auto follows the operating system. Light and Dark filter the same gallery.">
+              <Row id="display-mode" highlight={highlight === "display-mode"} title="Display mode" detail="Auto follows the operating system. Light and Dark filter the same gallery.">
                 <select value={prefs.displayMode} onChange={(event) => onPrefs({ displayMode: event.target.value as Prefs["displayMode"] })}>
                   <option value="auto">Auto</option>
                   <option value="light">Light</option>
                   <option value="dark">Dark</option>
                 </select>
               </Row>
-              <Row title="Palette intensity" detail="How strong the selected theme reads.">
+              <Row id="intensity" highlight={highlight === "intensity"} title="Palette intensity" detail="How strong the selected theme reads.">
                 <select value={prefs.intensity} onChange={(event) => onPrefs({ intensity: event.target.value as Prefs["intensity"] })}>
                   <option value="muted">Muted</option>
                   <option value="standard">Standard</option>
@@ -233,7 +313,7 @@ export function SettingsPage({ prefs, onPrefs, snapshot, onOpenPalette, onBack }
                 </div>
               </section>
             ) : null}
-            <section className="set-block">
+            <section className="set-block" id="setting-themes">
               <h2>Themes</h2>
               {FAMILIES.map((family) => {
                 const items = PALETTES.filter((palette) => palette.family === family.id);
@@ -272,6 +352,8 @@ export function SettingsPage({ prefs, onPrefs, snapshot, onOpenPalette, onBack }
           <section className="set-block">
             <h2>Source</h2>
             <Row
+              id="source"
+              highlight={highlight === "source"}
               title="Status"
               detail={`${snapshot?.source || "No source reported yet."}${snapshot?.error ? ` ${snapshot.error}` : ""}`}
             >
@@ -279,10 +361,12 @@ export function SettingsPage({ prefs, onPrefs, snapshot, onOpenPalette, onBack }
                 {live ? "Live" : fixture ? "Fixture lab" : "Unreachable"}
               </span>
             </Row>
-            <Row title="Catalyst Center" detail={live ? "Connected." : "Not reachable from this host. Set CATC_* in .env.local."}>
+            <Row id="catc" highlight={highlight === "catc"} title="Catalyst Center" detail={live ? "Connected." : "Not reachable from this host. Set CATC_* in .env.local."}>
               <span className="set-muted">{live ? "Connected" : "Down"}</span>
             </Row>
             <Row
+              id="mock"
+              highlight={highlight === "mock"}
               title="Mock lab"
               detail={
                 fixture
@@ -292,7 +376,7 @@ export function SettingsPage({ prefs, onPrefs, snapshot, onOpenPalette, onBack }
             >
               <span className="set-muted">{fixture ? "On" : "Off"}</span>
             </Row>
-            <Row title="Splunk" detail="Optional evidence plane. Configure SPLUNK_URL + SPLUNK_TOKEN for live investigations.">
+            <Row id="splunk" highlight={highlight === "splunk"} title="Splunk" detail="Optional evidence plane. Configure SPLUNK_URL + SPLUNK_TOKEN for live investigations.">
               <span className="set-muted">Optional</span>
             </Row>
           </section>
@@ -301,13 +385,15 @@ export function SettingsPage({ prefs, onPrefs, snapshot, onOpenPalette, onBack }
         {section === "jump" ? (
           <section className="set-block">
             <h2>Command palette</h2>
-            <Row title="Search Settings" detail="Search at the top of this page, or Search on the console rail, opens the same palette. Jump to a page, device, user, or IP.">
+            <Row id="palette" highlight={highlight === "palette"} title="Search Settings" detail="Search at the top of this page, or Search on the console rail, opens the same palette. Jump to a page, device, user, or IP.">
               <button type="button" className="set-open" onClick={onOpenPalette}>
                 Open
               </button>
             </Row>
           </section>
         ) : null}
+          </>
+        )}
       </main>
     </div>
   );

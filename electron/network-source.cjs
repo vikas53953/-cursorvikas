@@ -15,6 +15,7 @@
 const catc = require("./sources/catalyst-center.cjs");
 const { assertReadOnly } = require("./core/read-only-policy.cjs");
 const { fixtureDirFromEnv, loadLab } = require("./sources/evidence/fixture.cjs");
+const { runFixtureShow, matchFixtureDevices } = require("./sources/fixture-cli.cjs");
 
 function currentSourceMode() {
   return (process.env.NETJARVIS_SOURCE || "auto").toLowerCase();
@@ -319,6 +320,32 @@ function shortPort(port) {
   return String(port).replace("GigabitEthernet", "Gi").replace("TenGigabitEthernet", "Te").replace("FortyGigabitEthernet", "Fo");
 }
 
+function peekInventory() {
+  const devices = snapshotCache?.data?.devices;
+  if (!Array.isArray(devices)) return [];
+  return devices.map((device) => ({
+    id: device.id || device.name,
+    name: device.name,
+    mgmtIp: device.ip || device.mgmtIp || "",
+    role: device.role || "",
+    site: device.site || "",
+    platform: device.platform || "",
+    ip: device.ip || "",
+  }));
+}
+
+async function runFixtureShowCommands(deviceQuery, commands) {
+  const snapshot = await getSnapshot();
+  if (!snapshot?.fixture) {
+    return { ok: false, error: "Mock lab is not loaded." };
+  }
+  const devices = matchFixtureDevices(snapshot.devices || [], deviceQuery);
+  if (devices.length === 0) {
+    return { ok: false, fixture: true, mode: "fixture", error: "No mock-lab device matched that name." };
+  }
+  return runFixtureShow(devices, commands);
+}
+
 function resetResolveCache() {
   resolvedMode = null;
   lastProbeAt = 0;
@@ -332,6 +359,8 @@ module.exports = {
   getInventoryRows,
   getLiveInterfaces,
   runLiveShowCommands,
+  runFixtureShowCommands,
+  peekInventory,
   getLiveTopologyMermaid,
   findLiveDevices,
   resetResolveCache,

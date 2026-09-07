@@ -110,7 +110,8 @@ electron/                 Backend (Node, all .cjs, NO electron dependency except
                           topology, issues, events, Command Runner for show commands)
     nvd.cjs               Real NVD CVE lookup (keyless) — powers vulnerability_check
     prometheus.cjs        Thin real adapter (only queries `up` metric); off unless PROMETHEUS_URL set
-    snmp.cjs              ⚠ STUB — returns null placeholder data but reports ok:true
+    snmp.cjs              Stub — ok:false until a native client exists (even if SNMP_HOST is set)
+    fixture-cli.cjs       Labelled mock-lab `show` output when NETJARVIS_EVIDENCE_FIXTURE is on
     evidence/             Evidence plane for `investigate` (AI-Ready SOC, Part II)
       splunk.cjs          Real Splunk REST search client (export endpoint; bearer/basic; TLS verify on)
       lenses.cjs          CIM-based SPL lens per platform: vpn, proxy, firewall, endpoint, identity, cloud, siem
@@ -138,7 +139,7 @@ src/                      Frontend (React 19 + Vite + TS) — Cisco-class ops co
     shell/AppShell.tsx    Navy left rail + top utility bar (search, window, compact orb)
     VoicePage.tsx         Full orb workspace — voice/type, HUD, conversation (same tools as before)
     AssurancePage.tsx     NOC home: health donuts, inventory, issues, events
-    InvestigationsPage.tsx SOC workspace: hop path viz + coverage + event table
+    InvestigationsPage.tsx Views workspace: seed + window on the hop path, then events
     InventoryPage.tsx     Device table + L2 topology from Catalyst Center snapshot
     PathViz.tsx           ThousandEyes-style hop path (identity→…→cloud)
     TopologyMap.tsx       Role-layered topology of real devices/links
@@ -147,8 +148,10 @@ src/                      Frontend (React 19 + Vite + TS) — Cisco-class ops co
     Hud.tsx               Voice status readout
     TeamBoard.tsx         Kanban of agent tasks — polls /api/tasks every 1s
     SquadChatPanel.tsx    Slack/Teams-style chat w/ @mentions, /slash, custom agents
+    WorkPage.tsx          One result surface: current output + download library
     ObservabilityPanel.tsx Current-artifact view (CLI / narrative / mermaid) + audit
     ArtifactsPanel.tsx    Download library — polls listArtifacts() every 10s
+    SettingsPage.tsx      Full Settings page (Search Settings filters rows)
 
 server/web.cjs            HTTP API for web mode (mirrors IPC), serves dist/
 scripts/behavior-cycle.cjs Smoke test
@@ -186,25 +189,21 @@ data/                     Runtime state (gitignored): db, sessions, artifacts, t
 
 ## Known gotchas (see docs/KNOWN-ISSUES.md for the full, prioritized list)
 
-- `run_show_command` is **live-only** — it returns `ok:false` in sim/offline mode. So the
-  `cli_show` and `device_precheck` chat skills hard-fail when Catalyst Center is unreachable.
-- The `device-facts.cjs` device-name parser only matches `swN` names, but the **simulator** devices
-  are `CORE-R1`/`EDGE-R1`/`DIST-SW1`/`FW-1` and live devices are sandbox hostnames — so the chat
-  fast-path device matching is mismatched to the actual inventory.
-- `sources/snmp.cjs` is a **stub that reports success** with null data (misleads multi_source_status).
+- `run_show_command` still fails honestly when CATC is down **and** the mock lab is off. With
+  `NETJARVIS_EVIDENCE_FIXTURE=1` it returns labelled FIXTURE CLI instead of a live-only error.
+- Device names resolve from inventory (`peekInventory` / scope resolver). Fallback also matches
+  hyphenated hostnames (`CORE-R1`, `vpn-asa-1`), not only `swN`.
+- `sources/snmp.cjs` is still a stub, but it reports `ok:false` (not healthy-with-null).
 - **TLS verification is globally disabled** in the Catalyst Center adapter (`rejectUnauthorized:false`)
   for the self-signed sandbox cert — a real risk if pointed at production.
-- Electron `preload.cjs` `listArtifacts` has an **arity bug** (`limit` binds to `_event`).
-- `ArtifactPanel.tsx` contains ~300 lines of **dead artifact-rendering code** (superseded by
-  `ObservabilityPanel`); mermaid topology artifacts are no longer rendered anywhere as a result.
-- The **dashboard does not react to tool activity** — it only refreshes on its 30s poll.
-- README describes 3 right-hand tabs ("Reports"); the code now has **4** (Reports split into
-  Observability + Artifacts). Treat README as aspirational where it drifts from code.
+- `ArtifactPanel.tsx` still contains dead artifact-rendering code (Work uses ObservabilityPanel).
+- Assurance reloads when a tool runs; the 30s poll is a backstop.
+- The rail is Voice / Assurance / Investigate / Inventory / Squad / **Work**. Observability and
+  Reports are not separate pages. Treat README as aspirational where it drifts from code.
 
 ## Rolling back
 
 `ROLLBACK.md` has git tags/SHAs for known-good states. Notably
 `rollback-pre-enterprise-layers` (`9d00b7a`) predates the classifier/planner/skills layer, and
 voice was reset to direct-Realtime behavior on 2026-07-04.
-</content>
-</invoke>
+

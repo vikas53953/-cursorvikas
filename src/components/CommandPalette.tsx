@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
-import { FileText, Layers3, LayoutDashboard, Mic, Search, Settings, Shield, Terminal, Users } from "lucide-react";
+import { Layers3, LayoutDashboard, Mic, Search, Settings, Shield, SquareStack, Users } from "lucide-react";
 import type { AppPage } from "./shell/AppShell";
 import { parseSearchSeed, type RecentInvestigation } from "../lib/commandSearch";
 
@@ -23,8 +23,7 @@ const PAGES: Array<{ id: AppPage; label: string; hint: string; icon: typeof Sear
   { id: "investigate", label: "Investigate", hint: "Path and timeline", icon: Shield },
   { id: "inventory", label: "Inventory", hint: "Devices and topology", icon: Layers3 },
   { id: "squad", label: "Squad", hint: "Team board", icon: Users },
-  { id: "observability", label: "Observability", hint: "Last tool run", icon: Terminal },
-  { id: "reports", label: "Reports", hint: "Saved artifacts", icon: FileText },
+  { id: "work", label: "Work", hint: "Last tool run and downloads", icon: SquareStack },
   { id: "settings", label: "Settings", hint: "General, profile, appearance, network", icon: Settings },
 ];
 

@@ -51,7 +51,7 @@ export function VoicePage({
   const isConnected = connectionState === "connected";
 
   return (
-    <div className="voice-page">
+    <div className={`voice-page ${isConnected ? "voice-connected" : ""}`}>
       <section className="voice-stage">
         <p className="voice-stage-kicker">Voice</p>
         <NetworkCore mood={mood} mouthShape={mouthShape} />
@@ -117,8 +117,8 @@ export function VoicePage({
                 ))}
               </div>
             </div>
-          ) : (
-            <p className="voice-recent-empty">No investigations yet. Use Search at the top of the rail to start one.</p>
+          ) : isConnected ? null : (
+            <p className="voice-recent-empty">Search on the rail to start an investigation.</p>
           )}
         </div>
       </section>

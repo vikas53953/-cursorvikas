@@ -52,6 +52,12 @@ function extractDevicesFromText(text, inventory) {
     devices.add(swPair[2]);
   }
 
+  for (const match of String(text || "").matchAll(/\b([A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)+)\b/g)) {
+    const name = match[1];
+    if (/^(pre-|post-|read-|next-|non-|up-)/i.test(name)) continue;
+    devices.add(name);
+  }
+
   return [...devices].sort();
 }
 

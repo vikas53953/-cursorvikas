@@ -8,6 +8,7 @@ import type { JarvisArtifact, SessionAuditTurn, SessionIndexEntry } from "../vit
 import { CliOutputView } from "./CliOutput";
 import { MermaidView } from "./MermaidView";
 import { Markdown } from "./Markdown";
+import { EmptyState } from "./ui/EmptyState";
 
 export type ObservabilityEvent = {
   id: string;
@@ -123,7 +124,7 @@ export function ObservabilityPanel({ events, artifact, sessionLog }: Observabili
           </footer>
         </section>
       ) : (
-        <p className="observability-empty">No tool run yet. Ask from Voice — CLI, tables, and the narrative of the last run land here.</p>
+        <EmptyState title="No tool run yet" detail="Ask from Voice or Investigate. CLI, tables, and the narrative of the last run land here." />
       )}
 
       {recentTools.length > 0 ? (

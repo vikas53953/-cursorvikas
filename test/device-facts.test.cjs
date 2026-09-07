@@ -22,6 +22,8 @@ test("falls back to the regex when no inventory is supplied", () => {
   assert.deepEqual(extractDevicesFromText("uptime on switch 2"), ["sw2"]);
 });
 
-test("falls back to the regex when the inventory is empty", () => {
-  assert.deepEqual(extractDevicesFromText("what is the ip of sw3", []), ["sw3"]);
+test("falls back to hyphenated hostnames without inventory", () => {
+  assert.deepEqual(extractDevicesFromText("show vlan on vpn-asa-1"), ["vpn-asa-1"]);
+  assert.deepEqual(extractDevicesFromText("how is CORE-R1 doing"), ["CORE-R1"]);
+  assert.deepEqual(extractDevicesFromText("pre-check on LT-4421"), ["LT-4421"]);
 });

@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { PathViz } from "./PathViz";
+import { EmptyState } from "./ui/EmptyState";
 import { StatusPill, toneFromSeverity, toneFromStatus } from "./ui/StatusPill";
 import { Markdown } from "./Markdown";
 import type { InvestigationPivot, InvestigationResult } from "../vite-env";
 
 const LOOKBACKS = [1, 6, 12, 24, 72];
+const SEED_KINDS = ["user", "ip", "host"] as const;
 
 type InvestigationsPageProps = {
   lookbackHours: number;
@@ -79,6 +81,12 @@ export function InvestigationsPage({ lookbackHours, onLookbackHours, pendingSeed
     void run({ kind: nextKind, value: pivot.value }, lookbackHours);
   }
 
+  function applyWindow(hours: number) {
+    onLookbackHours(hours);
+    const seed = parseSeed(value);
+    if (seed && (result || busy)) void run(seed, hours);
+  }
+
   const timeline = result?.timeline || [];
   const filtered = useMemo(() => {
     return timeline.filter((event) => {
@@ -91,67 +99,67 @@ export function InvestigationsPage({ lookbackHours, onLookbackHours, pendingSeed
   const findings = (result?.observations || []).filter((text) => !/^\[FIXTURE|\w+: \d+ event/.test(text));
 
   return (
-    <div className="page investigate-page">
-      <header className="page-toolbar">
-        <div>
-          <h1>Investigate</h1>
-          <p className="page-sub">One user, IP, or host. Evidence from each platform on a single path. Read-only.</p>
-        </div>
-      </header>
-
-      <section className="dashlet investigate-form">
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            void run();
-          }}
-        >
-          <label>
-            Seed
-            <select name="seed-kind" value={kind} onChange={(event) => setKind(event.target.value as "user" | "ip" | "host")}>
-              <option value="user">User</option>
-              <option value="ip">IP</option>
-              <option value="host">Host</option>
-            </select>
-          </label>
-          <label className="investigate-value">
-            Value
+    <div className="page investigate-page investigate-views">
+      <header className="views-bar">
+        <div className="views-seed">
+          <div className="ui-seg" role="tablist" aria-label="Seed kind">
+            {SEED_KINDS.map((item) => (
+              <button
+                key={item}
+                type="button"
+                className={kind === item ? "active" : ""}
+                onClick={() => setKind(item)}
+              >
+                {item === "ip" ? "IP" : item[0].toUpperCase() + item.slice(1)}
+              </button>
+            ))}
+          </div>
+          <form
+            className="views-value"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void run();
+            }}
+          >
             <input
               name="seed-value"
               value={value}
               onChange={(event) => setValue(event.target.value)}
-              placeholder={kind === "ip" ? "10.20.0.7" : kind === "host" ? "LT-4421 or sw1" : "jdoe"}
+              placeholder={kind === "ip" ? "10.20.0.7" : kind === "host" ? "LT-4421 or vpn-asa-1" : "jdoe"}
+              aria-label="Investigation seed"
             />
-          </label>
-          <label>
-            Window
-            <select value={lookbackHours} onChange={(event) => onLookbackHours(Number(event.target.value))}>
-              {LOOKBACKS.map((hours) => (
-                <option key={hours} value={hours}>
-                  Last {hours}h
-                </option>
-              ))}
-            </select>
-          </label>
-          <button className="ui-btn ui-btn-primary" type="submit" disabled={busy}>
-            {busy ? "Running…" : "Run investigation"}
-          </button>
-        </form>
-      </section>
-
-      {error ? <div className="ui-banner ui-banner-bad">{error}</div> : null}
-
-      {!result && !busy && !error ? (
-        <div className="ui-empty investigate-empty">
-          <p>No investigation yet. Run a seed (user, IP, or host). Unconfigured platforms stay empty — they are not filled in.</p>
+            <button className="ui-btn ui-btn-primary" type="submit" disabled={busy}>
+              {busy ? "Running" : "Run"}
+            </button>
+          </form>
         </div>
+        <div className="views-window" role="group" aria-label="Time window">
+          {LOOKBACKS.map((hours) => (
+            <button
+              key={hours}
+              type="button"
+              className={lookbackHours === hours ? "active" : ""}
+              onClick={() => applyWindow(hours)}
+            >
+              {hours}h
+            </button>
+          ))}
+        </div>
+      </header>
+
+      {error ? (
+        <EmptyState tone="bad" title="Investigation failed" detail={error} action={{ label: "Try again", onClick: () => void run() }} />
       ) : null}
 
-      {busy ? (
-        <div className="page-loading">
-          <div className="progress-pulse" />
-          <p>Collecting evidence across platforms…</p>
-        </div>
+      {!result && !busy && !error ? (
+        <EmptyState
+          title="Pick a seed"
+          detail="User, IP, or host. The hop path is the view — identity through SIEM. Unconfigured platforms stay empty."
+        />
+      ) : null}
+
+      {busy && !result ? (
+        <EmptyState title="Collecting evidence" detail="Reading each configured platform in the lookback window. Empty hops stay empty." />
       ) : null}
 
       {result?.ok ? (
@@ -162,115 +170,50 @@ export function InvestigationsPage({ lookbackHours, onLookbackHours, pendingSeed
             </div>
           ) : null}
 
-          <section className="dashlet">
+          <section className="dashlet views-hero">
             <header className="dashlet-head">
               <h2>
                 Path · {result.entity?.kind} {result.entity?.value}
               </h2>
               <span>
-                {result.counts?.total ?? 0} events · {result.window?.hours ?? lookbackHours}h window
+                {result.counts?.total ?? 0} events · {result.window?.hours ?? lookbackHours}h
+                {busy ? " · refreshing" : ""}
               </span>
             </header>
             <p className="investigate-summary">{result.summary}</p>
-            <PathViz coverage={result.coverage || []} timeline={result.timeline || []} selected={hop} onSelect={(platform) => setHop((current) => (current === platform ? null : platform))} />
+            <PathViz
+              coverage={result.coverage || []}
+              timeline={result.timeline || []}
+              selected={hop}
+              onSelect={(platform) => setHop((current) => (current === platform ? null : platform))}
+            />
+            {(result.pivots || []).length > 0 ? (
+              <div className="views-pivots">
+                <span>Pivots</span>
+                {(result.pivots || []).map((pivot) => (
+                  <button key={`${pivot.kind}-${pivot.value}`} type="button" onClick={() => pivotTo(pivot)}>
+                    {pivot.kind} {pivot.value}
+                    <em>{pivot.count}</em>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="ui-empty">No related entities in this window.</p>
+            )}
           </section>
 
           {findings.length > 0 ? (
-            <section className="dashlet">
-              <header className="dashlet-head">
-                <h2>Observations</h2>
-              </header>
-              <ul className="investigate-findings">
-                {findings.map((text) => (
-                  <li key={text}>{text}</li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-
-          <div className="dashlet-grid">
-            <section className="dashlet">
-              <header className="dashlet-head">
-                <h2>Coverage</h2>
-              </header>
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Platform</th>
-                    <th>Status</th>
-                    <th>Events</th>
-                    <th>Provider</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(result.coverage || [])
-                    .slice()
-                    .sort((a, b) => a.status.localeCompare(b.status) || a.platform.localeCompare(b.platform))
-                    .map((row) => (
-                      <tr key={`${row.platform}-${row.provider}`}>
-                        <td>{row.platform}</td>
-                        <td>
-                          <StatusPill tone={toneFromStatus(row.status)} label={row.status} />
-                        </td>
-                        <td>{row.count}</td>
-                        <td className="mono">{row.provider || "—"}</td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            </section>
-
-            <section className="dashlet">
-              <header className="dashlet-head">
-                <h2>Related entities</h2>
-              </header>
-              {(result.pivots || []).length === 0 ? (
-                <p className="ui-empty">No pivot entities in this window.</p>
-              ) : (
-                <ul className="pivot-list">
-                  {(result.pivots || []).map((pivot) => (
-                    <li key={`${pivot.kind}-${pivot.value}`}>
-                      <button type="button" className="linkish" onClick={() => pivotTo(pivot)}>
-                        {pivot.kind} {pivot.value}
-                      </button>
-                      <span>
-                        {pivot.count} · {(pivot.platforms || []).join(", ")}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          </div>
-
-          {(result.gaps || []).length > 0 ? (
-            <section className="dashlet">
-              <header className="dashlet-head">
-                <h2>Gaps</h2>
-              </header>
-              <ul className="investigate-gaps">
-                {(result.gaps || []).map((gap) => (
-                  <li key={gap}>{gap}</li>
-                ))}
-              </ul>
-            </section>
+            <ul className="views-findings">
+              {findings.map((text) => (
+                <li key={text}>{text}</li>
+              ))}
+            </ul>
           ) : null}
 
           <section className="dashlet">
             <header className="dashlet-head">
-              <h2>Event table</h2>
+              <h2>{hop ? `${hop} events` : "Events"}</h2>
               <div className="investigate-filters">
-                <label>
-                  Hop
-                  <select value={hop || "all"} onChange={(event) => setHop(event.target.value === "all" ? null : event.target.value)}>
-                    <option value="all">All hops</option>
-                    {(result.coverage || []).map((row) => (
-                      <option key={row.platform} value={row.platform}>
-                        {row.platform}
-                      </option>
-                    ))}
-                  </select>
-                </label>
                 <label>
                   Severity
                   <select value={severity} onChange={(event) => setSeverity(event.target.value)}>
@@ -288,7 +231,7 @@ export function InvestigationsPage({ lookbackHours, onLookbackHours, pendingSeed
               </div>
             </header>
             {filtered.length === 0 ? (
-              <p className="ui-empty">No events match the current filters.</p>
+              <EmptyState title="No events in this slice" detail={hop ? `Clear the ${hop} hop, or widen the window.` : "Nothing in this window matched the severity filter."} />
             ) : (
               <table className="data-table">
                 <thead>
@@ -302,7 +245,12 @@ export function InvestigationsPage({ lookbackHours, onLookbackHours, pendingSeed
                 </thead>
                 <tbody>
                   {filtered.map((event, index) => (
-                    <tr key={`${event.ts}-${event.platform}-${index}`}>
+                    <tr
+                      key={`${event.ts}-${event.platform}-${index}`}
+                      className={hop === event.platform ? "selected" : ""}
+                      tabIndex={0}
+                      onClick={() => setHop((current) => (current === event.platform ? null : event.platform))}
+                    >
                       <td className="mono">{event.ts.replace("T", " ").replace(/\.\d+Z$/, "Z")}</td>
                       <td>{event.platform}</td>
                       <td>
@@ -317,10 +265,16 @@ export function InvestigationsPage({ lookbackHours, onLookbackHours, pendingSeed
             )}
           </section>
 
+          {(result.gaps || []).length > 0 ? (
+            <p className="views-gaps">
+              Gaps: {(result.gaps || []).join(" · ")}
+            </p>
+          ) : null}
+
           {result.artifact?.content ? (
             <section className="dashlet">
               <header className="dashlet-head">
-                <h2>Audit artifact</h2>
+                <h2>Audit</h2>
               </header>
               <Markdown text={result.artifact.content} />
             </section>

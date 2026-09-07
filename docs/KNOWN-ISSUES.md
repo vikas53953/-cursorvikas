@@ -11,39 +11,28 @@ The "Open questions" section at the end lists things only the owner can decide �
 ## P1 — Correctness / user-facing breakage
 
 ### 1. `run_show_command` hard-fails in sim/offline mode → CLI skills break offline
-- **Where**: `tools.cjs` `runShowCommand()` returns `ok:false` whenever `mode !== "live"`.
-- **Impact**: the chat skills `cli_show` and `device_precheck` call this tool, so *any* "show me the
-  MAC table on sw1" / "run a precheck on sw2" typed in chat **errors out** whenever Catalyst Center
-  is unreachable (which `auto` mode falls back from silently). Voice hits the same wall.
-- **Direction**: either (a) have the simulator answer common show commands (`show vlan brief`,
-  `show ip route`, `show mac address-table`, …) so the demo/offline experience is coherent, or
-  (b) make the failure message explicit and route the user to the sim-native tools. (a) is the
-  bigger win for a layman-facing product.
+- **Where**: `tools.cjs` `runShowCommand()`.
+- **Status (2026-09-07)**: **mitigated for the mock lab.** When
+  `NETJARVIS_EVIDENCE_FIXTURE` is on, show commands return labelled FIXTURE CLI
+  (`electron/sources/fixture-cli.cjs`). Unknown commands stay honest ("no mock
+  output"). Still `ok:false` when CATC is down and the mock lab is off.
+- **Remaining**: no unlabelled simulator for `NETJARVIS_SOURCE=sim`.
 
 ### 2. Device-name parser doesn't match the actual inventory
-- **Where**: `device-facts.cjs` regexes only recognize `swN` ("sw1", "switch 1"). But simulator
-  devices are `CORE-R1`/`EDGE-R1`/`DIST-SW1`/`FW-1`, and live sandbox devices have Catalyst
-  hostnames. `tools.cjs` `extractDeviceFromText` has the same `sw`-only assumption.
-- **Impact**: in the chat fast-path, "how is CORE-R1 doing" or "uptime on the edge router" won't be
-  recognized as a device_fact and falls through to the generic path; "switch 1" won't map to
-  `DIST-SW1`. The parser looks written for a different inventory than the app ships.
-- **Direction**: derive the device-name matcher from the live/sim snapshot's actual device list
-  (fuzzy/substring match against real hostnames + roles) instead of a hardcoded `sw` regex.
+- **Where**: `device-facts.cjs`, `tools.cjs` `extractDeviceFromText`.
+- **Status (2026-09-07)**: **mitigated.** Extraction uses `source.peekInventory()`
+  / the registry list via `resolveScope`. Fallback also matches hyphenated names
+  (`CORE-R1`, `vpn-asa-1`, `LT-4421`), not only `swN`.
 
 ### 3. SNMP adapter is a stub that reports success
-- **Where**: `sources/snmp.cjs` returns `{ ok:true, sysDescr:null, sysUpTime:null, note:"Install a
-  native SNMP client dependency" }` when `SNMP_HOST` is set.
-- **Impact**: `multi_source_status` presents SNMP as healthy/configured while it does nothing —
-  misleading in a NOC tool where trust matters.
-- **Direction**: either implement real SNMP (e.g. a native/pure-JS SNMP client) or have it report
-  `ok:false, configured:false` honestly until then.
+- **Where**: `sources/snmp.cjs`.
+- **Status (2026-09-07)**: **fixed honesty.** Returns `ok:false` whether or not
+  `SNMP_HOST` is set (`configured: true` + "not implemented" when a host is set).
+  No native SNMP client yet.
 
 ### 4. Electron `listArtifacts` arity bug
-- **Where**: `preload.cjs` `listArtifacts: (_event, limit) => invoke("artifacts:list", limit)` but
-  callers do `window.jarvis.listArtifacts(200)`. The `200` binds to `_event`; `limit` is `undefined`
-  under Electron. The web bridge and the type decl use the correct single-arg form.
-- **Impact**: artifact list limit ignored in the desktop app (falls back to backend default 40).
-- **Direction**: `listArtifacts: (limit) => invoke("artifacts:list", limit)`.
+- **Where**: `preload.cjs`.
+- **Status (2026-09-07)**: **fixed.** `listArtifacts: (limit) => invoke(...)`.
 
 ---
 
@@ -68,10 +57,9 @@ The "Open questions" section at the end lists things only the owner can decide �
   `ObservabilityPanel`.
 
 ### 7. Dashboard doesn't react to tool activity
-- **Where**: `taskRefreshToken` only drives `TeamBoard`; `OpsDashboard` only refreshes on its 30s
-  poll. A tool that changes state (e.g. acknowledge_alert) won't reflect on the dashboard until the
-  next poll.
-- **Direction**: bump a dashboard refresh on relevant tool events, or shorten the poll.
+- **Where**: `App.tsx` tool/chat completion.
+- **Status (2026-09-07)**: **mitigated.** `dashboard.reload(false)` runs on tool start/done/error
+  and after chat replies. The 30s poll remains as a backstop.
 
 ### 8. Sim topology links are empty
 - **Where**: `network-source.cjs` `simSnapshot()` always sets `links: []`, though the simulator has
