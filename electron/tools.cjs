@@ -925,7 +925,6 @@ function createTools({ readDb, updateDb }) {
     if (mode !== "live") {
       return { ok: false, mode, error: "Network source is unreachable." };
     }
-    const snapshot = await source.getSnapshot();
     const query = String(args.scope || "").trim().toLowerCase();
     let rows = snapshot.devices;
     if (query && query !== "all") rows = rows.filter((device) => device.name.toLowerCase().includes(query));
