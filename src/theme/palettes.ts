@@ -147,7 +147,7 @@ function pack(args: {
   };
 }
 
-export const NAME_IDEAS = ["Vigil", "Knock", "NOC", "Soak"] as const;
+export const NAME_IDEAS = ["Vigil", "Wispr", "Knock", "NOC", "Soak"] as const;
 
 export const PALETTES: Palette[] = [
   {

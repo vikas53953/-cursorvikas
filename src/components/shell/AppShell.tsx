@@ -112,10 +112,19 @@ export function AppShell({
         <div className="ops-brand">
           <button
             type="button"
+            className="ops-collapse-btn"
+            onClick={onToggleRail}
+            title={railCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label={railCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {railCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+          </button>
+          <button
+            type="button"
             className="ops-mark-btn"
             onClick={railCollapsed ? onToggleRail : undefined}
-            title={railCollapsed ? "Expand sidebar" : productName}
-            aria-label={railCollapsed ? "Expand sidebar" : productName}
+            title={productName}
+            aria-label={productName}
           >
             <BrandMark />
           </button>
@@ -124,6 +133,10 @@ export function AppShell({
             <em>Operations</em>
           </div>
         </div>
+        <button type="button" className="ops-rail-search" onClick={onOpenPalette} aria-label="Search">
+          <Search size={16} />
+          <span>Search</span>
+        </button>
         {NAV.map((group) => (
           <nav key={group.id} aria-label={group.label}>
             <p className="ops-nav-label">{group.label}</p>
@@ -145,37 +158,20 @@ export function AppShell({
             })}
           </nav>
         ))}
-        <div className="ops-account">
-          <div className="ops-account-who">
-            <span className="ops-account-avatar">{initials(operatorName)}</span>
-            <div className="ops-account-copy">
-              <strong>{operatorName}</strong>
-              <em>Signed in</em>
-            </div>
-          </div>
-          <div className="ops-account-tools">
-            <button type="button" onClick={onOpenPalette} title="Search" aria-label="Open command palette">
-              <Search size={16} />
-              <span>Search</span>
-            </button>
-            <button
-              type="button"
-              onClick={onToggleRail}
-              title={railCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-              aria-label={railCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            >
-              {railCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-              <span>{railCollapsed ? "Expand" : "Collapse"}</span>
-            </button>
+        <div className={`ops-account ${page === "settings" ? "active" : ""}`}>
+          <span className="ops-account-avatar">{initials(operatorName)}</span>
+          <div className="ops-account-copy">
+            <strong>{operatorName}</strong>
+            <em>Signed in</em>
           </div>
           <button
             type="button"
-            className={`ops-settings-btn ${page === "settings" ? "active" : ""}`}
+            className="ops-account-gear"
             onClick={() => onPage("settings")}
             title="Settings"
+            aria-label="Settings"
           >
             <Settings size={16} />
-            <span>Settings</span>
           </button>
         </div>
       </aside>

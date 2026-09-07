@@ -118,7 +118,7 @@ export function VoicePage({
               </div>
             </div>
           ) : (
-            <p className="voice-recent-empty">No investigations yet. Search from the signed-in operator block to start one.</p>
+            <p className="voice-recent-empty">No investigations yet. Use Search at the top of the rail to start one.</p>
           )}
         </div>
       </section>

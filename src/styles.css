@@ -91,19 +91,36 @@ summary:focus-visible {
 .ops-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   height: var(--topbar-h);
-  padding: 0 8px 0 16px;
+  padding: 0 10px;
   border-bottom: 1px solid var(--chrome-border);
 }
 
 .ops-brand-copy { min-width: 0; flex: 1; }
 
-.ops-mark-btn {
+.ops-collapse-btn,
+.ops-mark-btn,
+.ops-account-gear {
   display: grid;
   place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
   padding: 0;
+  border-radius: 6px;
   background: transparent;
+  color: var(--chrome-text);
+}
+
+.ops-collapse-btn:hover,
+.ops-account-gear:hover,
+.ops-account.active .ops-account-gear {
+  background: var(--rail-hover);
+  color: var(--chrome-title);
+}
+
+.ops-mark-btn {
   color: inherit;
 }
 
@@ -184,19 +201,31 @@ summary:focus-visible {
   box-shadow: 0 0 0 3px rgba(61, 155, 58, 0.22);
 }
 
-.ops-account {
-  margin-top: auto;
-  padding: 10px;
-  border-top: 1px solid var(--chrome-border);
-  display: grid;
-  gap: 8px;
-}
-
-.ops-account-who {
+.ops-rail-search {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-width: 0;
+  margin: 10px 10px 2px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--chrome-text) 9%, var(--chrome-bg));
+  color: var(--chrome-muted);
+  text-align: left;
+  font-size: 13px;
+}
+
+.ops-rail-search:hover { background: var(--rail-hover); color: var(--chrome-title); }
+
+.ops-rail-search span { white-space: nowrap; }
+
+.ops-account {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--chrome-border);
 }
 
 .ops-account-avatar {
@@ -214,13 +243,17 @@ summary:focus-visible {
 
 .ops-account-copy {
   min-width: 0;
+  flex: 1;
 }
 
 .ops-account-copy strong {
   display: block;
+  overflow: hidden;
   color: var(--chrome-title);
   font-size: 13px;
   font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ops-account-copy em {
@@ -228,64 +261,15 @@ summary:focus-visible {
   color: var(--chrome-muted);
   font-size: 10px;
   font-style: normal;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
-.ops-account-tools {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-}
-
-.ops-account-tools button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  height: 32px;
-  border-radius: 4px;
-  color: var(--chrome-text);
-  font-size: 12px;
-  font-weight: 650;
-}
-
-.ops-account-tools button:hover { background: var(--rail-hover); color: var(--chrome-title); }
-
-.ops-settings-btn {
-  color: var(--chrome-text);
-}
+.ops-account-gear { margin-left: auto; }
 
 .ops-rail,
 .ops-rail button {
   -webkit-app-region: no-drag;
   position: relative;
   z-index: 50;
-}
-
-.ops-shell-collapsed .ops-account-tools {
-  grid-template-columns: 1fr;
-}
-
-.ops-settings-btn {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  height: 36px;
-  padding: 0 10px;
-  border-radius: 4px;
-  text-align: left;
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.ops-settings-btn:hover { background: var(--rail-hover); color: var(--chrome-title); }
-
-.ops-settings-btn.active {
-  background: var(--rail-active-bg);
-  color: var(--rail-active);
-  font-weight: 650;
 }
 
 .ops-shell-collapsed { grid-template-columns: var(--rail-w-collapsed) 1fr; }
@@ -300,16 +284,27 @@ summary:focus-visible {
 .ops-shell-collapsed .ops-brand-copy,
 .ops-shell-collapsed .ops-nav-label,
 .ops-shell-collapsed .ops-rail nav button span,
-.ops-shell-collapsed .ops-settings-btn span,
-.ops-shell-collapsed .ops-account-copy,
-.ops-shell-collapsed .ops-account-tools span {
+.ops-shell-collapsed .ops-rail-search span,
+.ops-shell-collapsed .ops-account-copy {
   display: none;
 }
 
 .ops-shell-collapsed .ops-rail nav button,
-.ops-shell-collapsed .ops-settings-btn {
+.ops-shell-collapsed .ops-rail-search {
   justify-content: center;
   padding: 0;
+}
+
+.ops-shell-collapsed .ops-rail-search {
+  margin: 8px 6px 2px;
+  width: 36px;
+  height: 36px;
+  align-self: center;
+}
+
+.ops-shell-collapsed .ops-account {
+  flex-direction: column;
+  padding: 10px 6px;
 }
 
 .ops-topbar {
@@ -1389,6 +1384,24 @@ summary:focus-visible {
 
 .mermaid-output { overflow: auto; padding: 12px; background: var(--bg-dashlet); border: 1px solid var(--border); }
 
+.settings-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(420px, 100%);
+  height: 38px;
+  margin: 0 0 16px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-input);
+  color: var(--text-3);
+  text-align: left;
+  font-size: 13px;
+}
+
+.settings-search:hover { border-color: var(--border-strong); color: var(--text-2); }
+
 .settings-field {
   display: grid;
   gap: 6px;
@@ -1664,20 +1677,20 @@ summary:focus-visible {
 }
 
 [data-density="compact"] .ops-rail nav button,
-[data-density="compact"] .ops-settings-btn { height: 30px; }
-[data-density="compact"] .ops-account { padding: 8px; gap: 6px; }
-[data-density="compact"] .ops-account-tools button { height: 28px; }
+[data-density="compact"] .ops-rail-search { height: 30px; }
+[data-density="compact"] .ops-account { padding: 8px 10px; }
 [data-density="compact"] .page-toolbar { margin-bottom: 12px; }
 [data-density="compact"] .data-table th,
 [data-density="compact"] .data-table td { padding: 5px 8px; }
 
 @media (max-width: 1100px) {
   .ops-shell { grid-template-columns: var(--rail-w-collapsed) 1fr; }
-  .ops-brand-copy, .ops-rail nav button span, .ops-nav-label, .ops-settings-btn span,
-  .ops-account-copy, .ops-account-tools span { display: none; }
-  .ops-rail nav button, .ops-settings-btn { justify-content: center; padding: 0; }
+  .ops-brand-copy, .ops-rail nav button span, .ops-nav-label,
+  .ops-rail-search span, .ops-account-copy { display: none; }
+  .ops-rail nav button, .ops-rail-search { justify-content: center; padding: 0; }
   .ops-brand { flex-direction: column; height: auto; padding: 10px 6px 8px; }
-  .ops-account-tools { grid-template-columns: 1fr; }
+  .ops-rail-search { margin: 8px 6px 2px; width: 36px; height: 36px; align-self: center; }
+  .ops-account { flex-direction: column; padding: 10px 6px; }
   .voice-page { grid-template-columns: 1fr; }
   .dashlet-grid, .health-row, .investigate-form form, .team-board-layout, .team-board-layout-chat, .kanban {
     grid-template-columns: 1fr;

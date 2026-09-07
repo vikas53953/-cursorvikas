@@ -1,3 +1,4 @@
+import { Search } from "lucide-react";
 import { NAME_IDEAS, PALETTES, resolveScheme, swatchesFor, type Palette, type PaletteId } from "../theme/palettes";
 import type { Prefs } from "../hooks/usePrefs";
 import type { DashboardSnapshot } from "../vite-env";
@@ -35,6 +36,11 @@ export function SettingsPage({ prefs, onPrefs, snapshot, onOpenPalette }: Settin
           <p className="page-sub">Identity, appearance, and source. One look for the whole console — rail and top bar included.</p>
         </div>
       </header>
+
+      <button type="button" className="settings-search" onClick={onOpenPalette} aria-label="Search Settings">
+        <Search size={16} />
+        <span>Search Settings</span>
+      </button>
 
       <section className="dashlet">
         <header className="dashlet-head">
@@ -97,7 +103,7 @@ export function SettingsPage({ prefs, onPrefs, snapshot, onOpenPalette }: Settin
         <header className="dashlet-head">
           <h2>Jump</h2>
         </header>
-        <p className="page-sub">Open the command palette to go to a page, device, user, or IP. Search on the signed-in operator block opens the same palette.</p>
+        <p className="page-sub">Search at the top of the rail, or Search Settings above, opens the same palette. Jump to a page, device, user, or IP.</p>
         <button type="button" className="ui-btn ui-btn-primary" onClick={onOpenPalette}>
           Open command palette
         </button>

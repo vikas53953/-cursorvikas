@@ -15,7 +15,7 @@ export function FirstRun({ prefs, onPrefs, onDone }: FirstRunProps) {
       <div className="first-run-card">
         <p className="first-run-kicker">First session</p>
         <h1>Name the console, then pick a look</h1>
-        <p className="page-sub">This lands you on Voice. You can change everything later under the signed-in operator.</p>
+        <p className="page-sub">This lands you on Voice. You can change everything later from the gear on the signed-in operator.</p>
 
         <label className="settings-field">
           Console name
